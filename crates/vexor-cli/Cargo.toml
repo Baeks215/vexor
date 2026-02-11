@@ -1,0 +1,16 @@
+[package]
+name = "vexor-cli"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+repository.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "vexor"
+path = "src/main.rs"
+
+[dependencies]
+vexor-compiler.workspace = true
+vexor-gui.workspace = true
+clap.workspace = true
