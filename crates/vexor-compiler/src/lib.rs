@@ -1,3 +1,6 @@
+mod ir;
+mod parser;
+
 pub fn hello() {
     println!("Hello, from compiler!");
 }
