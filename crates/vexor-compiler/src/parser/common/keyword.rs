@@ -27,7 +27,12 @@ macro_rules! define_keywords {
 }
 
 define_keywords! {
+    // Defined keywords
     pk_let => "let",
-    pk_color => "color",
     pk_export => "export",
+    // Primitives
+    pk_color => "color",
+    pk_circle => "circle",
+    pk_rect => "rect",
+    pk_text => "text",
 }
