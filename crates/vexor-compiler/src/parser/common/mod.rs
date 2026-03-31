@@ -42,3 +42,63 @@ where
 {
     delimited('(', inner, ')')
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_p_identifier() {
+        let mut input = Input::new("foo_bar_123");
+        assert_eq!(p_identifier.parse_next(&mut input).unwrap(), "foo_bar_123");
+        assert_eq!(*input, "");
+
+        let mut input = Input::new("_123 abc");
+        assert_eq!(p_identifier.parse_next(&mut input).unwrap(), "_123");
+        assert_eq!(*input, "abc");
+
+        // Invalid identifier starts with a digit
+        let mut input = Input::new("123");
+        assert!(p_identifier.parse_next(&mut input).is_err());
+
+        let mut input = Input::new("1abc");
+        assert!(p_identifier.parse_next(&mut input).is_err());
+
+        // Invalid identifier starts is a keyword
+        let mut input = Input::new("let");
+        assert!(p_identifier.parse_next(&mut input).is_err());
+
+        let mut input = Input::new("color");
+        assert!(p_identifier.parse_next(&mut input).is_err());
+
+        // Valid identifier starts with keyword
+        let mut input = Input::new("letabc");
+        assert_eq!(p_identifier.parse_next(&mut input).unwrap(), "letabc");
+        assert_eq!(*input, "");
+    }
+
+    #[test]
+    fn test_lexeme() {
+        let mut input = Input::new("foo  ");
+        assert_eq!(lexeme("foo").parse_next(&mut input).unwrap(), "foo");
+        assert_eq!(*input, "");
+
+        let mut input = Input::new("foo\n\t ");
+        assert_eq!(lexeme("foo").parse_next(&mut input).unwrap(), "foo");
+        assert_eq!(*input, "");
+    }
+
+    #[test]
+    fn test_bracketed() {
+        let mut input = Input::new("(foo)");
+        assert_eq!(bracketed("foo").parse_next(&mut input).unwrap(), "foo");
+        assert_eq!(*input, "");
+
+        let mut input = Input::new("((foo))");
+        assert_eq!(
+            bracketed(bracketed("foo")).parse_next(&mut input).unwrap(),
+            "foo"
+        );
+        assert_eq!(*input, "");
+    }
+}

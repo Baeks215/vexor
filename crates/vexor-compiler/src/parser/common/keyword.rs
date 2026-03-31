@@ -36,3 +36,30 @@ define_keywords! {
     pk_rect => "rect",
     pk_text => "text",
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_is_keyword() {
+        assert!(is_keyword("let"));
+        assert!(is_keyword("export"));
+        assert!(is_keyword("color"));
+        assert!(is_keyword("circle"));
+    }
+
+    #[test]
+    fn test_keyword_parsers() {
+        let mut input = Input::new("let  ");
+        assert_eq!(pk_let.parse_next(&mut input).unwrap(), "let");
+        assert_eq!(*input, "");
+
+        let mut input = Input::new("circle\n");
+        assert_eq!(pk_circle.parse_next(&mut input).unwrap(), "circle");
+        assert_eq!(*input, "");
+
+        let mut input = Input::new("not_a_keyword");
+        assert!(pk_let.parse_next(&mut input).is_err());
+    }
+}
