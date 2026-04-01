@@ -4,8 +4,10 @@ use crate::ir::ast;
 use crate::parser::common::keyword::{pk_export, pk_let};
 use crate::parser::common::{Input, lexeme, p_identifier};
 use crate::parser::expr::p_expr;
-use winnow::combinator::{alt, preceded};
-use winnow::{ModalResult, Parser};
+use winnow::ascii::{line_ending, multispace0};
+use winnow::combinator::{alt, delimited, preceded, separated};
+use winnow::error::{ContextError, ParseError};
+use winnow::{ModalResult, Parser, Result};
 
 mod common;
 mod expr;
@@ -22,6 +24,19 @@ fn p_statement<'a>(input: &mut Input<'a>) -> ModalResult<ast::Statement> {
         preceded(pk_export, p_expr).map(|e| ast::Statement::Export { graphic: e }),
     ))
     .parse_next(input)
+}
+
+pub fn parse_program<'a>(
+    input: &'a str,
+) -> Result<ast::Program, ParseError<Input<'a>, ContextError>> {
+    let input = Input::new(input);
+    delimited(
+        multispace0,
+        separated(0.., p_statement, lexeme(line_ending))
+            .map(|stmts| ast::Program { statements: stmts }),
+        multispace0,
+    )
+    .parse(input)
 }
 
 #[cfg(test)]
@@ -62,6 +77,31 @@ mod tests {
             }
         } else {
             panic!("Expected Export, got {:?}", res);
+        }
+    }
+
+    #[test]
+    fn test_parse_program() {
+        let input = "  let x = 10  \n \t export circle(x)  \n";
+        let res = parse_program(input).unwrap();
+        assert_eq!(res.statements.len(), 2);
+
+        if let ast::Statement::Assignment { identifier, value } = &res.statements[0] {
+            assert_eq!(identifier, "x");
+            assert_eq!(*value, ast::Expr::LNumber(10.0));
+        } else {
+            panic!("Expected Assignment, got {:?}", res.statements[0]);
+        }
+
+        if let ast::Statement::Export { graphic } = &res.statements[1] {
+            match graphic {
+                ast::Expr::LGraphic(ast::Graphic::Circle { radius }) => {
+                    assert_eq!(**radius, ast::Expr::Variable("x".to_string()));
+                }
+                _ => panic!("Expected Circle graphic, got {:?}", graphic),
+            }
+        } else {
+            panic!("Expected Export, got {:?}", res.statements[1]);
         }
     }
 }
