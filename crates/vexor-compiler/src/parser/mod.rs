@@ -1,42 +1,48 @@
-//! Parser: Text -> AST
+//! Common parser utilities.
 
-use crate::ir::ast;
-use crate::parser::common::keyword::{pk_export, pk_let};
-use crate::parser::common::{Input, lexeme, p_identifier};
-use crate::parser::expr::p_expr;
-use winnow::ascii::{line_ending, multispace0};
-use winnow::combinator::{alt, delimited, preceded, separated};
-use winnow::error::{ContextError, ParseError};
-use winnow::{ModalResult, Parser, Result};
+use winnow::ascii::space0;
+use winnow::combinator::{delimited, terminated};
+use winnow::error::ContextError;
+use winnow::token::take_while;
+use winnow::{LocatingSlice, ModalParser, ModalResult, Parser};
 
-mod common;
 mod expr;
 mod graphic;
+mod keyword;
+pub mod program;
 
-fn p_statement<'a>(input: &mut Input<'a>) -> ModalResult<ast::Statement> {
-    alt((
-        (pk_let, p_identifier, lexeme("="), p_expr).map(|(_, i, _, e)| {
-            ast::Statement::Assignment {
-                identifier: i.to_string(),
-                value: e,
-            }
-        }),
-        preceded(pk_export, p_expr).map(|e| ast::Statement::Export { graphic: e }),
-    ))
+/// Parser input type with location information.
+type Input<'a> = LocatingSlice<&'a str>;
+
+/// Combinator to discard whitespace after a parser
+fn lexeme<'a, F, O>(inner: F) -> impl ModalParser<Input<'a>, O, ContextError>
+where
+    F: ModalParser<Input<'a>, O, ContextError>,
+{
+    terminated(inner, space0)
+}
+
+/// Parse identifier
+fn p_identifier<'a>(input: &mut Input<'a>) -> ModalResult<&'a str> {
+    lexeme(
+        (
+            take_while(1, |c: char| c.is_alphabetic() || c == '_'),
+            take_while(0.., |c: char| c.is_alphanumeric() || c == '_'),
+        )
+            .take(),
+    )
+    .verify(|ident| !keyword::is_keyword(ident))
     .parse_next(input)
 }
 
-pub fn parse_program<'a>(
-    input: &'a str,
-) -> Result<ast::Program, ParseError<Input<'a>, ContextError>> {
-    let input = Input::new(input);
-    delimited(
-        multispace0,
-        separated(0.., p_statement, lexeme(line_ending))
-            .map(|stmts| ast::Program { statements: stmts }),
-        multispace0,
-    )
-    .parse(input)
+// --- Helpers ---
+
+/// Parse between brackets
+fn bracketed<'a, F, O>(inner: F) -> impl ModalParser<Input<'a>, O, ContextError>
+where
+    F: ModalParser<Input<'a>, O, ContextError>,
+{
+    delimited('(', inner, ')')
 }
 
 #[cfg(test)]
@@ -44,64 +50,57 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_p_statement_assignment() {
-        let mut input = Input::new("let x = 10");
-        let res = p_statement.parse_next(&mut input).unwrap();
-        if let ast::Statement::Assignment { identifier, value } = res {
-            assert_eq!(identifier, "x");
-            assert_eq!(value, ast::Expr::LNumber(10.0));
-        } else {
-            panic!("Expected Assignment, got {:?}", res);
-        }
+    fn test_p_identifier() {
+        let mut input = Input::new("foo_bar_123");
+        assert_eq!(p_identifier.parse_next(&mut input).unwrap(), "foo_bar_123");
+        assert_eq!(*input, "");
 
-        let mut input = Input::new("let my_var = \"hello\"");
-        let res = p_statement.parse_next(&mut input).unwrap();
-        if let ast::Statement::Assignment { identifier, value } = res {
-            assert_eq!(identifier, "my_var");
-            assert_eq!(value, ast::Expr::LString("hello".to_string()));
-        } else {
-            panic!("Expected Assignment, got {:?}", res);
-        }
+        let mut input = Input::new("_123 abc");
+        assert_eq!(p_identifier.parse_next(&mut input).unwrap(), "_123");
+        assert_eq!(*input, "abc");
+
+        // Invalid identifier starts with a digit
+        let mut input = Input::new("123");
+        assert!(p_identifier.parse_next(&mut input).is_err());
+
+        let mut input = Input::new("1abc");
+        assert!(p_identifier.parse_next(&mut input).is_err());
+
+        // Invalid identifier starts is a keyword
+        let mut input = Input::new("let");
+        assert!(p_identifier.parse_next(&mut input).is_err());
+
+        let mut input = Input::new("color");
+        assert!(p_identifier.parse_next(&mut input).is_err());
+
+        // Valid identifier starts with keyword
+        let mut input = Input::new("letabc");
+        assert_eq!(p_identifier.parse_next(&mut input).unwrap(), "letabc");
+        assert_eq!(*input, "");
     }
 
     #[test]
-    fn test_p_statement_export() {
-        let mut input = Input::new("export circle(10)");
-        let res = p_statement.parse_next(&mut input).unwrap();
-        if let ast::Statement::Export { graphic } = res {
-            match graphic {
-                ast::Expr::LGraphic(ast::Graphic::Circle { radius }) => {
-                    assert_eq!(*radius, ast::Expr::LNumber(10.0));
-                }
-                _ => panic!("Expected Circle graphic, got {:?}", graphic),
-            }
-        } else {
-            panic!("Expected Export, got {:?}", res);
-        }
+    fn test_lexeme() {
+        let mut input = Input::new("foo  ");
+        assert_eq!(lexeme("foo").parse_next(&mut input).unwrap(), "foo");
+        assert_eq!(*input, "");
+
+        let mut input = Input::new("foo\n\t ");
+        assert_eq!(lexeme("foo").parse_next(&mut input).unwrap(), "foo");
+        assert_eq!(*input, "\n\t ");
     }
 
     #[test]
-    fn test_parse_program() {
-        let input = "  let x = 10  \n \t export circle(x)  \n";
-        let res = parse_program(input).unwrap();
-        assert_eq!(res.statements.len(), 2);
+    fn test_bracketed() {
+        let mut input = Input::new("(foo)");
+        assert_eq!(bracketed("foo").parse_next(&mut input).unwrap(), "foo");
+        assert_eq!(*input, "");
 
-        if let ast::Statement::Assignment { identifier, value } = &res.statements[0] {
-            assert_eq!(identifier, "x");
-            assert_eq!(*value, ast::Expr::LNumber(10.0));
-        } else {
-            panic!("Expected Assignment, got {:?}", res.statements[0]);
-        }
-
-        if let ast::Statement::Export { graphic } = &res.statements[1] {
-            match graphic {
-                ast::Expr::LGraphic(ast::Graphic::Circle { radius }) => {
-                    assert_eq!(**radius, ast::Expr::Variable("x".to_string()));
-                }
-                _ => panic!("Expected Circle graphic, got {:?}", graphic),
-            }
-        } else {
-            panic!("Expected Export, got {:?}", res.statements[1]);
-        }
+        let mut input = Input::new("((foo))");
+        assert_eq!(
+            bracketed(bracketed("foo")).parse_next(&mut input).unwrap(),
+            "foo"
+        );
+        assert_eq!(*input, "");
     }
 }

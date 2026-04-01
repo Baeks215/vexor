@@ -2,9 +2,9 @@
 
 use crate::ir::Number;
 use crate::ir::ast;
-use crate::parser::common::keyword::pk_color;
-use crate::parser::common::{Input, bracketed, lexeme, p_identifier};
 use crate::parser::graphic::p_graphic;
+use crate::parser::keyword::pk_color;
+use crate::parser::{Input, bracketed, lexeme, p_identifier};
 use winnow::ascii::float;
 use winnow::combinator::{Infix, alt, delimited, dispatch, expression, fail, preceded, separated};
 use winnow::error::StrContext;

@@ -1,9 +1,9 @@
 //! Parser for graphic components
 
 use crate::ir::ast;
-use crate::parser::common::keyword::{pk_circle, pk_rect, pk_text};
-use crate::parser::common::{Input, bracketed, lexeme};
 use crate::parser::expr::p_expr;
+use crate::parser::keyword::{pk_circle, pk_rect, pk_text};
+use crate::parser::{Input, bracketed, lexeme};
 use winnow::combinator::{alt, preceded, separated_pair};
 use winnow::{ModalResult, Parser};
 
