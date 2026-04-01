@@ -16,12 +16,15 @@ fn pg_circle<'a>(input: &mut Input<'a>) -> ModalResult<ast::Graphic> {
 }
 
 fn pg_rect<'a>(input: &mut Input<'a>) -> ModalResult<ast::Graphic> {
-    preceded(pk_rect, bracketed(separated_pair(p_expr, ',', p_expr)))
-        .map(|(w, h)| ast::Graphic::Rect {
-            width: Box::new(w),
-            height: Box::new(h),
-        })
-        .parse_next(input)
+    preceded(
+        pk_rect,
+        bracketed(separated_pair(p_expr, lexeme(','), p_expr)),
+    )
+    .map(|(w, h)| ast::Graphic::Rect {
+        width: Box::new(w),
+        height: Box::new(h),
+    })
+    .parse_next(input)
 }
 
 fn pg_text<'a>(input: &mut Input<'a>) -> ModalResult<ast::Graphic> {

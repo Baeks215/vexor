@@ -27,7 +27,7 @@ pub fn p_color<'a>(input: &mut Input<'a>) -> ModalResult<ast::Color> {
     lexeme(preceded(
         (pk_color, ".rgb"),
         bracketed(
-            separated(4, p_expr, ",").map(|mut es: Vec<ast::Expr>| ast::Color::Rgba {
+            separated(4, p_expr, lexeme(',')).map(|mut es: Vec<ast::Expr>| ast::Color::Rgba {
                 r: Box::new(es.remove(0)),
                 g: Box::new(es.remove(0)),
                 b: Box::new(es.remove(0)),
