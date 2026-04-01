@@ -1,5 +1,6 @@
 mod ir;
 mod parser;
+mod type_checker;
 
 pub fn hello() {
     println!("Hello, from compiler!");
