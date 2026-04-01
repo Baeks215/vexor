@@ -2,8 +2,7 @@
 
 // --- Primitives ---
 
-/// User Number type: always a 64-bit floating point number
-pub type Number = f64;
+use crate::ir::Number;
 
 /// Color symbol: in various representations
 #[derive(Debug, Clone, PartialEq)]

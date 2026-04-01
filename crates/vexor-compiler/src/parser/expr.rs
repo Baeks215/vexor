@@ -1,5 +1,6 @@
 //! Parser for expressions
 
+use crate::ir::Number;
 use crate::ir::ast;
 use crate::parser::common::keyword::pk_color;
 use crate::parser::common::{Input, bracketed, lexeme, p_identifier};
@@ -13,7 +14,7 @@ use winnow::{ModalResult, Parser};
 // --- Primitives ---
 
 /// Parses a number literal.
-pub fn p_number<'a>(input: &mut Input<'a>) -> ModalResult<ast::Number> {
+pub fn p_number<'a>(input: &mut Input<'a>) -> ModalResult<Number> {
     lexeme(float.context(StrContext::Label("number"))).parse_next(input)
 }
 
