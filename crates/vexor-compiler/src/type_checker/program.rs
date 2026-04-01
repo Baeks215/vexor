@@ -27,6 +27,20 @@ fn check_statement(
     }
 }
 
+pub fn check_program(program: ast::Program) -> TResult<typed_ast::Program> {
+    let mut context = Context::new();
+    let ast::Program { statements } = program;
+    let mut new_statements = Vec::new();
+    for statement in statements {
+        let typed_statement = check_statement(&mut context, statement)?;
+        new_statements.push(typed_statement);
+    }
+    Ok(typed_ast::Program {
+        varTypes: context.var_types,
+        statements: new_statements,
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -81,5 +95,41 @@ mod tests {
             graphic: ast::Expr::LNumber(10.0),
         };
         assert!(check_statement(&mut context, statement).is_err());
+    }
+
+    #[test]
+    fn test_check_program() {
+        let program = ast::Program {
+            statements: vec![
+                ast::Statement::Assignment {
+                    identifier: "x".to_string(),
+                    value: ast::Expr::LNumber(10.0),
+                },
+                ast::Statement::Export {
+                    graphic: ast::Expr::LGraphic(ast::Graphic::Circle {
+                        radius: Box::new(ast::Expr::Variable("x".to_string())),
+                    }),
+                },
+            ],
+        };
+
+        let res = check_program(program).unwrap();
+        assert_eq!(res.statements.len(), 2);
+        assert_eq!(res.varTypes.get("x"), Some(&Type::Number));
+
+        // Test failure (e.g. re-assignment)
+        let program = ast::Program {
+            statements: vec![
+                ast::Statement::Assignment {
+                    identifier: "x".to_string(),
+                    value: ast::Expr::LNumber(10.0),
+                },
+                ast::Statement::Assignment {
+                    identifier: "x".to_string(),
+                    value: ast::Expr::LNumber(20.0),
+                },
+            ],
+        };
+        assert!(check_program(program).is_err());
     }
 }
