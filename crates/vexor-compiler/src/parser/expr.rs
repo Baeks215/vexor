@@ -60,3 +60,120 @@ pub fn p_expr<'a>(input: &mut Input<'a>) -> ModalResult<ast::Expr> {
         _ => fail,
     }).parse_next(input)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_p_number() {
+        let mut input = Input::new("123.45  ");
+        assert_eq!(p_number.parse_next(&mut input).unwrap(), 123.45);
+        assert_eq!(*input, "");
+
+        let mut input = Input::new("42 ");
+        assert_eq!(p_number.parse_next(&mut input).unwrap(), 42.0);
+        assert_eq!(*input, "");
+
+        let mut input = Input::new("-10.5 ");
+        assert_eq!(p_number.parse_next(&mut input).unwrap(), -10.5);
+        assert_eq!(*input, "");
+
+        let mut input = Input::new("-100 ");
+        assert_eq!(p_number.parse_next(&mut input).unwrap(), -100.0);
+        assert_eq!(*input, "");
+
+        // Invalid for disconnected negative
+        let mut input = Input::new("- 100 ");
+        assert!(p_number.parse_next(&mut input).is_err());
+    }
+
+    #[test]
+    fn test_p_string() {
+        let mut input = Input::new("\"hello world\"  ");
+        assert_eq!(p_string.parse_next(&mut input).unwrap(), "hello world");
+        assert_eq!(*input, "");
+    }
+
+    #[test]
+    fn test_p_color() {
+        let mut input = Input::new("color.rgb(0.5, 0.6, 0.1, 1)");
+        let res = p_color.parse_next(&mut input).unwrap();
+        match res {
+            ast::Color::Rgba { r, g, b, a } => {
+                assert_eq!(*r, ast::Expr::LNumber(0.5));
+                assert_eq!(*g, ast::Expr::LNumber(0.6));
+                assert_eq!(*b, ast::Expr::LNumber(0.1));
+                assert_eq!(*a, ast::Expr::LNumber(1.0));
+            }
+        }
+    }
+
+    #[test]
+    fn test_p_expr() {
+        // 1 + 2 * 3  => 1 + (2 * 3)
+        let mut input = Input::new("1 + 2 * 3");
+        let res = p_expr.parse_next(&mut input).unwrap();
+        assert_eq!(
+            res,
+            ast::Expr::Binary {
+                operator: ast::OpBin::Add,
+                left: Box::new(ast::Expr::LNumber(1.0)),
+                right: Box::new(ast::Expr::Binary {
+                    operator: ast::OpBin::Mul,
+                    left: Box::new(ast::Expr::LNumber(2.0)),
+                    right: Box::new(ast::Expr::LNumber(3.0)),
+                })
+            }
+        );
+
+        // 1 * 2 + 3 => (1 * 2) + 3
+        let mut input = Input::new("1 * 2 + 3");
+        let res = p_expr.parse_next(&mut input).unwrap();
+        assert_eq!(
+            res,
+            ast::Expr::Binary {
+                operator: ast::OpBin::Add,
+                left: Box::new(ast::Expr::Binary {
+                    operator: ast::OpBin::Mul,
+                    left: Box::new(ast::Expr::LNumber(1.0)),
+                    right: Box::new(ast::Expr::LNumber(2.0)),
+                }),
+                right: Box::new(ast::Expr::LNumber(3.0)),
+            }
+        );
+
+        // 1 - 2 - 3 => (1 - 2) - 3
+        let mut input = Input::new("1 - 2 - 3");
+        let res = p_expr.parse_next(&mut input).unwrap();
+        assert_eq!(
+            res,
+            ast::Expr::Binary {
+                operator: ast::OpBin::Sub,
+                left: Box::new(ast::Expr::Binary {
+                    operator: ast::OpBin::Sub,
+                    left: Box::new(ast::Expr::LNumber(1.0)),
+                    right: Box::new(ast::Expr::LNumber(2.0)),
+                }),
+                right: Box::new(ast::Expr::LNumber(3.0)),
+            }
+        );
+
+        // 1 + -2
+        let mut input = Input::new("1 + -2");
+        let res = p_expr.parse_next(&mut input).unwrap();
+        assert_eq!(
+            res,
+            ast::Expr::Binary {
+                operator: ast::OpBin::Add,
+                left: Box::new(ast::Expr::LNumber(1.0)),
+                right: Box::new(ast::Expr::LNumber(-2.0)),
+            }
+        );
+
+        // Whitespace
+        let mut input = Input::new("1   +  2 *  3  ");
+        assert!(p_expr.parse_next(&mut input).is_ok());
+        assert_eq!(*input, "");
+    }
+}
