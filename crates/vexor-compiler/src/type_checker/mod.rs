@@ -14,6 +14,13 @@ type TResult<O> = Result<O, TError>;
 struct Context {
     var_types: HashMap<String, Type>,
 }
+impl Context {
+    fn new() -> Self {
+        Self {
+            var_types: HashMap::new(),
+        }
+    }
+}
 
 // --- Constraints ---
 
