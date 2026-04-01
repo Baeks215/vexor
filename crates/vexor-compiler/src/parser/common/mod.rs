@@ -1,7 +1,7 @@
 //! Common parser utilities.
 
 use crate::parser::common::keyword::is_keyword;
-use winnow::ascii::multispace0;
+use winnow::ascii::space0;
 use winnow::combinator::{delimited, terminated};
 use winnow::error::ContextError;
 use winnow::token::take_while;
@@ -17,7 +17,7 @@ pub fn lexeme<'a, F, O>(inner: F) -> impl ModalParser<Input<'a>, O, ContextError
 where
     F: ModalParser<Input<'a>, O, ContextError>,
 {
-    terminated(inner, multispace0)
+    terminated(inner, space0)
 }
 
 /// Parse identifier
@@ -85,7 +85,7 @@ mod tests {
 
         let mut input = Input::new("foo\n\t ");
         assert_eq!(lexeme("foo").parse_next(&mut input).unwrap(), "foo");
-        assert_eq!(*input, "");
+        assert_eq!(*input, "\n\t ");
     }
 
     #[test]

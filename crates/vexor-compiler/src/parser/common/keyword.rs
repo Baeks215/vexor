@@ -57,7 +57,7 @@ mod tests {
 
         let mut input = Input::new("circle\n");
         assert_eq!(pk_circle.parse_next(&mut input).unwrap(), "circle");
-        assert_eq!(*input, "");
+        assert_eq!(*input, "\n");
 
         let mut input = Input::new("not_a_keyword");
         assert!(pk_let.parse_next(&mut input).is_err());
