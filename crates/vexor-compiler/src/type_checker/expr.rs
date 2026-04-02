@@ -1,7 +1,7 @@
 //! Type resolver for expressions
 
 use crate::ir::ast::{self, OpBin};
-use crate::ir::typed::{Type, ast as typed_ast};
+use crate::ir::typed::{self, Type};
 use crate::type_checker::{Constraint, Context, TResult, check_identifier};
 use Constraint::*;
 
@@ -9,14 +9,14 @@ pub fn check_expr(
     context: &Context,
     expr: ast::Expr,
     constraint: Constraint,
-) -> TResult<typed_ast::Expr> {
+) -> TResult<typed::Expr> {
     match expr {
         ast::Expr::LNumber(_)
         | ast::Expr::LString(_)
         | ast::Expr::LColor(_)
         | ast::Expr::LGraphic(_) => check_literal(expr, constraint),
         ast::Expr::Variable(ref id) => {
-            check_identifier(context, id, constraint).map(|ty| typed_ast::Expr { expr, ty })
+            check_identifier(context, id, constraint).map(|ty| typed::Expr { expr, ty })
         }
         ast::Expr::Binary {
             operator,
@@ -27,7 +27,7 @@ pub fn check_expr(
             let constraint_r = binary_constraint(operator, left.ty)?;
             let right = check_expr(context, *right, constraint_r)?;
             // Assume binary operator returns the type of the left operand
-            left.ty.satisfies(constraint).map(|ty| typed_ast::Expr {
+            left.ty.satisfies(constraint).map(|ty| typed::Expr {
                 expr: ast::Expr::Binary {
                     operator,
                     left: Box::new(left.expr),
@@ -41,7 +41,7 @@ pub fn check_expr(
 
 /// Resolves a literal expression to a typed expression.
 ///   Must only call for literal expressions.
-fn check_literal(expr: ast::Expr, constraint: Constraint) -> TResult<typed_ast::Expr> {
+fn check_literal(expr: ast::Expr, constraint: Constraint) -> TResult<typed::Expr> {
     let ty = match expr {
         ast::Expr::LNumber(_) => Type::Number,
         ast::Expr::LString(_) => Type::String,
@@ -49,8 +49,7 @@ fn check_literal(expr: ast::Expr, constraint: Constraint) -> TResult<typed_ast::
         ast::Expr::LGraphic(_) => Type::Graphic,
         _ => unreachable!(),
     };
-    ty.satisfies(constraint)
-        .map(|ty| typed_ast::Expr { expr, ty })
+    ty.satisfies(constraint).map(|ty| typed::Expr { expr, ty })
 }
 
 /// Determine constraint of last operand in binary expression.

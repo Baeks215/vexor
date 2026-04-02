@@ -1,13 +1,10 @@
 use crate::ir::ast;
-use crate::ir::typed::{Type, ast as typed_ast};
+use crate::ir::typed::{self, Type};
 use crate::type_checker::expr::check_expr;
 use crate::type_checker::{Constraint, Context, TResult};
 use Constraint::*;
 
-fn check_statement(
-    context: &mut Context,
-    statement: ast::Statement,
-) -> TResult<typed_ast::Statement> {
+fn check_statement(context: &mut Context, statement: ast::Statement) -> TResult<typed::Statement> {
     match statement {
         ast::Statement::Assignment { identifier, value } => {
             let typed_expr = check_expr(&context, value, Any)?;
@@ -17,17 +14,17 @@ fn check_statement(
             if let Some(_) = old {
                 return Err(format!("Variable '{}' already exists", identifier));
             }
-            Ok(typed_ast::Statement::Assignment {
+            Ok(typed::Statement::Assignment {
                 identifier,
                 value: typed_expr,
             })
         }
         ast::Statement::Export { graphic } => check_expr(&context, graphic, Is(Type::Graphic))
-            .map(|expr| typed_ast::Statement::Export { graphic: expr }),
+            .map(|expr| typed::Statement::Export { graphic: expr }),
     }
 }
 
-pub fn check_program(program: ast::Program) -> TResult<typed_ast::Program> {
+pub fn check_program(program: ast::Program) -> TResult<typed::Program> {
     let mut context = Context::new();
     let ast::Program { statements } = program;
     let mut new_statements = Vec::new();
@@ -35,7 +32,7 @@ pub fn check_program(program: ast::Program) -> TResult<typed_ast::Program> {
         let typed_statement = check_statement(&mut context, statement)?;
         new_statements.push(typed_statement);
     }
-    Ok(typed_ast::Program {
+    Ok(typed::Program {
         varTypes: context.var_types,
         statements: new_statements,
     })
@@ -55,7 +52,7 @@ mod tests {
 
         // Success
         let res = check_statement(&mut context, statement).unwrap();
-        if let typed_ast::Statement::Assignment { identifier, value } = res {
+        if let typed::Statement::Assignment { identifier, value } = res {
             assert_eq!(identifier, "x");
             assert_eq!(value.ty, Type::Number);
         } else {
@@ -83,7 +80,7 @@ mod tests {
             }),
         };
         let res = check_statement(&mut context, statement).unwrap();
-        if let typed_ast::Statement::Export { graphic } = res {
+        if let typed::Statement::Export { graphic } = res {
             assert_eq!(graphic.ty, Type::Graphic);
         } else {
             panic!("Expected Export, got {:?}", res);
