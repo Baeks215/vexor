@@ -1,8 +1,9 @@
 //! Parser: Text -> AST
 
 use crate::ir::ast;
+use crate::ir::typed::Type;
 use crate::parser::expr::p_expr;
-use crate::parser::keyword::{pk_export, pk_let};
+use crate::parser::keyword::{pk_color, pk_export, pk_graphic, pk_let, pk_number, pk_string};
 use crate::parser::{Input, lexeme, p_identifier};
 use winnow::ascii::{line_ending, multispace0};
 use winnow::combinator::{alt, delimited, preceded, separated};
@@ -11,13 +12,30 @@ use winnow::{ModalResult, Parser, Result};
 
 fn p_statement<'a>(input: &mut Input<'a>) -> ModalResult<ast::Statement> {
     alt((
-        (pk_let, p_identifier, lexeme("="), p_expr).map(|(_, i, _, e)| {
-            ast::Statement::Assignment {
+        (
+            pk_let,
+            p_identifier,
+            lexeme(":"),
+            p_type,
+            lexeme("="),
+            p_expr,
+        )
+            .map(|(_, i, _, t, _, e)| ast::Statement::Assignment {
+                ty: t,
                 identifier: i.to_string(),
                 value: e,
-            }
-        }),
+            }),
         preceded(pk_export, p_expr).map(|e| ast::Statement::Export { graphic: e }),
+    ))
+    .parse_next(input)
+}
+
+fn p_type<'a>(input: &mut Input<'a>) -> ModalResult<Type> {
+    alt((
+        pk_number.map(|_| Type::Number),
+        pk_string.map(|_| Type::String),
+        pk_color.map(|_| Type::Color),
+        pk_graphic.map(|_| Type::Graphic),
     ))
     .parse_next(input)
 }
@@ -43,18 +61,30 @@ mod tests {
 
     #[test]
     fn test_p_statement_assignment() {
-        let mut input = Input::new("let x = 10");
+        let mut input = Input::new("let x: number = 10");
         let res = p_statement.parse_next(&mut input).unwrap();
-        if let ast::Statement::Assignment { identifier, value } = res {
+        if let ast::Statement::Assignment {
+            ty,
+            identifier,
+            value,
+        } = res
+        {
+            assert_eq!(ty, Type::Number);
             assert_eq!(identifier, "x");
             assert_eq!(value, ast::Expr::LNumber(10.0));
         } else {
             panic!("Expected Assignment, got {:?}", res);
         }
 
-        let mut input = Input::new("let my_var = \"hello\"");
+        let mut input = Input::new("let my_var: string = \"hello\"");
         let res = p_statement.parse_next(&mut input).unwrap();
-        if let ast::Statement::Assignment { identifier, value } = res {
+        if let ast::Statement::Assignment {
+            ty,
+            identifier,
+            value,
+        } = res
+        {
+            assert_eq!(ty, Type::String);
             assert_eq!(identifier, "my_var");
             assert_eq!(value, ast::Expr::LString("hello".to_string()));
         } else {
@@ -80,11 +110,17 @@ mod tests {
 
     #[test]
     fn test_parse_program() {
-        let input = "  let x = 10  \n \t export circle(x)  \n";
+        let input = "  let x: number = 10  \n \t export circle(x)  \n";
         let res = parse_program(input).unwrap();
         assert_eq!(res.statements.len(), 2);
 
-        if let ast::Statement::Assignment { identifier, value } = &res.statements[0] {
+        if let ast::Statement::Assignment {
+            ty,
+            identifier,
+            value,
+        } = &res.statements[0]
+        {
+            assert_eq!(ty, &Type::Number);
             assert_eq!(identifier, "x");
             assert_eq!(*value, ast::Expr::LNumber(10.0));
         } else {

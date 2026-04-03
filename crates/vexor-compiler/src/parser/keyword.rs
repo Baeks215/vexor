@@ -30,8 +30,12 @@ define_keywords! {
     // Defined keywords
     pk_let => "let",
     pk_export => "export",
-    // Primitives
+    // Types
+    pk_number => "number",
+    pk_string => "string",
     pk_color => "color",
+    pk_graphic => "graphic",
+    // Primitives
     pk_circle => "circle",
     pk_rect => "rect",
     pk_text => "text",

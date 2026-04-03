@@ -1,8 +1,8 @@
 //! Abstract Syntax Tree nodes
 
-// --- Primitives ---
+use crate::ir::{Number, typed::Type};
 
-use crate::ir::Number;
+// --- Primitives ---
 
 /// Color symbol: in various representations
 #[derive(Debug, Clone, PartialEq)]
@@ -55,8 +55,14 @@ pub enum Expr {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Statement {
-    Assignment { identifier: String, value: Expr },
-    Export { graphic: Expr },
+    Assignment {
+        ty: Type,
+        identifier: String,
+        value: Expr,
+    },
+    Export {
+        graphic: Expr,
+    },
 }
 
 #[derive(Debug, Clone)]
