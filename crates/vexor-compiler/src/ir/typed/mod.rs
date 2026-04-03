@@ -54,6 +54,5 @@ pub enum Statement {
 
 #[derive(Debug, Clone)]
 pub struct Program {
-    pub varTypes: HashMap<String, Type>,
     pub statements: Vec<Statement>,
 }

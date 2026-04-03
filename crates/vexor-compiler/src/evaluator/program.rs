@@ -76,7 +76,6 @@ mod tests {
     #[test]
     fn test_eval_program() {
         let program = typed::Program {
-            varTypes: std::collections::HashMap::new(),
             statements: vec![
                 typed::Statement::Assignment {
                     identifier: "r".to_string(),

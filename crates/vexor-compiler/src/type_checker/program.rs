@@ -39,7 +39,6 @@ pub fn check_program(program: ast::Program) -> TResult<typed::Program> {
         new_statements.push(typed_statement);
     }
     Ok(typed::Program {
-        varTypes: context.var_types,
         statements: new_statements,
     })
 }
@@ -121,7 +120,6 @@ mod tests {
         };
         let res = check_program(program).unwrap();
         assert_eq!(res.statements.len(), 2);
-        assert_eq!(res.varTypes.get("x"), Some(&Type::Number));
 
         // Test failure (e.g. re-assignment)
         let program = ast::Program {
