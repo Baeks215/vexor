@@ -1,15 +1,21 @@
+//! Type checker for program
+
 use crate::ir::ast;
 use crate::ir::typed::{self, Type};
-use crate::type_checker::expr::check_expr;
+use crate::type_checker::expr;
 use crate::type_checker::{Constraint, Context, TResult};
 use Constraint::*;
 
 fn check_statement(context: &mut Context, statement: ast::Statement) -> TResult<typed::Statement> {
     match statement {
-        ast::Statement::Assignment { identifier, value } => {
-            let typed_expr = check_expr(&context, value, Any)?;
+        ast::Statement::Assignment {
+            ty,
+            identifier,
+            value,
+        } => {
+            let typed_expr = expr::check_generic(&context, ty, value)?;
             // Set variable in context.
-            let old = context.var_types.insert(identifier.clone(), typed_expr.ty);
+            let old = context.set_var(identifier.clone(), ty);
             // Ensure variable does not already exist.
             if let Some(_) = old {
                 return Err(format!("Variable '{}' already exists", identifier));
@@ -19,7 +25,7 @@ fn check_statement(context: &mut Context, statement: ast::Statement) -> TResult<
                 value: typed_expr,
             })
         }
-        ast::Statement::Export { graphic } => check_expr(&context, graphic, Is(Type::Graphic))
+        ast::Statement::Export { graphic } => expr::check_graphic(&context, graphic)
             .map(|expr| typed::Statement::Export { graphic: expr }),
     }
 }
@@ -46,6 +52,7 @@ mod tests {
     fn test_check_statement_assignment() {
         let mut context = Context::new();
         let statement = ast::Statement::Assignment {
+            ty: Type::Number,
             identifier: "x".to_string(),
             value: ast::Expr::LNumber(10.0),
         };
@@ -54,15 +61,16 @@ mod tests {
         let res = check_statement(&mut context, statement).unwrap();
         if let typed::Statement::Assignment { identifier, value } = res {
             assert_eq!(identifier, "x");
-            assert_eq!(value.ty, Type::Number);
+            assert!(matches!(value, typed::expr::ExprGeneric::Number(_)));
         } else {
             panic!("Expected Assignment, got {:?}", res);
         }
 
         // Failure: already exists
         let mut context = Context::new();
-        context.var_types.insert("x".to_string(), Type::Number);
+        context.set_var("x".to_string(), Type::Number);
         let statement = ast::Statement::Assignment {
+            ty: Type::Number,
             identifier: "x".to_string(),
             value: ast::Expr::LNumber(20.0),
         };
@@ -81,7 +89,7 @@ mod tests {
         };
         let res = check_statement(&mut context, statement).unwrap();
         if let typed::Statement::Export { graphic } = res {
-            assert_eq!(graphic.ty, Type::Graphic);
+            assert!(matches!(graphic, typed::expr::ExprGraphic::Node(_)));
         } else {
             panic!("Expected Export, got {:?}", res);
         }
@@ -96,9 +104,11 @@ mod tests {
 
     #[test]
     fn test_check_program() {
+        // Success: export a graphic with a number variable
         let program = ast::Program {
             statements: vec![
                 ast::Statement::Assignment {
+                    ty: Type::Number,
                     identifier: "x".to_string(),
                     value: ast::Expr::LNumber(10.0),
                 },
@@ -109,7 +119,6 @@ mod tests {
                 },
             ],
         };
-
         let res = check_program(program).unwrap();
         assert_eq!(res.statements.len(), 2);
         assert_eq!(res.varTypes.get("x"), Some(&Type::Number));
@@ -118,10 +127,12 @@ mod tests {
         let program = ast::Program {
             statements: vec![
                 ast::Statement::Assignment {
+                    ty: Type::Number,
                     identifier: "x".to_string(),
                     value: ast::Expr::LNumber(10.0),
                 },
                 ast::Statement::Assignment {
+                    ty: Type::Number,
                     identifier: "x".to_string(),
                     value: ast::Expr::LNumber(20.0),
                 },
