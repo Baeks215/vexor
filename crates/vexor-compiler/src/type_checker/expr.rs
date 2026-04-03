@@ -1,110 +1,171 @@
 //! Type resolver for expressions
 
 use crate::ir::ast::{self, OpBin};
+use crate::ir::typed::expr::{
+    ExprColor, ExprGeneric, ExprGraphic, ExprNumber, ExprString, NodeNumber, OpBinNumber,
+};
 use crate::ir::typed::{self, Type};
-use crate::type_checker::{Constraint, Context, TResult, check_identifier};
+use crate::type_checker::{Constraint, Context, TResult};
 use Constraint::*;
 
-pub fn check_expr(
-    context: &Context,
-    expr: ast::Expr,
-    constraint: Constraint,
-) -> TResult<typed::Expr> {
+pub fn check_generic(context: &Context, ty: Type, expr: ast::Expr) -> TResult<ExprGeneric> {
+    match ty {
+        Type::Number => Ok(ExprGeneric::Number(check_number(context, expr)?)),
+        Type::String => Ok(ExprGeneric::String(check_string(context, expr)?)),
+        Type::Color => Ok(ExprGeneric::Color(check_color(context, expr)?)),
+        Type::Graphic => Ok(ExprGeneric::Graphic(check_graphic(context, expr)?)),
+    }
+}
+
+/// Checks an expression expecting a Number type.
+pub fn check_number(context: &Context, expr: ast::Expr) -> TResult<ExprNumber> {
+    use NodeNumber::{Binary, Literal};
     match expr {
-        ast::Expr::LNumber(_)
-        | ast::Expr::LString(_)
-        | ast::Expr::LColor(_)
-        | ast::Expr::LGraphic(_) => check_literal(expr, constraint),
-        ast::Expr::Variable(ref id) => {
-            check_identifier(context, id, constraint).map(|ty| typed::Expr { expr, ty })
+        ast::Expr::LNumber(num) => Ok(ExprNumber::Node(Literal(num))),
+        ast::Expr::Variable(name) => {
+            context.check_var(&name, Is(Type::Number))?;
+            Ok(ExprNumber::Variable(name))
         }
         ast::Expr::Binary {
             operator,
             left,
             right,
         } => {
-            let left = check_expr(context, *left, Any)?;
-            let constraint_r = binary_constraint(operator, left.ty)?;
-            let right = check_expr(context, *right, constraint_r)?;
-            // Assume binary operator returns the type of the left operand
-            left.ty.satisfies(constraint).map(|ty| typed::Expr {
-                expr: ast::Expr::Binary {
-                    operator,
-                    left: Box::new(left.expr),
-                    right: Box::new(right.expr),
-                },
-                ty,
-            })
+            check_op(Type::Number, operator)?;
+            let left = check_number(context, *left)?;
+            let right = check_number(context, *right)?;
+            Ok(ExprNumber::Node(Binary {
+                operator: map_op_num(operator),
+                left: Box::new(left),
+                right: Box::new(right),
+            }))
         }
+        _ => Err("Unexpected expression, expected a number".to_string()),
     }
 }
 
-/// Resolves a literal expression to a typed expression.
-///   Must only call for literal expressions.
-fn check_literal(expr: ast::Expr, constraint: Constraint) -> TResult<typed::Expr> {
-    let ty = match expr {
-        ast::Expr::LNumber(_) => Type::Number,
-        ast::Expr::LString(_) => Type::String,
-        ast::Expr::LColor(_) => Type::Color,
-        ast::Expr::LGraphic(_) => Type::Graphic,
-        _ => unreachable!(),
-    };
-    ty.satisfies(constraint).map(|ty| typed::Expr { expr, ty })
+/// Maps general binary operators to number binary operations.
+fn map_op_num(op: ast::OpBin) -> OpBinNumber {
+    match op {
+        ast::OpBin::Add => OpBinNumber::Add,
+        ast::OpBin::Sub => OpBinNumber::Sub,
+        ast::OpBin::Mul => OpBinNumber::Mul,
+        ast::OpBin::Div => OpBinNumber::Div,
+    }
 }
 
-/// Determine constraint of last operand in binary expression.
-fn binary_constraint(op: OpBin, left: Type) -> TResult<Constraint> {
-    match left {
+/// Checks an expression expecting a String type.
+pub fn check_string(context: &Context, expr: ast::Expr) -> TResult<ExprString> {
+    match expr {
+        ast::Expr::LString(s) => Ok(ExprString::Node(s)),
+        ast::Expr::Variable(name) => {
+            context.check_var(&name, Is(Type::String))?;
+            Ok(ExprString::Variable(name))
+        }
+        _ => Err("Unexpected expression, expected a string".to_string()),
+    }
+}
+
+/// Checks an expression expecting a Color type.
+pub fn check_color(context: &Context, expr: ast::Expr) -> TResult<ExprColor> {
+    match expr {
+        ast::Expr::LColor(ast::Color::Rgba { r, g, b, a }) => {
+            let r = Box::new(check_number(context, *r)?);
+            let g = Box::new(check_number(context, *g)?);
+            let b = Box::new(check_number(context, *b)?);
+            let a = Box::new(check_number(context, *a)?);
+            Ok(ExprColor::Node(typed::Color::Rgba { r, g, b, a }))
+        }
+        ast::Expr::Variable(name) => {
+            context.check_var(&name, Is(Type::Color))?;
+            Ok(ExprColor::Variable(name))
+        }
+        _ => Err("Unexpected expression, expected a color".to_string()),
+    }
+}
+
+/// Checks an expression expecting a Graphic type.
+pub fn check_graphic(context: &Context, expr: ast::Expr) -> TResult<ExprGraphic> {
+    match expr {
+        ast::Expr::LGraphic(ast::Graphic::Circle { radius }) => {
+            let radius = Box::new(check_number(context, *radius)?);
+            Ok(ExprGraphic::Node(typed::Graphic::Circle { radius }))
+        }
+        ast::Expr::LGraphic(ast::Graphic::Rect { width, height }) => {
+            let width = Box::new(check_number(context, *width)?);
+            let height = Box::new(check_number(context, *height)?);
+            Ok(ExprGraphic::Node(typed::Graphic::Rect { width, height }))
+        }
+        ast::Expr::LGraphic(ast::Graphic::Text(text)) => {
+            let text = Box::new(check_string(context, *text)?);
+            Ok(ExprGraphic::Node(typed::Graphic::Text(text)))
+        }
+        ast::Expr::Variable(name) => {
+            context.check_var(&name, Is(Type::Graphic))?;
+            Ok(ExprGraphic::Variable(name))
+        }
+        _ => Err("Unexpected expression, expected a graphic".to_string()),
+    }
+}
+
+/// Checks that an operator is valid for a given type.
+fn check_op(ty: Type, op: OpBin) -> TResult<()> {
+    match ty {
         Type::Number => match op {
-            OpBin::Add | OpBin::Sub | OpBin::Mul | OpBin::Div => Ok(Is(Type::Number)),
+            OpBin::Add | OpBin::Sub | OpBin::Mul | OpBin::Div => Ok(()),
         },
         _ => Err("Invalid operator for type".to_string()),
     }
 }
 
+// Not needed for now, operators have homogeneous types
+// /// Determine constraint of last operand in binary expression.
+// fn binary_constraint(op: OpBin, left: Type) -> TResult<Constraint> {
+//     match left {
+//         Type::Number => match op {
+//             OpBin::Add | OpBin::Sub | OpBin::Mul | OpBin::Div => Ok(Is(Type::Number)),
+//         },
+//         _ => Err("Invalid operator for type".to_string()),
+//     }
+// }
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::collections::HashMap;
 
     #[test]
     fn test_check_literal() {
-        let context = Context {
-            var_types: HashMap::new(),
-        };
+        let context = Context::new();
 
         // Test LNumber
         let expr = ast::Expr::LNumber(10.0);
-        let res = check_expr(&context, expr.clone(), Any).unwrap();
-        assert_eq!(res.ty, Type::Number);
-        assert_eq!(res.expr, expr);
+        let res = check_number(&context, expr).unwrap();
+        assert_eq!(res, ExprNumber::Node(NodeNumber::Literal(10.0)));
 
-        // Test LString with constraint mismatch
+        // Test check_number on a string (failure)
         let expr = ast::Expr::LString("foo".to_string());
-        let res = check_expr(&context, expr, Is(Type::Number));
-        assert!(res.is_err());
+        assert!(check_number(&context, expr).is_err());
     }
 
     #[test]
     fn test_check_variable() {
-        let mut var_types = HashMap::new();
-        var_types.insert("x".to_string(), Type::Number);
-        let context = Context { var_types };
+        let mut context = Context::new();
+        context.set_var("x".to_string(), Type::Number);
 
         let expr = ast::Expr::Variable("x".to_string());
-        let res = check_expr(&context, expr.clone(), Is(Type::Number)).unwrap();
-        assert_eq!(res.ty, Type::Number);
-        assert_eq!(res.expr, expr);
+        let res = check_number(&context, expr.clone()).unwrap();
+        assert_eq!(res, ExprNumber::Variable("x".to_string()));
+        // check_string should fail for a number variable
+        assert!(check_string(&context, expr).is_err());
 
         let expr = ast::Expr::Variable("y".to_string());
-        assert!(check_expr(&context, expr, Any).is_err());
+        assert!(check_number(&context, expr).is_err());
     }
 
     #[test]
     fn test_check_binary() {
-        let mut var_types = HashMap::new();
-        var_types.insert("x".to_string(), Type::Number);
-        let context = Context { var_types };
+        let mut context = Context::new();
+        context.set_var("x".to_string(), Type::Number);
 
         // x + 10
         let expr = ast::Expr::Binary {
@@ -112,8 +173,13 @@ mod tests {
             left: Box::new(ast::Expr::Variable("x".to_string())),
             right: Box::new(ast::Expr::LNumber(10.0)),
         };
-        let res = check_expr(&context, expr, Is(Type::Number)).unwrap();
-        assert_eq!(res.ty, Type::Number);
+        let res = check_number(&context, expr).unwrap();
+        match res {
+            ExprNumber::Node(NodeNumber::Binary { operator, .. }) => {
+                assert_eq!(operator, OpBinNumber::Add);
+            }
+            _ => panic!("Expected binary node, got {:?}", res),
+        }
 
         // Invalid: x + "foo"
         let expr = ast::Expr::Binary {
@@ -121,14 +187,22 @@ mod tests {
             left: Box::new(ast::Expr::Variable("x".to_string())),
             right: Box::new(ast::Expr::LString("foo".to_string())),
         };
-        assert!(check_expr(&context, expr, Any).is_err());
+        assert!(check_number(&context, expr).is_err());
+    }
 
-        // Invalid operator for type: "foo" + 1
-        let expr = ast::Expr::Binary {
-            operator: OpBin::Add,
-            left: Box::new(ast::Expr::LString("foo".to_string())),
-            right: Box::new(ast::Expr::LNumber(1.0)),
-        };
-        assert!(check_expr(&context, expr, Any).is_err());
+    #[test]
+    fn test_check_generic() {
+        let context = Context::new();
+        let expr = ast::Expr::LNumber(10.0);
+        let res = check_generic(&context, Type::Number, expr).unwrap();
+        assert!(matches!(res, ExprGeneric::Number(_)));
+
+        let expr = ast::Expr::LString("foo".to_string());
+        let res = check_generic(&context, Type::String, expr).unwrap();
+        assert!(matches!(res, ExprGeneric::String(_)));
+
+        // Type mismatch
+        let expr = ast::Expr::LNumber(10.0);
+        assert!(check_generic(&context, Type::String, expr).is_err());
     }
 }
