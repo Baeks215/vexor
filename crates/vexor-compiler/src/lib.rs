@@ -1,3 +1,4 @@
+mod evaluator;
 mod ir;
 mod parser;
 mod type_checker;
