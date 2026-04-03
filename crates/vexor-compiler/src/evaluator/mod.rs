@@ -5,6 +5,7 @@ use crate::ir::{Number, scene};
 use std::collections::HashMap;
 
 mod expr;
+pub mod program;
 
 /// Evaluation error
 type EError = String;
