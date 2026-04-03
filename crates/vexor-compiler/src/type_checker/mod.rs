@@ -12,17 +12,6 @@ type TError = String;
 /// Result type for type checking
 type TResult<O> = Result<O, TError>;
 
-struct Context {
-    var_types: HashMap<String, Type>,
-}
-impl Context {
-    fn new() -> Self {
-        Self {
-            var_types: HashMap::new(),
-        }
-    }
-}
-
 // --- Constraints ---
 
 /// Constraint for type checking
@@ -44,16 +33,30 @@ impl Type {
     }
 }
 
-// --- Common check functions ---
+struct Context {
+    var_types: HashMap<String, Type>,
+}
+impl Context {
+    fn new() -> Self {
+        Self {
+            var_types: HashMap::new(),
+        }
+    }
 
-fn check_identifier(context: &Context, name: &str, constraint: Constraint) -> TResult<Type> {
-    context
-        .var_types
-        .get(name)
-        // Ensure the variable exists
-        .ok_or("Unknown variable".to_string())
-        // Check against constraint
-        .and_then(|ty| ty.satisfies(constraint))
+    /// Get a variable's type from the context.
+    fn check_var(&self, name: &str, constraint: Constraint) -> TResult<Type> {
+        self.var_types
+            .get(name)
+            .ok_or("Unknown variable".to_string())
+            // Check against constraint
+            .and_then(|ty| ty.satisfies(constraint))
+    }
+
+    /// Set a variable's type in the context.
+    ///   Returns the previous type, if any.
+    fn set_var(&mut self, name: String, ty: Type) -> Option<Type> {
+        self.var_types.insert(name, ty)
+    }
 }
 
 #[cfg(test)]
@@ -61,7 +64,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_check_identifier() {
+    fn test_context_check_var() {
         let mut var_types = HashMap::new();
         var_types.insert("x".to_string(), Type::Number);
         var_types.insert("s".to_string(), Type::String);
@@ -70,24 +73,30 @@ mod tests {
 
         // Test Any constraint
         assert_eq!(
-            check_identifier(&context, "x", Constraint::Any).unwrap(),
+            context.check_var("x", Constraint::Any).unwrap(),
             Type::Number
         );
         assert_eq!(
-            check_identifier(&context, "s", Constraint::Any).unwrap(),
+            context.check_var("s", Constraint::Any).unwrap(),
             Type::String
         );
 
         // Test specific type constraint (success)
         assert_eq!(
-            check_identifier(&context, "x", Constraint::Is(Type::Number)).unwrap(),
+            context
+                .check_var("x", Constraint::Is(Type::Number))
+                .unwrap(),
             Type::Number
         );
 
         // Test specific type constraint (failure)
-        assert!(check_identifier(&context, "x", Constraint::Is(Type::String)).is_err());
+        assert!(
+            context
+                .check_var("x", Constraint::Is(Type::String))
+                .is_err()
+        );
 
         // Test unknown variable
-        assert!(check_identifier(&context, "y", Constraint::Any).is_err());
+        assert!(context.check_var("y", Constraint::Any).is_err());
     }
 }
