@@ -4,6 +4,8 @@ use crate::ir::typed::Type;
 use crate::ir::{Number, scene};
 use std::collections::HashMap;
 
+mod expr;
+
 /// Evaluation error
 type EError = String;
 
