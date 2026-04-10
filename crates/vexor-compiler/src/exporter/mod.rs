@@ -1,21 +1,22 @@
-use std::path::Path;
+//! Exporter Scene IR -> Chosen representation (SVG, etc)
 
 use crate::ir::scene::Scene;
 
-mod svg_file;
+mod svg_export;
 
-pub enum ExportType {
-    Svg,
+pub struct Export<T> {
+    pub name: String,
+    pub data: T,
 }
 
-pub fn export_scene(scene: Scene) -> Result<(), Box<dyn std::error::Error>> {
+pub fn export_scene_svg(scene: Scene) -> Vec<Export<String>> {
     let Scene { exports } = scene;
-    let mut i = 0;
-    for graphic in exports {
-        i += 1;
-        let path_string = format!("export_{}.svg", i);
-        let path = Path::new(&path_string);
-        svg_file::export_to_svg(graphic, &path)?
-    }
-    Ok(())
+    exports
+        .into_iter()
+        .enumerate()
+        .map(|(i, graphic)| Export {
+            name: format!("export_{}", i),
+            data: svg_export::export_to_svg(graphic),
+        })
+        .collect()
 }

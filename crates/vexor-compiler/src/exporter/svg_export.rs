@@ -1,16 +1,11 @@
-use std::path::Path;
+// Translator for svg export
 
 use crate::ir::scene::Graphic;
 use svg::node::element as svg_el;
 
-/// Exports a scene to a SVG strings.
-pub fn export_to_svg(
-    graphic: Graphic,
-    target_path: &Path,
-) -> Result<(), Box<dyn std::error::Error>> {
-    let doc = translate_graphic(svg::Document::new(), graphic);
-    svg::save(target_path, &doc)?;
-    Ok(())
+/// Translates a graphic into an SVG document string.
+pub fn export_to_svg(graphic: Graphic) -> String {
+    translate_graphic(svg::Document::new(), graphic).to_string()
 }
 
 /// Translates a graphic to an SVG node.
@@ -62,10 +57,7 @@ mod tests {
 
     #[test]
     fn test_text() {
-        let doc = translate_graphic(
-            svg::Document::new(),
-            Graphic::Text("hello".to_string()),
-        );
+        let doc = translate_graphic(svg::Document::new(), Graphic::Text("hello".to_string()));
         let svg = doc.to_string();
         assert!(svg.contains("<text"));
         assert!(svg.contains("hello"));
