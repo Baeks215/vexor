@@ -9,7 +9,9 @@ use winnow::{LocatingSlice, ModalParser, ModalResult, Parser};
 mod expr;
 mod graphic;
 mod keyword;
-pub mod program;
+mod program;
+
+pub use program::*;
 
 /// Parser input type with location information.
 type Input<'a> = LocatingSlice<&'a str>;

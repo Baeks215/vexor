@@ -4,7 +4,9 @@ use crate::ir::typed::Type;
 use std::collections::HashMap;
 
 mod expr;
-pub mod program;
+mod program;
+
+pub use program::*;
 
 /// Type error
 type TError = String;

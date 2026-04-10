@@ -1,11 +1,12 @@
 //! Evaluator: Typed AST -> Scene
 
-use crate::ir::typed::Type;
 use crate::ir::{Number, scene};
 use std::collections::HashMap;
 
 mod expr;
-pub mod program;
+mod program;
+
+pub use program::*;
 
 /// Evaluation error
 type EError = String;
