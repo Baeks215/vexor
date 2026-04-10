@@ -1,7 +1,6 @@
 //! Typed IR nodes
 
 use crate::ir::typed::expr::{ExprGeneric, ExprGraphic, ExprNumber, ExprString};
-use std::collections::HashMap;
 
 pub mod expr;
 
