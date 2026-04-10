@@ -1,10 +1,9 @@
 //! Type checker for program
 
 use crate::ir::ast;
-use crate::ir::typed::{self, Type};
+use crate::ir::typed;
 use crate::type_checker::expr;
-use crate::type_checker::{Constraint, Context, TResult};
-use Constraint::*;
+use crate::type_checker::{Context, TResult};
 
 fn check_statement(context: &mut Context, statement: ast::Statement) -> TResult<typed::Statement> {
     match statement {
@@ -46,6 +45,7 @@ pub fn check_program(program: ast::Program) -> TResult<typed::Program> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::ir::typed::Type;
 
     #[test]
     fn test_check_statement_assignment() {

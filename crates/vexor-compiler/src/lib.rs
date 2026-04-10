@@ -1,4 +1,4 @@
-use crate::ir::scene::{Graphic, Scene};
+use crate::ir::scene::Scene;
 
 mod evaluator;
 mod exporter;
@@ -30,6 +30,7 @@ pub fn compile_to_svg(input: &str) -> Option<Vec<Export<String>>> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::ir::scene::Graphic;
 
     #[test]
     fn test_compile_single_export() {

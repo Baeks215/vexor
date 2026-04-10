@@ -20,14 +20,12 @@ type TResult<O> = Result<O, TError>;
 #[derive(Debug, Clone, Copy, PartialEq)]
 enum Constraint {
     Is(Type),
-    Any,
 }
 
 impl Type {
     /// Check if type satisfies constraint
     fn satisfies(self, constraint: Constraint) -> TResult<Type> {
         match constraint {
-            Constraint::Any => Ok(self),
             Constraint::Is(ty) => (self == ty)
                 .then_some(ty)
                 .ok_or("Type mismatch".to_string()),
@@ -73,16 +71,6 @@ mod tests {
 
         let context = Context { var_types };
 
-        // Test Any constraint
-        assert_eq!(
-            context.check_var("x", Constraint::Any).unwrap(),
-            Type::Number
-        );
-        assert_eq!(
-            context.check_var("s", Constraint::Any).unwrap(),
-            Type::String
-        );
-
         // Test specific type constraint (success)
         assert_eq!(
             context
@@ -99,6 +87,10 @@ mod tests {
         );
 
         // Test unknown variable
-        assert!(context.check_var("y", Constraint::Any).is_err());
+        assert!(
+            context
+                .check_var("y", Constraint::Is(Type::Number))
+                .is_err()
+        );
     }
 }
