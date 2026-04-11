@@ -7,3 +7,5 @@ repository.workspace = true
 license.workspace = true
 
 [dependencies]
+winnow.workspace = true
+svg.workspace = true
