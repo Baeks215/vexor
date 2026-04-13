@@ -8,6 +8,10 @@ use crate::ir::typed::{Color, Graphic};
 pub enum Expr<T> {
     Variable(String),
     Node(T),
+    Call {
+        function: String,
+        arguments: Vec<ExprGeneric>,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq)]

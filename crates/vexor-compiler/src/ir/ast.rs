@@ -49,6 +49,11 @@ pub enum Expr {
         left: Box<Expr>,
         right: Box<Expr>,
     },
+    /// Function call
+    Call {
+        function: String,
+        args: Vec<Expr>,
+    },
 }
 
 // --- Program ---
@@ -60,12 +65,19 @@ pub enum Statement {
         identifier: String,
         value: Expr,
     },
-    Export {
-        graphic: Expr,
-    },
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Function {
+    pub name: String,
+    pub params: Vec<(String, Type)>,
+    pub body: Vec<Statement>,
+    pub return_expr: (Expr, Type),
 }
 
 #[derive(Debug, Clone)]
 pub struct Program {
+    pub functions: Vec<Function>,
     pub statements: Vec<Statement>,
+    pub exports: Vec<Expr>,
 }
