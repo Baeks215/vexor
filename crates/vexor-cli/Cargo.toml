@@ -13,4 +13,4 @@ path = "src/main.rs"
 [dependencies]
 vexor-compiler.workspace = true
 vexor-gui.workspace = true
-clap.workspace = true
+clap = { workspace = true, features = ["derive"] }
