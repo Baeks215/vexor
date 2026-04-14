@@ -1,6 +1,6 @@
 //! Common parser utilities.
 
-use winnow::ascii::space0;
+use winnow::ascii::{multispace0, space0};
 use winnow::combinator::{delimited, terminated};
 use winnow::error::ContextError;
 use winnow::token::take_while;
@@ -24,17 +24,28 @@ where
     terminated(inner, space0)
 }
 
+/// Combinator to discard whitespace after a parser, including newlines.
+fn ml_lexeme<'a, F, O>(inner: F) -> impl ModalParser<Input<'a>, O, ContextError>
+where
+    F: ModalParser<Input<'a>, O, ContextError>,
+{
+    terminated(inner, multispace0)
+}
+
+/// Parse identifier without parsing whitespace after
+fn p_identifier_no_ws<'a>(input: &mut Input<'a>) -> ModalResult<&'a str> {
+    (
+        take_while(1, |c: char| c.is_alphabetic() || c == '_'),
+        take_while(0.., |c: char| c.is_alphanumeric() || c == '_'),
+    )
+        .take()
+        .verify(|ident| !keyword::is_keyword(ident))
+        .parse_next(input)
+}
+
 /// Parse identifier
 fn p_identifier<'a>(input: &mut Input<'a>) -> ModalResult<&'a str> {
-    lexeme(
-        (
-            take_while(1, |c: char| c.is_alphabetic() || c == '_'),
-            take_while(0.., |c: char| c.is_alphanumeric() || c == '_'),
-        )
-            .take(),
-    )
-    .verify(|ident| !keyword::is_keyword(ident))
-    .parse_next(input)
+    lexeme(p_identifier_no_ws).parse_next(input)
 }
 
 // --- Helpers ---
