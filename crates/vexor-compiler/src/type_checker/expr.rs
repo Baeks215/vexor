@@ -17,6 +17,22 @@ pub fn check_generic(context: &Context, ty: Type, expr: ast::Expr) -> TResult<Ex
     }
 }
 
+fn check_func_args(
+    context: &Context,
+    function: &str,
+    args: Vec<ast::Expr>,
+    return_constraint: Constraint,
+) -> TResult<Vec<ExprGeneric>> {
+    let arg_types = context.check_function(&function, return_constraint)?;
+    if arg_types.len() != args.len() {
+        return Err("Invalid number of arguments".to_string());
+    }
+    args.into_iter()
+        .zip(arg_types)
+        .map(|(arg, ty)| check_generic(context, ty, arg))
+        .collect::<Result<Vec<_>, _>>()
+}
+
 /// Checks an expression expecting a Number type.
 pub fn check_number(context: &Context, expr: ast::Expr) -> TResult<ExprNumber> {
     use NodeNumber::{Binary, Literal};
@@ -25,6 +41,13 @@ pub fn check_number(context: &Context, expr: ast::Expr) -> TResult<ExprNumber> {
         ast::Expr::Variable(name) => {
             context.check_var(&name, Is(Type::Number))?;
             Ok(ExprNumber::Variable(name))
+        }
+        ast::Expr::Call { function, args } => {
+            let typed_args = check_func_args(context, &function, args, Is(Type::Number))?;
+            Ok(ExprNumber::Call {
+                function,
+                arguments: typed_args,
+            })
         }
         ast::Expr::Binary {
             operator,
@@ -62,6 +85,13 @@ pub fn check_string(context: &Context, expr: ast::Expr) -> TResult<ExprString> {
             context.check_var(&name, Is(Type::String))?;
             Ok(ExprString::Variable(name))
         }
+        ast::Expr::Call { function, args } => {
+            let typed_args = check_func_args(context, &function, args, Is(Type::String))?;
+            Ok(ExprString::Call {
+                function,
+                arguments: typed_args,
+            })
+        }
         _ => Err("Unexpected expression, expected a string".to_string()),
     }
 }
@@ -79,6 +109,13 @@ pub fn check_color(context: &Context, expr: ast::Expr) -> TResult<ExprColor> {
         ast::Expr::Variable(name) => {
             context.check_var(&name, Is(Type::Color))?;
             Ok(ExprColor::Variable(name))
+        }
+        ast::Expr::Call { function, args } => {
+            let typed_args = check_func_args(context, &function, args, Is(Type::Color))?;
+            Ok(ExprColor::Call {
+                function,
+                arguments: typed_args,
+            })
         }
         _ => Err("Unexpected expression, expected a color".to_string()),
     }
@@ -103,6 +140,13 @@ pub fn check_graphic(context: &Context, expr: ast::Expr) -> TResult<ExprGraphic>
         ast::Expr::Variable(name) => {
             context.check_var(&name, Is(Type::Graphic))?;
             Ok(ExprGraphic::Variable(name))
+        }
+        ast::Expr::Call { function, args } => {
+            let typed_args = check_func_args(context, &function, args, Is(Type::Graphic))?;
+            Ok(ExprGraphic::Call {
+                function,
+                arguments: typed_args,
+            })
         }
         _ => Err("Unexpected expression, expected a graphic".to_string()),
     }
