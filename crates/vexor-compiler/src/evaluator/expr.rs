@@ -1,6 +1,7 @@
 //! Evaluator for expressions
 
-use crate::evaluator::{Context, EResult, Value};
+use crate::evaluator::program::eval_statement;
+use crate::evaluator::{Context, EResult, Function, Value};
 use crate::ir::Number;
 use crate::ir::scene;
 use crate::ir::typed;
@@ -20,6 +21,13 @@ pub fn eval_generic(context: &Context, expr: ExprGeneric) -> EResult<Value> {
 pub fn eval_number(context: &Context, expr: ExprNumber) -> EResult<Number> {
     match expr {
         Expr::Variable(name) => match context.get_var(&name)? {
+            Value::Number(x) => Ok(x),
+            _ => Err("Expected a number".to_string()),
+        },
+        Expr::Call {
+            function,
+            arguments,
+        } => match eval_call(context, function, arguments)? {
             Value::Number(x) => Ok(x),
             _ => Err("Expected a number".to_string()),
         },
@@ -43,6 +51,13 @@ pub fn eval_string(context: &Context, expr: ExprString) -> EResult<String> {
             Value::String(x) => Ok(x),
             _ => Err("Expected a string".to_string()),
         },
+        Expr::Call {
+            function,
+            arguments,
+        } => match eval_call(context, function, arguments)? {
+            Value::String(x) => Ok(x),
+            _ => Err("Expected a string".to_string()),
+        },
         Expr::Node(literal) => Ok(literal),
     }
 }
@@ -50,6 +65,13 @@ pub fn eval_string(context: &Context, expr: ExprString) -> EResult<String> {
 pub fn eval_color(context: &Context, expr: ExprColor) -> EResult<scene::Color> {
     match expr {
         Expr::Variable(name) => match context.get_var(&name)? {
+            Value::Color(x) => Ok(x),
+            _ => Err("Expected a color".to_string()),
+        },
+        Expr::Call {
+            function,
+            arguments,
+        } => match eval_call(context, function, arguments)? {
             Value::Color(x) => Ok(x),
             _ => Err("Expected a color".to_string()),
         },
@@ -68,6 +90,13 @@ pub fn eval_graphic(context: &Context, expr: ExprGraphic) -> EResult<scene::Grap
             Value::Graphic(x) => Ok(x),
             _ => Err("Expected a graphic".to_string()),
         },
+        Expr::Call {
+            function,
+            arguments,
+        } => match eval_call(context, function, arguments)? {
+            Value::Graphic(x) => Ok(x),
+            _ => Err("Expected a graphic".to_string()),
+        },
         Expr::Node(typed::Graphic::Circle { radius }) => Ok(scene::Graphic::Circle {
             radius: eval_number(context, *radius)?,
         }),
@@ -79,6 +108,25 @@ pub fn eval_graphic(context: &Context, expr: ExprGraphic) -> EResult<scene::Grap
             Ok(scene::Graphic::Text(eval_string(context, *text)?))
         }
     }
+}
+
+fn eval_call(context: &Context, func: String, args: Vec<ExprGeneric>) -> EResult<Value> {
+    let Function {
+        params,
+        body,
+        return_expr,
+    } = context.get_function(&func)?;
+    let mut context = context.new_scope_function(
+        &params,
+        args.into_iter()
+            .map(|a| eval_generic(context, a))
+            .collect::<Result<Vec<Value>, _>>()?,
+    );
+
+    for statement in body {
+        eval_statement(&mut context, statement.clone())?;
+    }
+    eval_generic(&context, return_expr.clone())
 }
 
 #[cfg(test)]
