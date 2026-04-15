@@ -170,6 +170,49 @@ mod tests {
     }
 
     #[test]
+    fn test_p_function() {
+        let input = "fn double(x: number): number {\nlet y: number = x + x\nreturn y\n}";
+        let mut input = Input::new(input);
+        let res = p_function.parse_next(&mut input).unwrap();
+        assert_eq!(res.name, "double");
+        assert_eq!(res.params, vec![("x".to_string(), Type::Number)]);
+        assert_eq!(res.return_expr.1, Type::Number);
+        assert_eq!(res.body.len(), 1);
+        let ast::Statement::Assignment { identifier, .. } = &res.body[0];
+        assert_eq!(identifier, "y");
+
+        // Zero-param, empty-body function
+        let mut input = Input::new("fn five(): number { return 5 }");
+        let res = p_function.parse_next(&mut input).unwrap();
+        assert_eq!(res.name, "five");
+        assert!(res.params.is_empty());
+        assert!(res.body.is_empty());
+        assert_eq!(res.return_expr.0, ast::Expr::LNumber(5.0));
+    }
+
+    #[test]
+    fn test_parse_program_with_function() {
+        let input = "fn mk(r: number): number { return r + 1 }\nexport circle(mk(5))";
+        let res = parse_program(input).unwrap();
+        assert_eq!(res.functions.len(), 1);
+        assert!(res.statements.is_empty());
+        assert_eq!(res.exports.len(), 1);
+
+        if let ast::Expr::LGraphic(ast::Graphic::Circle { radius }) = &res.exports[0] {
+            match &**radius {
+                ast::Expr::Call { function, args } => {
+                    assert_eq!(function, "mk");
+                    assert_eq!(args.len(), 1);
+                    assert_eq!(args[0], ast::Expr::LNumber(5.0));
+                }
+                other => panic!("Expected Call, got {:?}", other),
+            }
+        } else {
+            panic!("Expected Circle export, got {:?}", res.exports[0]);
+        }
+    }
+
+    #[test]
     fn test_parse_program() {
         let input = "  let x: number = 10  \n \t export circle(x)  \n";
         let res = parse_program(input).unwrap();

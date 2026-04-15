@@ -80,4 +80,33 @@ mod tests {
         assert_eq!(scene.exports.len(), 1);
         assert_eq!(scene.exports[0], scene::Graphic::Circle { radius: 10.0 });
     }
+
+    #[test]
+    fn test_eval_program_with_function() {
+        // fn double(x: number): number { return x + x }
+        // export circle(double(7))
+        let double = typed::Function {
+            name: "double".to_string(),
+            params: vec![("x".to_string(), typed::Type::Number)],
+            body: vec![],
+            return_expr: ExprGeneric::Number(Expr::Node(NodeNumber::Binary {
+                operator: OpBinNumber::Add,
+                left: Box::new(Expr::Variable("x".to_string())),
+                right: Box::new(Expr::Variable("x".to_string())),
+            })),
+        };
+        let program = typed::Program {
+            functions: vec![double],
+            statements: vec![],
+            exports: vec![Expr::Node(typed::Graphic::Circle {
+                radius: Box::new(Expr::Call {
+                    function: "double".to_string(),
+                    arguments: vec![ExprGeneric::Number(Expr::Node(NodeNumber::Literal(7.0)))],
+                }),
+            })],
+        };
+        let scene = eval_program(program).unwrap();
+        assert_eq!(scene.exports.len(), 1);
+        assert_eq!(scene.exports[0], scene::Graphic::Circle { radius: 14.0 });
+    }
 }

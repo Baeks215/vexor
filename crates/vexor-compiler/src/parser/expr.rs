@@ -126,6 +126,39 @@ mod tests {
     }
 
     #[test]
+    fn test_p_call() {
+        let mut input = Input::new("foo(1, 2 + 3)");
+        let res = p_call.parse_next(&mut input).unwrap();
+        match res {
+            ast::Expr::Call { function, args } => {
+                assert_eq!(function, "foo");
+                assert_eq!(args.len(), 2);
+                assert_eq!(args[0], ast::Expr::LNumber(1.0));
+                assert_eq!(
+                    args[1],
+                    ast::Expr::Binary {
+                        operator: ast::OpBin::Add,
+                        left: Box::new(ast::Expr::LNumber(2.0)),
+                        right: Box::new(ast::Expr::LNumber(3.0)),
+                    }
+                );
+            }
+            _ => panic!("Expected Call, got {:?}", res),
+        }
+
+        // Zero-arg call
+        let mut input = Input::new("bar()");
+        let res = p_call.parse_next(&mut input).unwrap();
+        match res {
+            ast::Expr::Call { function, args } => {
+                assert_eq!(function, "bar");
+                assert!(args.is_empty());
+            }
+            _ => panic!("Expected Call, got {:?}", res),
+        }
+    }
+
+    #[test]
     fn test_p_expr() {
         // 1 + 2 * 3  => 1 + (2 * 3)
         let mut input = Input::new("1 + 2 * 3");
