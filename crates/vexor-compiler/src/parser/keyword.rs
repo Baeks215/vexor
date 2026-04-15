@@ -30,6 +30,8 @@ define_keywords! {
     // Defined keywords
     pk_let => "let",
     pk_export => "export",
+    pk_fn => "fn",
+    pk_return => "return",
     // Types
     pk_number => "number",
     pk_string => "string",

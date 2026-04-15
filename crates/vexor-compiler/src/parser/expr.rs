@@ -4,6 +4,7 @@ use crate::ir::Number;
 use crate::ir::ast;
 use crate::parser::graphic::p_graphic;
 use crate::parser::keyword::pk_color;
+use crate::parser::p_identifier_no_ws;
 use crate::parser::{Input, bracketed, lexeme, p_identifier};
 use winnow::ascii::float;
 use winnow::combinator::{Infix, alt, delimited, dispatch, expression, fail, preceded, separated};
@@ -39,6 +40,19 @@ pub fn p_color<'a>(input: &mut Input<'a>) -> ModalResult<ast::Color> {
     .parse_next(input)
 }
 
+/// Parses a function call.
+pub fn p_call<'a>(input: &mut Input<'a>) -> ModalResult<ast::Expr> {
+    lexeme((
+        p_identifier_no_ws,
+        bracketed(separated(0.., p_expr, lexeme(','))),
+    ))
+    .map(|(function, args)| ast::Expr::Call {
+        function: function.to_string(),
+        args,
+    })
+    .parse_next(input)
+}
+
 /// Parses an atom.
 pub fn p_atom<'a>(input: &mut Input<'a>) -> ModalResult<ast::Expr> {
     alt((
@@ -46,6 +60,7 @@ pub fn p_atom<'a>(input: &mut Input<'a>) -> ModalResult<ast::Expr> {
         p_string.map(|s| ast::Expr::LString(s.to_string())),
         p_color.map(|c| ast::Expr::LColor(c)),
         p_graphic.map(|g| ast::Expr::LGraphic(g)),
+        p_call,
         p_identifier.map(|s| ast::Expr::Variable(s.to_string())),
     ))
     .parse_next(input)
@@ -107,6 +122,39 @@ mod tests {
                 assert_eq!(*b, ast::Expr::LNumber(0.1));
                 assert_eq!(*a, ast::Expr::LNumber(1.0));
             }
+        }
+    }
+
+    #[test]
+    fn test_p_call() {
+        let mut input = Input::new("foo(1, 2 + 3)");
+        let res = p_call.parse_next(&mut input).unwrap();
+        match res {
+            ast::Expr::Call { function, args } => {
+                assert_eq!(function, "foo");
+                assert_eq!(args.len(), 2);
+                assert_eq!(args[0], ast::Expr::LNumber(1.0));
+                assert_eq!(
+                    args[1],
+                    ast::Expr::Binary {
+                        operator: ast::OpBin::Add,
+                        left: Box::new(ast::Expr::LNumber(2.0)),
+                        right: Box::new(ast::Expr::LNumber(3.0)),
+                    }
+                );
+            }
+            _ => panic!("Expected Call, got {:?}", res),
+        }
+
+        // Zero-arg call
+        let mut input = Input::new("bar()");
+        let res = p_call.parse_next(&mut input).unwrap();
+        match res {
+            ast::Expr::Call { function, args } => {
+                assert_eq!(function, "bar");
+                assert!(args.is_empty());
+            }
+            _ => panic!("Expected Call, got {:?}", res),
         }
     }
 

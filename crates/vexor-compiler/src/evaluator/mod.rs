@@ -1,12 +1,12 @@
 //! Evaluator: Typed AST -> Scene
 
-use crate::ir::{Number, scene};
+use crate::ir::{Number, scene, typed};
 use std::collections::HashMap;
 
 mod expr;
 mod program;
 
-pub use program::*;
+pub use program::eval_program;
 
 /// Evaluation error
 type EError = String;
@@ -23,13 +23,22 @@ enum Value {
     Graphic(scene::Graphic),
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct Function {
+    pub params: Vec<String>,
+    pub body: Vec<typed::Statement>,
+    pub return_expr: typed::expr::ExprGeneric,
+}
+
 /// Context for evaluation
 struct Context {
+    functions: HashMap<String, Function>,
     vars: HashMap<String, Value>,
 }
 impl Context {
     fn new() -> Self {
         Self {
+            functions: HashMap::new(),
             vars: HashMap::new(),
         }
     }
@@ -45,6 +54,45 @@ impl Context {
     /// Set a variable
     fn set_var(&mut self, name: String, value: Value) -> Option<Value> {
         self.vars.insert(name, value)
+    }
+
+    /// Create a new scope with the given variables
+    ///   Adds the arguments to the variables scope
+    fn new_scope_function(&self, names: &[String], args: Vec<Value>) -> Self {
+        let mut this = Self {
+            functions: self.functions.clone(),
+            vars: self.vars.clone(),
+        };
+        debug_assert_eq!(names.len(), args.len());
+        for (name, arg) in names.iter().zip(args) {
+            this.vars.insert(name.clone(), arg);
+        }
+        this
+    }
+
+    /// Add a function to the context
+    fn add_function(&mut self, func: typed::Function) {
+        let typed::Function {
+            name,
+            body,
+            params,
+            return_expr,
+        } = func;
+        self.functions.insert(
+            name,
+            Function {
+                params: params.into_iter().map(|(n, _)| n).collect(),
+                body,
+                return_expr,
+            },
+        );
+    }
+
+    /// Get a function
+    fn get_function(&self, name: &str) -> EResult<&Function> {
+        self.functions
+            .get(name)
+            .ok_or("Unknown function".to_string())
     }
 }
 

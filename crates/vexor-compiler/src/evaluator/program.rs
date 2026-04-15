@@ -4,11 +4,7 @@ use crate::evaluator::{Context, EResult, expr};
 use crate::ir::scene;
 use crate::ir::typed;
 
-/// Evaluates a statement, returns graphic if it's an export statement.
-fn eval_statement(
-    context: &mut Context,
-    statement: typed::Statement,
-) -> EResult<Option<scene::Graphic>> {
+pub fn eval_statement(context: &mut Context, statement: typed::Statement) -> EResult<()> {
     match statement {
         typed::Statement::Assignment { identifier, value } => {
             let evaluated = expr::eval_generic(context, value)?;
@@ -16,11 +12,7 @@ fn eval_statement(
             if let Some(_) = old {
                 return Err("Variable already exists".to_string());
             }
-            Ok(None)
-        }
-        typed::Statement::Export { graphic } => {
-            let evaluated = expr::eval_graphic(context, graphic)?;
-            Ok(Some(evaluated))
+            Ok(())
         }
     }
 }
@@ -30,11 +22,22 @@ pub fn eval_program(program: typed::Program) -> EResult<scene::Scene> {
     let mut context = Context::new();
     let mut exported: Vec<scene::Graphic> = Vec::new();
 
-    for statement in &program.statements {
-        let evaluated = eval_statement(&mut context, statement.clone())?;
-        if let Some(graphic) = evaluated {
-            exported.push(graphic);
-        }
+    let typed::Program {
+        functions,
+        statements,
+        exports,
+    } = program;
+
+    for func in functions {
+        context.add_function(func);
+    }
+
+    for statement in statements {
+        eval_statement(&mut context, statement)?;
+    }
+    for export in exports {
+        let evaluated = expr::eval_graphic(&context, export)?;
+        exported.push(evaluated);
     }
     Ok(scene::Scene { exports: exported })
 }
@@ -45,20 +48,7 @@ mod tests {
     use crate::ir::typed::expr::*;
 
     #[test]
-    fn test_eval_statement_export() {
-        let mut context = Context::new();
-        let stmt = typed::Statement::Export {
-            graphic: Expr::Node(crate::ir::typed::Graphic::Circle {
-                radius: Box::new(Expr::Node(NodeNumber::Literal(5.0))),
-            }),
-        };
-
-        let res = eval_statement(&mut context, stmt).unwrap().unwrap();
-        assert_eq!(res, scene::Graphic::Circle { radius: 5.0 });
-    }
-
-    #[test]
-    fn test_eval_statement_already_exists() {
+    fn test_eval_statement() {
         let mut context = Context::new();
         let stmt1 = typed::Statement::Assignment {
             identifier: "x".to_string(),
@@ -76,21 +66,47 @@ mod tests {
     #[test]
     fn test_eval_program() {
         let program = typed::Program {
-            statements: vec![
-                typed::Statement::Assignment {
-                    identifier: "r".to_string(),
-                    value: ExprGeneric::Number(Expr::Node(NodeNumber::Literal(10.0))),
-                },
-                typed::Statement::Export {
-                    graphic: Expr::Node(crate::ir::typed::Graphic::Circle {
-                        radius: Box::new(Expr::Variable("r".to_string())),
-                    }),
-                },
-            ],
+            functions: vec![],
+            statements: vec![typed::Statement::Assignment {
+                identifier: "r".to_string(),
+                value: ExprGeneric::Number(Expr::Node(NodeNumber::Literal(10.0))),
+            }],
+            exports: vec![Expr::Node(crate::ir::typed::Graphic::Circle {
+                radius: Box::new(Expr::Variable("r".to_string())),
+            })],
         };
 
         let scene = eval_program(program).unwrap();
         assert_eq!(scene.exports.len(), 1);
         assert_eq!(scene.exports[0], scene::Graphic::Circle { radius: 10.0 });
+    }
+
+    #[test]
+    fn test_eval_program_with_function() {
+        // fn double(x: number): number { return x + x }
+        // export circle(double(7))
+        let double = typed::Function {
+            name: "double".to_string(),
+            params: vec![("x".to_string(), typed::Type::Number)],
+            body: vec![],
+            return_expr: ExprGeneric::Number(Expr::Node(NodeNumber::Binary {
+                operator: OpBinNumber::Add,
+                left: Box::new(Expr::Variable("x".to_string())),
+                right: Box::new(Expr::Variable("x".to_string())),
+            })),
+        };
+        let program = typed::Program {
+            functions: vec![double],
+            statements: vec![],
+            exports: vec![Expr::Node(typed::Graphic::Circle {
+                radius: Box::new(Expr::Call {
+                    function: "double".to_string(),
+                    arguments: vec![ExprGeneric::Number(Expr::Node(NodeNumber::Literal(7.0)))],
+                }),
+            })],
+        };
+        let scene = eval_program(program).unwrap();
+        assert_eq!(scene.exports.len(), 1);
+        assert_eq!(scene.exports[0], scene::Graphic::Circle { radius: 14.0 });
     }
 }

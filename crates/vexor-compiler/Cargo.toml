@@ -9,3 +9,4 @@ license.workspace = true
 [dependencies]
 winnow.workspace = true
 svg.workspace = true
+itertools.workspace = true
