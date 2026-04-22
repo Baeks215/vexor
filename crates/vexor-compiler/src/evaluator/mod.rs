@@ -26,7 +26,7 @@ enum Value {
 #[derive(Debug, Clone, PartialEq)]
 pub struct Function {
     pub params: Vec<String>,
-    pub body: Vec<typed::Statement>,
+    pub scope: Vec<typed::Assignment>,
     pub return_expr: typed::expr::ExprGeneric,
 }
 
@@ -74,7 +74,7 @@ impl Context {
     fn add_function(&mut self, func: typed::Function) {
         let typed::Function {
             name,
-            body,
+            scope,
             params,
             return_expr,
         } = func;
@@ -82,7 +82,7 @@ impl Context {
             name,
             Function {
                 params: params.into_iter().map(|(n, _)| n).collect(),
-                body,
+                scope,
                 return_expr,
             },
         );

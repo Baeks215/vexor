@@ -4,9 +4,9 @@ use crate::evaluator::{Context, EResult, expr};
 use crate::ir::scene;
 use crate::ir::typed;
 
-pub fn eval_statement(context: &mut Context, statement: typed::Statement) -> EResult<()> {
+pub fn eval_assignment(context: &mut Context, statement: typed::Assignment) -> EResult<()> {
     match statement {
-        typed::Statement::Assignment { identifier, value } => {
+        typed::Assignment { identifier, value } => {
             let evaluated = expr::eval_generic(context, value)?;
             let old = context.set_var(identifier, evaluated);
             if let Some(_) = old {
@@ -24,7 +24,7 @@ pub fn eval_program(program: typed::Program) -> EResult<scene::Scene> {
 
     let typed::Program {
         functions,
-        statements,
+        scope,
         exports,
     } = program;
 
@@ -32,8 +32,8 @@ pub fn eval_program(program: typed::Program) -> EResult<scene::Scene> {
         context.add_function(func);
     }
 
-    for statement in statements {
-        eval_statement(&mut context, statement)?;
+    for assignment in scope {
+        eval_assignment(&mut context, assignment)?;
     }
     for export in exports {
         let evaluated = expr::eval_graphic(&context, export)?;
@@ -50,24 +50,24 @@ mod tests {
     #[test]
     fn test_eval_statement() {
         let mut context = Context::new();
-        let stmt1 = typed::Statement::Assignment {
+        let stmt1 = typed::Assignment {
             identifier: "x".to_string(),
             value: ExprGeneric::Number(Expr::Node(NodeNumber::Literal(1.0))),
         };
-        eval_statement(&mut context, stmt1).unwrap();
+        eval_assignment(&mut context, stmt1).unwrap();
 
-        let stmt2 = typed::Statement::Assignment {
+        let stmt2 = typed::Assignment {
             identifier: "x".to_string(),
             value: ExprGeneric::Number(Expr::Node(NodeNumber::Literal(2.0))),
         };
-        assert!(eval_statement(&mut context, stmt2).is_err());
+        assert!(eval_assignment(&mut context, stmt2).is_err());
     }
 
     #[test]
     fn test_eval_program() {
         let program = typed::Program {
             functions: vec![],
-            statements: vec![typed::Statement::Assignment {
+            scope: vec![typed::Assignment {
                 identifier: "r".to_string(),
                 value: ExprGeneric::Number(Expr::Node(NodeNumber::Literal(10.0))),
             }],
@@ -88,7 +88,7 @@ mod tests {
         let double = typed::Function {
             name: "double".to_string(),
             params: vec![("x".to_string(), typed::Type::Number)],
-            body: vec![],
+            scope: vec![],
             return_expr: ExprGeneric::Number(Expr::Node(NodeNumber::Binary {
                 operator: OpBinNumber::Add,
                 left: Box::new(Expr::Variable("x".to_string())),
@@ -97,7 +97,7 @@ mod tests {
         };
         let program = typed::Program {
             functions: vec![double],
-            statements: vec![],
+            scope: vec![],
             exports: vec![Expr::Node(typed::Graphic::Circle {
                 radius: Box::new(Expr::Call {
                     function: "double".to_string(),

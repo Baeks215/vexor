@@ -5,9 +5,12 @@ use crate::ir::typed;
 use crate::type_checker::expr;
 use crate::type_checker::{Context, FunctionType, TResult};
 
-fn check_statement(context: &mut Context, statement: ast::Statement) -> TResult<typed::Statement> {
-    match statement {
-        ast::Statement::Assignment {
+fn check_statement(
+    context: &mut Context,
+    assignment: ast::Assignment,
+) -> TResult<typed::Assignment> {
+    match assignment {
+        ast::Assignment {
             ty,
             identifier,
             value,
@@ -19,7 +22,7 @@ fn check_statement(context: &mut Context, statement: ast::Statement) -> TResult<
             if let Some(_) = old {
                 return Err(format!("Variable '{}' already exists", identifier));
             }
-            Ok(typed::Statement::Assignment {
+            Ok(typed::Assignment {
                 identifier,
                 value: typed_expr,
             })
@@ -31,12 +34,12 @@ fn check_function(context: &mut Context, function: ast::Function) -> TResult<typ
     let ast::Function {
         name,
         params,
-        body,
+        scope,
         return_expr: (return_expr, return_ty),
     } = function;
     let mut inner = context.new_scope_function(&params);
 
-    let body = body
+    let scope = scope
         .into_iter()
         .map(|s| check_statement(&mut inner, s))
         .collect::<Result<Vec<_>, _>>()?;
@@ -52,7 +55,7 @@ fn check_function(context: &mut Context, function: ast::Function) -> TResult<typ
     Ok(typed::Function {
         name,
         params,
-        body,
+        scope,
         return_expr,
     })
 }
@@ -61,7 +64,7 @@ pub fn check_program(program: ast::Program) -> TResult<typed::Program> {
     let mut context = Context::new();
     let ast::Program {
         functions,
-        statements,
+        scope: statements,
         exports,
     } = program;
     let functions = functions
@@ -82,7 +85,7 @@ pub fn check_program(program: ast::Program) -> TResult<typed::Program> {
 
     Ok(typed::Program {
         functions,
-        statements: new_statements,
+        scope: new_statements,
         exports,
     })
 }
@@ -95,7 +98,7 @@ mod tests {
     #[test]
     fn test_check_statement_assignment() {
         let mut context = Context::new();
-        let statement = ast::Statement::Assignment {
+        let statement = ast::Assignment {
             ty: Type::Number,
             identifier: "x".to_string(),
             value: ast::Expr::LNumber(10.0),
@@ -103,14 +106,14 @@ mod tests {
 
         // Success
         let res = check_statement(&mut context, statement).unwrap();
-        let typed::Statement::Assignment { identifier, value } = res;
+        let typed::Assignment { identifier, value } = res;
         assert_eq!(identifier, "x");
         assert!(matches!(value, typed::expr::ExprGeneric::Number(_)));
 
         // Failure: already exists
         let mut context = Context::new();
         context.set_var("x".to_string(), Type::Number);
-        let statement = ast::Statement::Assignment {
+        let statement = ast::Assignment {
             ty: Type::Number,
             identifier: "x".to_string(),
             value: ast::Expr::LNumber(20.0),
@@ -123,7 +126,7 @@ mod tests {
         // Success: export a graphic with a number variable
         let program = ast::Program {
             functions: vec![],
-            statements: vec![ast::Statement::Assignment {
+            scope: vec![ast::Assignment {
                 ty: Type::Number,
                 identifier: "x".to_string(),
                 value: ast::Expr::LNumber(10.0),
@@ -133,19 +136,19 @@ mod tests {
             })],
         };
         let res = check_program(program).unwrap();
-        assert_eq!(res.statements.len(), 1);
+        assert_eq!(res.scope.len(), 1);
         assert_eq!(res.exports.len(), 1);
 
         // Test failure (e.g. re-assignment)
         let program = ast::Program {
             functions: vec![],
-            statements: vec![
-                ast::Statement::Assignment {
+            scope: vec![
+                ast::Assignment {
                     ty: Type::Number,
                     identifier: "x".to_string(),
                     value: ast::Expr::LNumber(10.0),
                 },
-                ast::Statement::Assignment {
+                ast::Assignment {
                     ty: Type::Number,
                     identifier: "x".to_string(),
                     value: ast::Expr::LNumber(20.0),
@@ -163,7 +166,7 @@ mod tests {
         let function = ast::Function {
             name: "inc".to_string(),
             params: vec![("x".to_string(), Type::Number)],
-            body: vec![],
+            scope: vec![],
             return_expr: (ast::Expr::Variable("x".to_string()), Type::Number),
         };
         let res = check_function(&mut context, function).unwrap();
@@ -179,10 +182,10 @@ mod tests {
             functions: vec![ast::Function {
                 name: "inc".to_string(),
                 params: vec![("x".to_string(), Type::Number)],
-                body: vec![],
+                scope: vec![],
                 return_expr: (ast::Expr::Variable("x".to_string()), Type::Number),
             }],
-            statements: vec![ast::Statement::Assignment {
+            scope: vec![ast::Assignment {
                 ty: Type::Number,
                 identifier: "r".to_string(),
                 value: ast::Expr::Call {
@@ -198,7 +201,7 @@ mod tests {
         // Unknown function
         let program = ast::Program {
             functions: vec![],
-            statements: vec![ast::Statement::Assignment {
+            scope: vec![ast::Assignment {
                 ty: Type::Number,
                 identifier: "r".to_string(),
                 value: ast::Expr::Call {
@@ -220,7 +223,7 @@ mod tests {
             functions: vec![ast::Function {
                 name: "double".to_string(),
                 params: vec![("x".to_string(), Type::Number)],
-                body: vec![],
+                scope: vec![],
                 return_expr: (
                     ast::Expr::Binary {
                         operator: ast::OpBin::Add,
@@ -230,7 +233,7 @@ mod tests {
                     Type::Number,
                 ),
             }],
-            statements: vec![],
+            scope: vec![],
             exports: vec![ast::Expr::LGraphic(ast::Graphic::Circle {
                 radius: Box::new(ast::Expr::Call {
                     function: "double".to_string(),

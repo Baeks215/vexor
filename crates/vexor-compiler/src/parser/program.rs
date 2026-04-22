@@ -15,7 +15,7 @@ use winnow::{ModalResult, Parser, Result};
 
 #[derive(Debug, Clone, PartialEq)]
 enum ProgramUnit {
-    Statement(ast::Statement),
+    Assignment(ast::Assignment),
     Function(ast::Function),
 }
 
@@ -29,7 +29,7 @@ fn p_type<'a>(input: &mut Input<'a>) -> ModalResult<Type> {
     .parse_next(input)
 }
 
-fn p_statement<'a>(input: &mut Input<'a>) -> ModalResult<ast::Statement> {
+fn p_assignment<'a>(input: &mut Input<'a>) -> ModalResult<ast::Assignment> {
     (
         pk_let,
         p_identifier,
@@ -38,7 +38,7 @@ fn p_statement<'a>(input: &mut Input<'a>) -> ModalResult<ast::Statement> {
         lexeme("="),
         p_expr,
     )
-        .map(|(_, i, _, t, _, e)| ast::Statement::Assignment {
+        .map(|(_, i, _, t, _, e)| ast::Assignment {
             ty: t,
             identifier: i.to_string(),
             value: e,
@@ -60,7 +60,7 @@ fn p_function<'a>(input: &mut Input<'a>) -> ModalResult<ast::Function> {
         delimited(
             ml_lexeme("{"),
             separated_pair(
-                separated(0.., p_statement, lexeme(line_ending)),
+                separated(0.., p_assignment, lexeme(line_ending)),
                 multispace0,
                 delimited(pk_return, p_expr, multispace0),
             ),
@@ -81,7 +81,7 @@ fn p_function<'a>(input: &mut Input<'a>) -> ModalResult<ast::Function> {
                     .into_iter()
                     .map(|(n, t)| (n.to_string(), t))
                     .collect(),
-                body,
+                scope: body,
                 return_expr: (return_expr, return_type),
             },
         )
@@ -91,7 +91,7 @@ fn p_function<'a>(input: &mut Input<'a>) -> ModalResult<ast::Function> {
 fn p_program_unit<'a>(input: &mut Input<'a>) -> ModalResult<ProgramUnit> {
     alt((
         p_function.map(|f| ProgramUnit::Function(f)),
-        p_statement.map(|s| ProgramUnit::Statement(s)),
+        p_assignment.map(|s| ProgramUnit::Assignment(s)),
     ))
     .parse_next(input)
 }
@@ -116,11 +116,11 @@ pub fn parse_program<'a>(
         .map(|(units, exports): (Vec<ProgramUnit>, Vec<ast::Expr>)| {
             let (functions, statements) = units.into_iter().partition_map(|u| match u {
                 ProgramUnit::Function(f) => Either::Left(f),
-                ProgramUnit::Statement(s) => Either::Right(s),
+                ProgramUnit::Assignment(s) => Either::Right(s),
             });
             ast::Program {
                 functions,
-                statements,
+                scope: statements,
                 exports,
             }
         }),
@@ -136,8 +136,8 @@ mod tests {
     #[test]
     fn test_p_statement_assignment() {
         let mut input = Input::new("let x: number = 10");
-        let res = p_statement.parse_next(&mut input).unwrap();
-        let ast::Statement::Assignment {
+        let res = p_assignment.parse_next(&mut input).unwrap();
+        let ast::Assignment {
             ty,
             identifier,
             value,
@@ -147,8 +147,8 @@ mod tests {
         assert_eq!(value, ast::Expr::LNumber(10.0));
 
         let mut input = Input::new("let my_var: string = \"hello\"");
-        let res = p_statement.parse_next(&mut input).unwrap();
-        let ast::Statement::Assignment {
+        let res = p_assignment.parse_next(&mut input).unwrap();
+        let ast::Assignment {
             ty,
             identifier,
             value,
@@ -177,8 +177,8 @@ mod tests {
         assert_eq!(res.name, "double");
         assert_eq!(res.params, vec![("x".to_string(), Type::Number)]);
         assert_eq!(res.return_expr.1, Type::Number);
-        assert_eq!(res.body.len(), 1);
-        let ast::Statement::Assignment { identifier, .. } = &res.body[0];
+        assert_eq!(res.scope.len(), 1);
+        let ast::Assignment { identifier, .. } = &res.scope[0];
         assert_eq!(identifier, "y");
 
         // Zero-param, empty-body function
@@ -186,7 +186,7 @@ mod tests {
         let res = p_function.parse_next(&mut input).unwrap();
         assert_eq!(res.name, "five");
         assert!(res.params.is_empty());
-        assert!(res.body.is_empty());
+        assert!(res.scope.is_empty());
         assert_eq!(res.return_expr.0, ast::Expr::LNumber(5.0));
     }
 
@@ -195,7 +195,7 @@ mod tests {
         let input = "fn mk(r: number): number { return r + 1 }\nexport circle(mk(5))";
         let res = parse_program(input).unwrap();
         assert_eq!(res.functions.len(), 1);
-        assert!(res.statements.is_empty());
+        assert!(res.scope.is_empty());
         assert_eq!(res.exports.len(), 1);
 
         if let ast::Expr::LGraphic(ast::Graphic::Circle { radius }) = &res.exports[0] {
@@ -216,13 +216,13 @@ mod tests {
     fn test_parse_program() {
         let input = "  let x: number = 10  \n \t export circle(x)  \n";
         let res = parse_program(input).unwrap();
-        assert_eq!(res.statements.len(), 1);
+        assert_eq!(res.scope.len(), 1);
 
-        let ast::Statement::Assignment {
+        let ast::Assignment {
             ty,
             identifier,
             value,
-        } = &res.statements[0];
+        } = &res.scope[0];
         assert_eq!(ty, &Type::Number);
         assert_eq!(identifier, "x");
         assert_eq!(*value, ast::Expr::LNumber(10.0));

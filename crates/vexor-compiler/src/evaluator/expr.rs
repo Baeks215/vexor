@@ -1,6 +1,6 @@
 //! Evaluator for expressions
 
-use crate::evaluator::program::eval_statement;
+use crate::evaluator::program::eval_assignment;
 use crate::evaluator::{Context, EResult, Function, Value};
 use crate::ir::Number;
 use crate::ir::scene;
@@ -113,7 +113,7 @@ pub fn eval_graphic(context: &Context, expr: ExprGraphic) -> EResult<scene::Grap
 fn eval_call(context: &Context, func: String, args: Vec<ExprGeneric>) -> EResult<Value> {
     let Function {
         params,
-        body,
+        scope,
         return_expr,
     } = context.get_function(&func)?;
     let mut context = context.new_scope_function(
@@ -123,8 +123,8 @@ fn eval_call(context: &Context, func: String, args: Vec<ExprGeneric>) -> EResult
             .collect::<Result<Vec<Value>, _>>()?,
     );
 
-    for statement in body {
-        eval_statement(&mut context, statement.clone())?;
+    for assignment in scope {
+        eval_assignment(&mut context, assignment.clone())?;
     }
     eval_generic(&context, return_expr.clone())
 }
