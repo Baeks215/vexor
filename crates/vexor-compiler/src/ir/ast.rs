@@ -31,6 +31,12 @@ pub enum OpBin {
     Sub,
     Mul,
     Div,
+    Gt,
+    Gte,
+    Lt,
+    Lte,
+    Eq,
+    Neq,
 }
 
 /// Expression
@@ -39,6 +45,7 @@ pub enum Expr {
     // Literals
     LNumber(Number),
     LString(String),
+    LBool(bool),
     LColor(Color),
     LGraphic(Graphic),
     // Variable

@@ -8,6 +8,7 @@ pub mod expr;
 pub enum Type {
     Number,
     String,
+    Bool,
     Color,
     Graphic,
 }

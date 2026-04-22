@@ -18,12 +18,14 @@ pub enum Expr<T> {
 pub enum ExprGeneric {
     Number(ExprNumber),
     String(ExprString),
+    Bool(ExprBool),
     Color(ExprColor),
     Graphic(ExprGraphic),
 }
 
 pub type ExprNumber = Expr<NodeNumber>;
 pub type ExprString = Expr<String>;
+pub type ExprBool = Expr<NodeBool>;
 pub type ExprColor = Expr<Color>;
 pub type ExprGraphic = Expr<Graphic>;
 
@@ -44,6 +46,29 @@ pub enum NodeNumber {
     // Expressions with operators
     Binary {
         operator: OpBinNumber,
+        left: Box<ExprNumber>,
+        right: Box<ExprNumber>,
+    },
+}
+
+// --- Bool Type ---
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum OpCompare {
+    Gt,
+    Gte,
+    Lt,
+    Lte,
+    Eq,
+    Neq,
+}
+
+/// Bool Node
+#[derive(Debug, Clone, PartialEq)]
+pub enum NodeBool {
+    Literal(bool),
+    Compare {
+        operator: OpCompare,
         left: Box<ExprNumber>,
         right: Box<ExprNumber>,
     },
