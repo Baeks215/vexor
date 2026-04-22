@@ -95,13 +95,13 @@ mod tests {
 
     #[test]
     fn test_compile_with_function() {
-        let input = "fn double(x: number): number { return x + x }\nexport circle(double(5))";
+        let input = "fn double(x: number): number = x + x\nexport circle(double(5))";
         let scene = compile(input).expect("compile should succeed");
         assert_eq!(scene.exports.len(), 1);
         assert_eq!(scene.exports[0], Graphic::Circle { radius: 10.0 });
 
         let input =
-            "fn area(w: number, h: number): number { return w * h }\nexport rect(area(2, 3), 4)";
+            "fn area(w: number, h: number): number = w * h\nexport rect(area(2, 3), 4)";
         let scene = compile(input).expect("compile should succeed");
         assert_eq!(scene.exports.len(), 1);
         assert_eq!(

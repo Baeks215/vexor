@@ -42,24 +42,22 @@ pub enum Graphic {
 
 /// Statements, either of a function body or top-level
 #[derive(Debug, Clone, PartialEq)]
-pub enum Statement {
-    Assignment {
-        identifier: String,
-        value: ExprGeneric,
-    },
+pub struct Assignment {
+    pub identifier: String,
+    pub value: ExprGeneric,
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Function {
     pub name: String,
     pub params: Vec<(String, Type)>,
-    pub body: Vec<Statement>,
+    pub scope: Vec<Assignment>,
     pub return_expr: ExprGeneric,
 }
 
 #[derive(Debug, Clone)]
 pub struct Program {
     pub functions: Vec<Function>,
-    pub statements: Vec<Statement>,
+    pub scope: Vec<Assignment>,
     pub exports: Vec<ExprGraphic>,
 }
