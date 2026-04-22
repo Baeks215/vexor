@@ -31,7 +31,7 @@ define_keywords! {
     pk_let => "let",
     pk_export => "export",
     pk_fn => "fn",
-    pk_return => "return",
+    pk_where => "where",
     // Types
     pk_number => "number",
     pk_string => "string",

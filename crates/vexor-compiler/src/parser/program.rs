@@ -4,12 +4,12 @@ use crate::ir::ast;
 use crate::ir::typed::Type;
 use crate::parser::expr::p_expr;
 use crate::parser::keyword::{
-    pk_color, pk_export, pk_fn, pk_graphic, pk_let, pk_number, pk_return, pk_string,
+    pk_color, pk_export, pk_fn, pk_graphic, pk_let, pk_number, pk_string, pk_where,
 };
 use crate::parser::{Input, bracketed, lexeme, ml_lexeme, p_identifier};
 use itertools::{Either, Itertools};
 use winnow::ascii::{line_ending, multispace0};
-use winnow::combinator::{alt, delimited, preceded, separated, separated_pair};
+use winnow::combinator::{alt, delimited, opt, preceded, separated, separated_pair};
 use winnow::error::{ContextError, ParseError};
 use winnow::{ModalResult, Parser, Result};
 
@@ -48,41 +48,31 @@ fn p_assignment<'a>(input: &mut Input<'a>) -> ModalResult<ast::Assignment> {
 
 fn p_function<'a>(input: &mut Input<'a>) -> ModalResult<ast::Function> {
     (
-        pk_fn,
-        p_identifier,
+        preceded(pk_fn, p_identifier), // function name
         bracketed(separated(
             0..,
             separated_pair(p_identifier, lexeme(":"), p_type),
             lexeme(","),
-        )),
-        lexeme(":"),
-        p_type,
-        delimited(
-            ml_lexeme("{"),
-            separated_pair(
-                separated(0.., p_assignment, lexeme(line_ending)),
-                multispace0,
-                delimited(pk_return, p_expr, multispace0),
-            ),
-            lexeme("}"),
-        ),
+        )), // parameters
+        preceded(lexeme(":"), p_type), // return type
+        preceded(ml_lexeme("="), p_expr), // return expression
+        opt(delimited(
+            (pk_where, multispace0, ml_lexeme("{")),
+            separated(0.., p_assignment, multispace0),
+            (multispace0, ml_lexeme("}")),
+        )), // where scope
     )
         .map(
-            |(_, name, params, _, return_type, (body, return_expr)): (
-                _,
-                _,
-                Vec<(&str, Type)>,
-                _,
-                _,
-                _,
-            )| ast::Function {
-                name: name.to_string(),
-                params: params
-                    .into_iter()
-                    .map(|(n, t)| (n.to_string(), t))
-                    .collect(),
-                scope: body,
-                return_expr: (return_expr, return_type),
+            |(name, params, return_type, return_expr, scope): (_, Vec<(&str, Type)>, _, _, _)| {
+                ast::Function {
+                    name: name.to_string(),
+                    params: params
+                        .into_iter()
+                        .map(|(n, t)| (n.to_string(), t))
+                        .collect(),
+                    scope: scope.unwrap_or_default(),
+                    return_expr: (return_expr, return_type),
+                }
             },
         )
         .parse_next(input)
@@ -171,7 +161,7 @@ mod tests {
 
     #[test]
     fn test_p_function() {
-        let input = "fn double(x: number): number {\nlet y: number = x + x\nreturn y\n}";
+        let input = "fn double(x: number): number = y where {\nlet y: number = x + x\n}";
         let mut input = Input::new(input);
         let res = p_function.parse_next(&mut input).unwrap();
         assert_eq!(res.name, "double");
@@ -182,7 +172,7 @@ mod tests {
         assert_eq!(identifier, "y");
 
         // Zero-param, empty-body function
-        let mut input = Input::new("fn five(): number { return 5 }");
+        let mut input = Input::new("fn five(): number = 5");
         let res = p_function.parse_next(&mut input).unwrap();
         assert_eq!(res.name, "five");
         assert!(res.params.is_empty());
@@ -192,7 +182,7 @@ mod tests {
 
     #[test]
     fn test_parse_program_with_function() {
-        let input = "fn mk(r: number): number { return r + 1 }\nexport circle(mk(5))";
+        let input = "fn mk(r: number): number = r + 1\nexport circle(mk(5))";
         let res = parse_program(input).unwrap();
         assert_eq!(res.functions.len(), 1);
         assert!(res.scope.is_empty());
