@@ -1,8 +1,9 @@
 //! Type resolver for expressions
 
-use crate::ir::ast::{self, OpBin};
+use crate::ir::ast;
 use crate::ir::typed::expr::{
-    ExprColor, ExprGeneric, ExprGraphic, ExprNumber, ExprString, NodeNumber, OpBinNumber,
+    ExprBool, ExprColor, ExprGeneric, ExprGraphic, ExprNumber, ExprString, NodeBool, NodeNumber,
+    OpBinNumber, OpCompare,
 };
 use crate::ir::typed::{self, Type};
 use crate::type_checker::{Constraint, Context, TResult};
@@ -12,6 +13,7 @@ pub fn check_generic(context: &Context, ty: Type, expr: ast::Expr) -> TResult<Ex
     match ty {
         Type::Number => Ok(ExprGeneric::Number(check_number(context, expr)?)),
         Type::String => Ok(ExprGeneric::String(check_string(context, expr)?)),
+        Type::Bool => Ok(ExprGeneric::Bool(check_bool(context, expr)?)),
         Type::Color => Ok(ExprGeneric::Color(check_color(context, expr)?)),
         Type::Graphic => Ok(ExprGeneric::Graphic(check_graphic(context, expr)?)),
     }
@@ -54,11 +56,11 @@ pub fn check_number(context: &Context, expr: ast::Expr) -> TResult<ExprNumber> {
             left,
             right,
         } => {
-            check_op(Type::Number, operator)?;
+            let op = map_op_num(operator).ok_or("Invalid operator for number")?;
             let left = check_number(context, *left)?;
             let right = check_number(context, *right)?;
             Ok(ExprNumber::Node(Binary {
-                operator: map_op_num(operator),
+                operator: op,
                 left: Box::new(left),
                 right: Box::new(right),
             }))
@@ -68,12 +70,60 @@ pub fn check_number(context: &Context, expr: ast::Expr) -> TResult<ExprNumber> {
 }
 
 /// Maps general binary operators to number binary operations.
-fn map_op_num(op: ast::OpBin) -> OpBinNumber {
+fn map_op_num(op: ast::OpBin) -> Option<OpBinNumber> {
     match op {
-        ast::OpBin::Add => OpBinNumber::Add,
-        ast::OpBin::Sub => OpBinNumber::Sub,
-        ast::OpBin::Mul => OpBinNumber::Mul,
-        ast::OpBin::Div => OpBinNumber::Div,
+        ast::OpBin::Add => Some(OpBinNumber::Add),
+        ast::OpBin::Sub => Some(OpBinNumber::Sub),
+        ast::OpBin::Mul => Some(OpBinNumber::Mul),
+        ast::OpBin::Div => Some(OpBinNumber::Div),
+        _ => None,
+    }
+}
+
+/// Maps general binary operators to comparison operations.
+fn map_op_compare(op: ast::OpBin) -> Option<OpCompare> {
+    match op {
+        ast::OpBin::Gt => Some(OpCompare::Gt),
+        ast::OpBin::Gte => Some(OpCompare::Gte),
+        ast::OpBin::Lt => Some(OpCompare::Lt),
+        ast::OpBin::Lte => Some(OpCompare::Lte),
+        ast::OpBin::Eq => Some(OpCompare::Eq),
+        ast::OpBin::Neq => Some(OpCompare::Neq),
+        _ => None,
+    }
+}
+
+/// Checks an expression expecting a Bool type.
+pub fn check_bool(context: &Context, expr: ast::Expr) -> TResult<ExprBool> {
+    use NodeBool::{Compare, Literal};
+    match expr {
+        ast::Expr::LBool(b) => Ok(ExprBool::Node(Literal(b))),
+        ast::Expr::Variable(name) => {
+            context.check_var(&name, Is(Type::Bool))?;
+            Ok(ExprBool::Variable(name))
+        }
+        ast::Expr::Call { function, args } => {
+            let typed_args = check_func_args(context, &function, args, Is(Type::Bool))?;
+            Ok(ExprBool::Call {
+                function,
+                arguments: typed_args,
+            })
+        }
+        ast::Expr::Binary {
+            operator,
+            left,
+            right,
+        } => {
+            let op = map_op_compare(operator).ok_or("Invalid operator for bool")?;
+            let left = check_number(context, *left)?;
+            let right = check_number(context, *right)?;
+            Ok(ExprBool::Node(Compare {
+                operator: op,
+                left: Box::new(left),
+                right: Box::new(right),
+            }))
+        }
+        _ => Err("Unexpected expression, expected a bool".to_string()),
     }
 }
 
@@ -152,30 +202,10 @@ pub fn check_graphic(context: &Context, expr: ast::Expr) -> TResult<ExprGraphic>
     }
 }
 
-/// Checks that an operator is valid for a given type.
-fn check_op(ty: Type, op: OpBin) -> TResult<()> {
-    match ty {
-        Type::Number => match op {
-            OpBin::Add | OpBin::Sub | OpBin::Mul | OpBin::Div => Ok(()),
-        },
-        _ => Err("Invalid operator for type".to_string()),
-    }
-}
-
-// Not needed for now, operators have homogeneous types
-// /// Determine constraint of last operand in binary expression.
-// fn binary_constraint(op: OpBin, left: Type) -> TResult<Constraint> {
-//     match left {
-//         Type::Number => match op {
-//             OpBin::Add | OpBin::Sub | OpBin::Mul | OpBin::Div => Ok(Is(Type::Number)),
-//         },
-//         _ => Err("Invalid operator for type".to_string()),
-//     }
-// }
-
 #[cfg(test)]
 mod tests {
     use super::*;
+    use ast::OpBin;
 
     #[test]
     fn test_check_literal() {
@@ -248,5 +278,79 @@ mod tests {
         // Type mismatch
         let expr = ast::Expr::LNumber(10.0);
         assert!(check_generic(&context, Type::String, expr).is_err());
+
+        // Bool literal via generic
+        let expr = ast::Expr::LBool(true);
+        let res = check_generic(&context, Type::Bool, expr).unwrap();
+        assert!(matches!(res, ExprGeneric::Bool(_)));
+    }
+
+    #[test]
+    fn test_check_bool_literal_and_var() {
+        let mut context = Context::new();
+        context.set_var("b".to_string(), Type::Bool);
+
+        let expr = ast::Expr::LBool(false);
+        let res = check_bool(&context, expr).unwrap();
+        assert_eq!(res, ExprBool::Node(NodeBool::Literal(false)));
+
+        let expr = ast::Expr::Variable("b".to_string());
+        let res = check_bool(&context, expr).unwrap();
+        assert_eq!(res, ExprBool::Variable("b".to_string()));
+
+        // Wrong-typed variable
+        let expr = ast::Expr::Variable("missing".to_string());
+        assert!(check_bool(&context, expr).is_err());
+    }
+
+    #[test]
+    fn test_check_bool_compare() {
+        let context = Context::new();
+
+        // 1 > 2
+        let expr = ast::Expr::Binary {
+            operator: OpBin::Gt,
+            left: Box::new(ast::Expr::LNumber(1.0)),
+            right: Box::new(ast::Expr::LNumber(2.0)),
+        };
+        let res = check_bool(&context, expr).unwrap();
+        match res {
+            ExprBool::Node(NodeBool::Compare { operator, .. }) => {
+                assert_eq!(operator, OpCompare::Gt);
+            }
+            _ => panic!("Expected compare, got {:?}", res),
+        }
+
+        // Comparison with non-number operand fails
+        let expr = ast::Expr::Binary {
+            operator: OpBin::Gt,
+            left: Box::new(ast::Expr::LBool(true)),
+            right: Box::new(ast::Expr::LNumber(2.0)),
+        };
+        assert!(check_bool(&context, expr).is_err());
+    }
+
+    #[test]
+    fn test_check_number_rejects_compare() {
+        let context = Context::new();
+        // 1 > 2 cannot satisfy a Number context
+        let expr = ast::Expr::Binary {
+            operator: OpBin::Gt,
+            left: Box::new(ast::Expr::LNumber(1.0)),
+            right: Box::new(ast::Expr::LNumber(2.0)),
+        };
+        assert!(check_number(&context, expr).is_err());
+    }
+
+    #[test]
+    fn test_check_bool_rejects_arithmetic() {
+        let context = Context::new();
+        // 1 + 2 cannot satisfy a Bool context
+        let expr = ast::Expr::Binary {
+            operator: OpBin::Add,
+            left: Box::new(ast::Expr::LNumber(1.0)),
+            right: Box::new(ast::Expr::LNumber(2.0)),
+        };
+        assert!(check_bool(&context, expr).is_err());
     }
 }
