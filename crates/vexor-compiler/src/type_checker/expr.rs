@@ -3,7 +3,7 @@
 use crate::ir::ast;
 use crate::ir::typed::expr::{
     ExprBool, ExprColor, ExprGeneric, ExprGraphic, ExprNumber, ExprString, NodeBool, NodeNumber,
-    OpBinNumber, OpCompare,
+    OpBinBool, OpBinNumber, OpCompare, OpUnBool,
 };
 use crate::ir::typed::{self, Type};
 use crate::type_checker::{Constraint, Context, TResult};
@@ -93,9 +93,20 @@ fn map_op_compare(op: ast::OpBin) -> Option<OpCompare> {
     }
 }
 
+/// Maps general binary operators to bool binary operations.
+fn map_op_bool(op: ast::OpBin) -> Option<OpBinBool> {
+    match op {
+        ast::OpBin::And => Some(OpBinBool::And),
+        ast::OpBin::Or => Some(OpBinBool::Or),
+        ast::OpBin::Eq => Some(OpBinBool::Eq),
+        ast::OpBin::Neq => Some(OpBinBool::Neq),
+        _ => None,
+    }
+}
+
 /// Checks an expression expecting a Bool type.
 pub fn check_bool(context: &Context, expr: ast::Expr) -> TResult<ExprBool> {
-    use NodeBool::{Compare, Literal};
+    use NodeBool::{Binary, Compare, Literal, Unary};
     match expr {
         ast::Expr::LBool(b) => Ok(ExprBool::Node(Literal(b))),
         ast::Expr::Variable(name) => {
@@ -109,11 +120,38 @@ pub fn check_bool(context: &Context, expr: ast::Expr) -> TResult<ExprBool> {
                 arguments: typed_args,
             })
         }
+        ast::Expr::Unary {
+            operator: ast::OpUn::Not,
+            operand,
+        } => {
+            let operand = check_bool(context, *operand)?;
+            Ok(ExprBool::Node(Unary {
+                operator: OpUnBool::Not,
+                operand: Box::new(operand),
+            }))
+        }
         ast::Expr::Binary {
             operator,
             left,
             right,
         } => {
+            // Try bool-binary first (Fall back if Eq/Neq to number compare).
+            if let Some(op) = map_op_bool(operator) {
+                let l_bool = check_bool(context, (*left).clone());
+                let r_bool = check_bool(context, (*right).clone());
+                if let (Ok(l), Ok(r)) = (l_bool, r_bool) {
+                    return Ok(ExprBool::Node(Binary {
+                        operator: op,
+                        left: Box::new(l),
+                        right: Box::new(r),
+                    }));
+                }
+                // Reject if cannot fallback to number compare
+                // only Eq/Neq can fallback to number compare
+                if !matches!(op, OpBinBool::Eq | OpBinBool::Neq) {
+                    return Err("Logical operator requires bool operands".to_string());
+                }
+            }
             let op = map_op_compare(operator).ok_or("Invalid operator for bool")?;
             let left = check_number(context, *left)?;
             let right = check_number(context, *right)?;
@@ -352,5 +390,105 @@ mod tests {
             right: Box::new(ast::Expr::LNumber(2.0)),
         };
         assert!(check_bool(&context, expr).is_err());
+    }
+
+    #[test]
+    fn test_check_bool_logical_binary() {
+        let context = Context::new();
+        // true && false
+        let expr = ast::Expr::Binary {
+            operator: OpBin::And,
+            left: Box::new(ast::Expr::LBool(true)),
+            right: Box::new(ast::Expr::LBool(false)),
+        };
+        let res = check_bool(&context, expr).unwrap();
+        match res {
+            ExprBool::Node(NodeBool::Binary { operator, .. }) => {
+                assert_eq!(operator, OpBinBool::And);
+            }
+            _ => panic!("Expected Binary And, got {:?}", res),
+        }
+
+        // true || false
+        let expr = ast::Expr::Binary {
+            operator: OpBin::Or,
+            left: Box::new(ast::Expr::LBool(true)),
+            right: Box::new(ast::Expr::LBool(false)),
+        };
+        let res = check_bool(&context, expr).unwrap();
+        match res {
+            ExprBool::Node(NodeBool::Binary { operator, .. }) => {
+                assert_eq!(operator, OpBinBool::Or);
+            }
+            _ => panic!("Expected Binary Or, got {:?}", res),
+        }
+    }
+
+    #[test]
+    fn test_check_bool_not() {
+        let context = Context::new();
+        let expr = ast::Expr::Unary {
+            operator: ast::OpUn::Not,
+            operand: Box::new(ast::Expr::LBool(true)),
+        };
+        let res = check_bool(&context, expr).unwrap();
+        match res {
+            ExprBool::Node(NodeBool::Unary { operator, .. }) => {
+                assert_eq!(operator, OpUnBool::Not);
+            }
+            _ => panic!("Expected Unary Not, got {:?}", res),
+        }
+
+        // !1 rejected
+        let expr = ast::Expr::Unary {
+            operator: ast::OpUn::Not,
+            operand: Box::new(ast::Expr::LNumber(1.0)),
+        };
+        assert!(check_bool(&context, expr).is_err());
+    }
+
+    #[test]
+    fn test_check_bool_logical_rejects_non_bool() {
+        let context = Context::new();
+        // 1 && 2 — And requires bool operands
+        let expr = ast::Expr::Binary {
+            operator: OpBin::And,
+            left: Box::new(ast::Expr::LNumber(1.0)),
+            right: Box::new(ast::Expr::LNumber(2.0)),
+        };
+        assert!(check_bool(&context, expr).is_err());
+    }
+
+    #[test]
+    fn test_check_bool_eq_dispatch() {
+        let context = Context::new();
+
+        // bool == bool → Binary Eq
+        let expr = ast::Expr::Binary {
+            operator: OpBin::Eq,
+            left: Box::new(ast::Expr::LBool(true)),
+            right: Box::new(ast::Expr::LBool(false)),
+        };
+        let res = check_bool(&context, expr).unwrap();
+        match res {
+            ExprBool::Node(NodeBool::Binary { operator, .. }) => {
+                assert_eq!(operator, OpBinBool::Eq);
+            }
+            _ => panic!("Expected Binary Eq for bool operands, got {:?}", res),
+        }
+
+        // number == number still → Compare Eq
+        let expr = ast::Expr::Binary {
+            operator: OpBin::Eq,
+            left: Box::new(ast::Expr::LNumber(1.0)),
+            right: Box::new(ast::Expr::LNumber(2.0)),
+        };
+        let res = check_bool(&context, expr).unwrap();
+        match res {
+            ExprBool::Node(NodeBool::Compare { operator, .. }) => {
+                assert_eq!(operator, OpCompare::Eq);
+            }
+            _ => panic!("Expected Compare Eq for number operands, got {:?}", res),
+        }
     }
 }

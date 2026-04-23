@@ -7,7 +7,7 @@ use crate::ir::scene;
 use crate::ir::typed;
 use crate::ir::typed::expr::{
     Expr, ExprBool, ExprColor, ExprGeneric, ExprGraphic, ExprNumber, ExprString, NodeBool,
-    NodeNumber, OpBinNumber, OpCompare,
+    NodeNumber, OpBinBool, OpBinNumber, OpCompare, OpUnBool,
 };
 
 pub fn eval_generic(context: &Context, expr: ExprGeneric) -> EResult<Value> {
@@ -77,6 +77,34 @@ pub fn eval_bool(context: &Context, expr: ExprBool) -> EResult<bool> {
                 OpCompare::Neq => l != r,
             })
         }
+        Expr::Node(NodeBool::Unary {
+            operator: OpUnBool::Not,
+            operand,
+        }) => Ok(!eval_bool(context, *operand)?),
+        Expr::Node(NodeBool::Binary {
+            operator,
+            left,
+            right,
+        }) => match operator {
+            OpBinBool::And => {
+                // Short-circuit evaluation
+                if !eval_bool(context, *left)? {
+                    Ok(false)
+                } else {
+                    eval_bool(context, *right)
+                }
+            }
+            OpBinBool::Or => {
+                // Short-circuit evaluation
+                if eval_bool(context, *left)? {
+                    Ok(true)
+                } else {
+                    eval_bool(context, *right)
+                }
+            }
+            OpBinBool::Eq => Ok(eval_bool(context, *left)? == eval_bool(context, *right)?),
+            OpBinBool::Neq => Ok(eval_bool(context, *left)? != eval_bool(context, *right)?),
+        },
     }
 }
 
@@ -312,5 +340,86 @@ mod tests {
                 r
             );
         }
+    }
+
+    #[test]
+    fn test_eval_bool_logical() {
+        let context = Context::new();
+        let blit = |b: bool| Box::new(Expr::Node(NodeBool::Literal(b)));
+
+        let cases = [
+            (OpBinBool::And, true, true, true),
+            (OpBinBool::And, true, false, false),
+            (OpBinBool::And, false, true, false),
+            (OpBinBool::And, false, false, false),
+            (OpBinBool::Or, true, true, true),
+            (OpBinBool::Or, true, false, true),
+            (OpBinBool::Or, false, true, true),
+            (OpBinBool::Or, false, false, false),
+            (OpBinBool::Eq, true, true, true),
+            (OpBinBool::Eq, true, false, false),
+            (OpBinBool::Neq, true, false, true),
+            (OpBinBool::Neq, true, true, false),
+        ];
+
+        for (op, l, r, expected) in cases {
+            let expr = Expr::Node(NodeBool::Binary {
+                operator: op,
+                left: blit(l),
+                right: blit(r),
+            });
+            assert_eq!(
+                eval_bool(&context, expr).unwrap(),
+                expected,
+                "{:?} {} {}",
+                op,
+                l,
+                r
+            );
+        }
+    }
+
+    #[test]
+    fn test_eval_bool_not() {
+        let context = Context::new();
+        let expr = Expr::Node(NodeBool::Unary {
+            operator: OpUnBool::Not,
+            operand: Box::new(Expr::Node(NodeBool::Literal(true))),
+        });
+        assert_eq!(eval_bool(&context, expr).unwrap(), false);
+
+        let expr = Expr::Node(NodeBool::Unary {
+            operator: OpUnBool::Not,
+            operand: Box::new(Expr::Node(NodeBool::Literal(false))),
+        });
+        assert_eq!(eval_bool(&context, expr).unwrap(), true);
+    }
+
+    #[test]
+    fn test_eval_bool_short_circuit() {
+        let context = Context::new();
+        // false && <bad call> — RHS must not run
+        let bad = Box::new(Expr::Call {
+            function: "nonexistent".to_string(),
+            arguments: vec![],
+        });
+        let expr = Expr::Node(NodeBool::Binary {
+            operator: OpBinBool::And,
+            left: Box::new(Expr::Node(NodeBool::Literal(false))),
+            right: bad,
+        });
+        assert_eq!(eval_bool(&context, expr).unwrap(), false);
+
+        // true || <bad call> — RHS must not run
+        let bad = Box::new(Expr::Call {
+            function: "nonexistent".to_string(),
+            arguments: vec![],
+        });
+        let expr = Expr::Node(NodeBool::Binary {
+            operator: OpBinBool::Or,
+            left: Box::new(Expr::Node(NodeBool::Literal(true))),
+            right: bad,
+        });
+        assert_eq!(eval_bool(&context, expr).unwrap(), true);
     }
 }

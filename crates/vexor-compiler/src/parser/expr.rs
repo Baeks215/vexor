@@ -7,7 +7,9 @@ use crate::parser::keyword::{pk_color, pk_false, pk_true};
 use crate::parser::p_identifier_no_ws;
 use crate::parser::{Input, bracketed, lexeme, p_identifier};
 use winnow::ascii::float;
-use winnow::combinator::{Infix, alt, delimited, dispatch, expression, fail, preceded, separated};
+use winnow::combinator::{
+    Infix, Prefix, alt, delimited, dispatch, expression, fail, preceded, separated,
+};
 use winnow::error::StrContext;
 use winnow::token::take_while;
 use winnow::{ModalResult, Parser};
@@ -75,9 +77,12 @@ pub fn p_atom<'a>(input: &mut Input<'a>) -> ModalResult<ast::Expr> {
 /// Parses an expression.
 pub fn p_expr<'a>(input: &mut Input<'a>) -> ModalResult<ast::Expr> {
     expression(p_atom).infix(dispatch! {lexeme(alt((
+        alt(("&&", "||")),
         alt(("==", "!=", ">=", "<=")),
         alt(("+", "-", "*", "/", ">", "<")),
     )));
+        "||" => Infix::Left(1, |_, a, b| Ok(ast::Expr::Binary { operator: ast::OpBin::Or, left: Box::new(a), right: Box::new(b) })),
+        "&&" => Infix::Left(2, |_, a, b| Ok(ast::Expr::Binary { operator: ast::OpBin::And, left: Box::new(a), right: Box::new(b) })),
         "==" => Infix::Left(3, |_, a, b| Ok(ast::Expr::Binary { operator: ast::OpBin::Eq, left: Box::new(a), right: Box::new(b) })),
         "!=" => Infix::Left(3, |_, a, b| Ok(ast::Expr::Binary { operator: ast::OpBin::Neq, left: Box::new(a), right: Box::new(b) })),
         ">=" => Infix::Left(4, |_, a, b| Ok(ast::Expr::Binary { operator: ast::OpBin::Gte, left: Box::new(a), right: Box::new(b) })),
@@ -89,7 +94,12 @@ pub fn p_expr<'a>(input: &mut Input<'a>) -> ModalResult<ast::Expr> {
         "*" => Infix::Left(7, |_, a, b| Ok(ast::Expr::Binary { operator: ast::OpBin::Mul, left: Box::new(a), right: Box::new(b) })),
         "/" => Infix::Left(7, |_, a, b| Ok(ast::Expr::Binary { operator: ast::OpBin::Div, left: Box::new(a), right: Box::new(b) })),
         _ => fail,
-    }).parse_next(input)
+    })
+    .prefix(dispatch! {lexeme("!");
+        "!" => Prefix(11, |_, a| Ok(ast::Expr::Unary { operator: ast::OpUn::Not, operand: Box::new(a) })),
+        _ => fail,
+    })
+    .parse_next(input)
 }
 
 #[cfg(test)]
@@ -363,8 +373,7 @@ mod tests {
             }
         );
 
-        // 1 < 2 == 3 < 4 ill-formed under this scope (eq on bool not supported)
-        // but parser-only: 1 == 2 + 3 => 1 == (2 + 3)
+        // parser-only: 1 == 2 + 3 => 1 == (2 + 3)
         let mut input = Input::new("1 == 2 + 3");
         let res = p_expr.parse_next(&mut input).unwrap();
         assert_eq!(
@@ -377,6 +386,120 @@ mod tests {
                     left: Box::new(ast::Expr::LNumber(2.0)),
                     right: Box::new(ast::Expr::LNumber(3.0)),
                 }),
+            }
+        );
+    }
+
+    #[test]
+    fn test_p_expr_logical() {
+        // true && false
+        let mut input = Input::new("true && false");
+        let res = p_expr.parse_next(&mut input).unwrap();
+        assert_eq!(
+            res,
+            ast::Expr::Binary {
+                operator: ast::OpBin::And,
+                left: Box::new(ast::Expr::LBool(true)),
+                right: Box::new(ast::Expr::LBool(false)),
+            }
+        );
+
+        // true || false
+        let mut input = Input::new("true || false");
+        let res = p_expr.parse_next(&mut input).unwrap();
+        assert_eq!(
+            res,
+            ast::Expr::Binary {
+                operator: ast::OpBin::Or,
+                left: Box::new(ast::Expr::LBool(true)),
+                right: Box::new(ast::Expr::LBool(false)),
+            }
+        );
+
+        // !true
+        let mut input = Input::new("!true");
+        let res = p_expr.parse_next(&mut input).unwrap();
+        assert_eq!(
+            res,
+            ast::Expr::Unary {
+                operator: ast::OpUn::Not,
+                operand: Box::new(ast::Expr::LBool(true)),
+            }
+        );
+
+        // !!true
+        let mut input = Input::new("!!true");
+        let res = p_expr.parse_next(&mut input).unwrap();
+        assert_eq!(
+            res,
+            ast::Expr::Unary {
+                operator: ast::OpUn::Not,
+                operand: Box::new(ast::Expr::Unary {
+                    operator: ast::OpUn::Not,
+                    operand: Box::new(ast::Expr::LBool(true)),
+                }),
+            }
+        );
+    }
+
+    #[test]
+    fn test_p_expr_logical_precedence() {
+        // a || b && c => a || (b && c)
+        let mut input = Input::new("true || false && true");
+        let res = p_expr.parse_next(&mut input).unwrap();
+        assert_eq!(
+            res,
+            ast::Expr::Binary {
+                operator: ast::OpBin::Or,
+                left: Box::new(ast::Expr::LBool(true)),
+                right: Box::new(ast::Expr::Binary {
+                    operator: ast::OpBin::And,
+                    left: Box::new(ast::Expr::LBool(false)),
+                    right: Box::new(ast::Expr::LBool(true)),
+                }),
+            }
+        );
+
+        // !a && b => (!a) && b
+        let mut input = Input::new("!true && false");
+        let res = p_expr.parse_next(&mut input).unwrap();
+        assert_eq!(
+            res,
+            ast::Expr::Binary {
+                operator: ast::OpBin::And,
+                left: Box::new(ast::Expr::Unary {
+                    operator: ast::OpUn::Not,
+                    operand: Box::new(ast::Expr::LBool(true)),
+                }),
+                right: Box::new(ast::Expr::LBool(false)),
+            }
+        );
+
+        // a == b && c => (a == b) && c   (comparison binds tighter than &&)
+        let mut input = Input::new("1 == 2 && true");
+        let res = p_expr.parse_next(&mut input).unwrap();
+        assert_eq!(
+            res,
+            ast::Expr::Binary {
+                operator: ast::OpBin::And,
+                left: Box::new(ast::Expr::Binary {
+                    operator: ast::OpBin::Eq,
+                    left: Box::new(ast::Expr::LNumber(1.0)),
+                    right: Box::new(ast::Expr::LNumber(2.0)),
+                }),
+                right: Box::new(ast::Expr::LBool(true)),
+            }
+        );
+
+        // != still parses as infix Neq, not !(=...)
+        let mut input = Input::new("1 != 2");
+        let res = p_expr.parse_next(&mut input).unwrap();
+        assert_eq!(
+            res,
+            ast::Expr::Binary {
+                operator: ast::OpBin::Neq,
+                left: Box::new(ast::Expr::LNumber(1.0)),
+                right: Box::new(ast::Expr::LNumber(2.0)),
             }
         );
     }

@@ -122,6 +122,18 @@ mod tests {
     }
 
     #[test]
+    fn test_compile_with_logical_ops() {
+        let input = "let x: bool = true && !false || 1 == 1\nexport circle(1)";
+        let scene = compile(input).expect("compile should succeed");
+        assert_eq!(scene.exports.len(), 1);
+    }
+
+    #[test]
+    fn test_compile_rejects_logical_on_numbers() {
+        assert!(compile("let x: bool = 1 && 2\nexport circle(1)").is_none());
+    }
+
+    #[test]
     fn test_compile_with_function() {
         let input = "fn double(x: number): number = x + x\nexport circle(double(5))";
         let scene = compile(input).expect("compile should succeed");
