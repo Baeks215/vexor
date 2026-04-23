@@ -6,13 +6,15 @@ use crate::ir::Number;
 use crate::ir::scene;
 use crate::ir::typed;
 use crate::ir::typed::expr::{
-    Expr, ExprColor, ExprGeneric, ExprGraphic, ExprNumber, ExprString, NodeNumber, OpBinNumber,
+    Expr, ExprBool, ExprColor, ExprGeneric, ExprGraphic, ExprNumber, ExprString, NodeBool,
+    NodeNumber, OpBinNumber, OpCompare,
 };
 
 pub fn eval_generic(context: &Context, expr: ExprGeneric) -> EResult<Value> {
     Ok(match expr {
         ExprGeneric::Number(expr) => Value::Number(eval_number(context, expr)?),
         ExprGeneric::String(expr) => Value::String(eval_string(context, expr)?),
+        ExprGeneric::Bool(expr) => Value::Bool(eval_bool(context, expr)?),
         ExprGeneric::Color(expr) => Value::Color(eval_color(context, expr)?),
         ExprGeneric::Graphic(expr) => Value::Graphic(eval_graphic(context, expr)?),
     })
@@ -42,6 +44,39 @@ pub fn eval_number(context: &Context, expr: ExprNumber) -> EResult<Number> {
             OpBinNumber::Mul => Ok(eval_number(context, *left)? * eval_number(context, *right)?),
             OpBinNumber::Div => Ok(eval_number(context, *left)? / eval_number(context, *right)?),
         },
+    }
+}
+
+pub fn eval_bool(context: &Context, expr: ExprBool) -> EResult<bool> {
+    match expr {
+        Expr::Variable(name) => match context.get_var(&name)? {
+            Value::Bool(x) => Ok(x),
+            _ => Err("Expected a bool".to_string()),
+        },
+        Expr::Call {
+            function,
+            arguments,
+        } => match eval_call(context, function, arguments)? {
+            Value::Bool(x) => Ok(x),
+            _ => Err("Expected a bool".to_string()),
+        },
+        Expr::Node(NodeBool::Literal(b)) => Ok(b),
+        Expr::Node(NodeBool::Compare {
+            operator,
+            left,
+            right,
+        }) => {
+            let l = eval_number(context, *left)?;
+            let r = eval_number(context, *right)?;
+            Ok(match operator {
+                OpCompare::Gt => l > r,
+                OpCompare::Gte => l >= r,
+                OpCompare::Lt => l < r,
+                OpCompare::Lte => l <= r,
+                OpCompare::Eq => l == r,
+                OpCompare::Neq => l != r,
+            })
+        }
     }
 }
 
@@ -219,6 +254,63 @@ mod tests {
             assert_eq!(n, 1.0);
         } else {
             panic!("Expected Number");
+        }
+
+        let expr = ExprGeneric::Bool(Expr::Node(NodeBool::Literal(true)));
+        let res = eval_generic(&context, expr).unwrap();
+        if let Value::Bool(b) = res {
+            assert_eq!(b, true);
+        } else {
+            panic!("Expected Bool");
+        }
+    }
+
+    #[test]
+    fn test_eval_bool_literal_and_var() {
+        let mut context = Context::new();
+        context.set_var("flag".to_string(), Value::Bool(true));
+
+        let expr = Expr::Node(NodeBool::Literal(false));
+        assert_eq!(eval_bool(&context, expr).unwrap(), false);
+
+        let expr = Expr::Variable("flag".to_string());
+        assert_eq!(eval_bool(&context, expr).unwrap(), true);
+    }
+
+    #[test]
+    fn test_eval_bool_compare() {
+        let context = Context::new();
+        let lit = |n: f64| Box::new(Expr::Node(NodeNumber::Literal(n)));
+
+        let cases = [
+            (OpCompare::Gt, 2.0, -1.0, true),
+            (OpCompare::Gt, -1.0, -1.0, false),
+            (OpCompare::Gte, -1.0, -1.0, true),
+            (OpCompare::Gte, -2.0, -1.0, false),
+            (OpCompare::Lt, -2.0, -1.0, true),
+            (OpCompare::Lt, -1.0, -1.0, false),
+            (OpCompare::Lte, -1.0, -1.0, true),
+            (OpCompare::Lte, 2.0, -1.0, false),
+            (OpCompare::Eq, -1.5, -1.5, true),
+            (OpCompare::Eq, -1.0, 1.0, false),
+            (OpCompare::Neq, -1.0, 1.0, true),
+            (OpCompare::Neq, -1.0, -1.0, false),
+        ];
+
+        for (op, l, r, expected) in cases {
+            let expr = Expr::Node(NodeBool::Compare {
+                operator: op,
+                left: lit(l),
+                right: lit(r),
+            });
+            assert_eq!(
+                eval_bool(&context, expr).unwrap(),
+                expected,
+                "{:?} {} {}",
+                op,
+                l,
+                r
+            );
         }
     }
 }

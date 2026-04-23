@@ -94,14 +94,41 @@ mod tests {
     }
 
     #[test]
+    fn test_compile_with_bool_assignment() {
+        let input = "let flag: bool = true\nexport circle(1)";
+        let scene = compile(input).expect("compile should succeed");
+        assert_eq!(scene.exports.len(), 1);
+        assert_eq!(scene.exports[0], Graphic::Circle { radius: 1.0 });
+    }
+
+    #[test]
+    fn test_compile_with_compare() {
+        let input = "let b: bool = 3 > 2\nexport circle(1)";
+        let scene = compile(input).expect("compile should succeed");
+        assert_eq!(scene.exports.len(), 1);
+    }
+
+    #[test]
+    fn test_compile_with_bool_function() {
+        let input = "fn cmp(a: number, b: number): bool = a > b\nlet flag: bool = cmp(5, 3)\nexport circle(1)";
+        let scene = compile(input).expect("compile should succeed");
+        assert_eq!(scene.exports.len(), 1);
+    }
+
+    #[test]
+    fn test_compile_rejects_compare_as_number() {
+        // Assigning a comparison to a number-typed var must fail type check
+        assert!(compile("let x: number = 1 > 2\nexport circle(1)").is_none());
+    }
+
+    #[test]
     fn test_compile_with_function() {
         let input = "fn double(x: number): number = x + x\nexport circle(double(5))";
         let scene = compile(input).expect("compile should succeed");
         assert_eq!(scene.exports.len(), 1);
         assert_eq!(scene.exports[0], Graphic::Circle { radius: 10.0 });
 
-        let input =
-            "fn area(w: number, h: number): number = w * h\nexport rect(area(2, 3), 4)";
+        let input = "fn area(w: number, h: number): number = w * h\nexport rect(area(2, 3), 4)";
         let scene = compile(input).expect("compile should succeed");
         assert_eq!(scene.exports.len(), 1);
         assert_eq!(

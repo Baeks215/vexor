@@ -19,6 +19,7 @@ type EResult<O> = Result<O, EError>;
 enum Value {
     Number(Number),
     String(String),
+    Bool(bool),
     Color(scene::Color),
     Graphic(scene::Graphic),
 }
