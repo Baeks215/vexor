@@ -6,8 +6,8 @@ use crate::ir::Number;
 use crate::ir::scene;
 use crate::ir::typed;
 use crate::ir::typed::expr::{
-    Expr, ExprBool, ExprColor, ExprGeneric, ExprGraphic, ExprNumber, ExprString, NodeBool,
-    NodeNumber, OpBinBool, OpBinNumber, OpCompare, OpUnBool,
+    Expr, ExprBool, ExprColor, ExprGeneric, ExprGraphic, ExprNumber, ExprString, MatchArm,
+    NodeBool, NodeNumber, NodeString, OpBinBool, OpBinNumber, OpCompare, OpUnBool, Pattern,
 };
 
 pub fn eval_generic(context: &Context, expr: ExprGeneric) -> EResult<Value> {
@@ -44,7 +44,61 @@ pub fn eval_number(context: &Context, expr: ExprNumber) -> EResult<Number> {
             OpBinNumber::Mul => Ok(eval_number(context, *left)? * eval_number(context, *right)?),
             OpBinNumber::Div => Ok(eval_number(context, *left)? / eval_number(context, *right)?),
         },
+        Expr::Node(NodeNumber::Match { scrutinee, arms }) => {
+            let s = eval_number(context, *scrutinee)?;
+            eval_match(
+                context,
+                arms,
+                Value::Number(s),
+                |ctx, lit| Ok(eval_number(ctx, lit)? == s),
+                eval_number,
+            )
+        }
     }
+}
+
+/// Generic match-arm evaluation.
+///   - `scrutinee_value` is wrapped as a `Value` for binding patterns.
+///   - `eq_literal` checks whether a literal pattern matches the scrutinee.
+///   - `eval_body` evaluates the arm body.
+fn eval_match<E, U, Eq, F>(
+    context: &Context,
+    arms: Vec<MatchArm<E>>,
+    scrutinee_value: Value,
+    eq_literal: Eq,
+    eval_body: F,
+) -> EResult<U>
+where
+    Eq: Fn(&Context, E) -> EResult<bool>,
+    F: Fn(&Context, E) -> EResult<U>,
+{
+    for MatchArm {
+        pattern,
+        guard,
+        body,
+    } in arms
+    {
+        let scope;
+        let arm_ctx: &Context = match pattern {
+            Pattern::Binding(name) => {
+                scope = context.with_var(name, scrutinee_value.clone());
+                &scope
+            }
+            Pattern::Literal(e) => {
+                if !eq_literal(context, e)? {
+                    continue;
+                }
+                context
+            }
+        };
+        if let Some(g) = guard {
+            if !eval_bool(arm_ctx, g)? {
+                continue;
+            }
+        }
+        return eval_body(arm_ctx, body);
+    }
+    Err("No match arm matched".to_string())
 }
 
 pub fn eval_bool(context: &Context, expr: ExprBool) -> EResult<bool> {
@@ -105,6 +159,16 @@ pub fn eval_bool(context: &Context, expr: ExprBool) -> EResult<bool> {
             OpBinBool::Eq => Ok(eval_bool(context, *left)? == eval_bool(context, *right)?),
             OpBinBool::Neq => Ok(eval_bool(context, *left)? != eval_bool(context, *right)?),
         },
+        Expr::Node(NodeBool::Match { scrutinee, arms }) => {
+            let s = eval_bool(context, *scrutinee)?;
+            eval_match(
+                context,
+                arms,
+                Value::Bool(s),
+                move |ctx, lit| Ok(eval_bool(ctx, lit)? == s),
+                eval_bool,
+            )
+        }
     }
 }
 
@@ -121,7 +185,18 @@ pub fn eval_string(context: &Context, expr: ExprString) -> EResult<String> {
             Value::String(x) => Ok(x),
             _ => Err("Expected a string".to_string()),
         },
-        Expr::Node(literal) => Ok(literal),
+        Expr::Node(NodeString::Literal(s)) => Ok(s),
+        Expr::Node(NodeString::Match { scrutinee, arms }) => {
+            let s = eval_string(context, *scrutinee)?;
+            let s_cmp = s.clone();
+            eval_match(
+                context,
+                arms,
+                Value::String(s),
+                move |ctx, lit| Ok(eval_string(ctx, lit)? == s_cmp),
+                eval_string,
+            )
+        }
     }
 }
 
@@ -227,7 +302,7 @@ mod tests {
         let mut context = Context::new();
         context.set_var("name".to_string(), Value::String("vexor".to_string()));
 
-        let expr = Expr::Node("hello".to_string());
+        let expr = Expr::Node(NodeString::Literal("hello".to_string()));
         assert_eq!(eval_string(&context, expr).unwrap(), "hello");
 
         let expr = Expr::Variable("name".to_string());
@@ -268,7 +343,9 @@ mod tests {
         assert_eq!(res, scene::Graphic::Circle { radius: 15.0 });
 
         // Text
-        let expr = Expr::Node(typed::Graphic::Text(Box::new(Expr::Node("hi".to_string()))));
+        let expr = Expr::Node(typed::Graphic::Text(Box::new(Expr::Node(
+            NodeString::Literal("hi".to_string()),
+        ))));
         let res = eval_graphic(&context, expr).unwrap();
         assert_eq!(res, scene::Graphic::Text("hi".to_string()));
     }
@@ -393,6 +470,94 @@ mod tests {
             operand: Box::new(Expr::Node(NodeBool::Literal(false))),
         });
         assert_eq!(eval_bool(&context, expr).unwrap(), true);
+    }
+
+    #[test]
+    fn test_eval_match() {
+        // match x { x if x > 10 => 100, 2 => 99, y => y + 1 }
+        let build = || {
+            Expr::Node(NodeNumber::Match {
+                scrutinee: Box::new(Expr::Variable("x".to_string())),
+                arms: vec![
+                    MatchArm {
+                        pattern: Pattern::Binding("x".to_string()),
+                        guard: Some(Expr::Node(NodeBool::Compare {
+                            operator: OpCompare::Gt,
+                            left: Box::new(Expr::Variable("x".to_string())),
+                            right: Box::new(Expr::Node(NodeNumber::Literal(10.0))),
+                        })),
+                        body: Expr::Node(NodeNumber::Literal(100.0)),
+                    },
+                    MatchArm {
+                        pattern: Pattern::Literal(Expr::Node(NodeNumber::Literal(2.0))),
+                        guard: None,
+                        body: Expr::Node(NodeNumber::Literal(99.0)),
+                    },
+                    MatchArm {
+                        pattern: Pattern::Binding("y".to_string()),
+                        guard: None,
+                        body: Expr::Node(NodeNumber::Binary {
+                            operator: OpBinNumber::Add,
+                            left: Box::new(Expr::Variable("y".to_string())),
+                            right: Box::new(Expr::Node(NodeNumber::Literal(1.0))),
+                        }),
+                    },
+                ],
+            })
+        };
+
+        // x=5 → binding arm wins (y=5, y+1=6)
+        let mut context = Context::new();
+        context.set_var("x".to_string(), Value::Number(5.0));
+        assert_eq!(eval_number(&context, build()).unwrap(), 6.0);
+
+        // x=2 → literal arm wins (99)
+        let mut context = Context::new();
+        context.set_var("x".to_string(), Value::Number(2.0));
+        assert_eq!(eval_number(&context, build()).unwrap(), 99.0);
+
+        // x=20 → guard arm wins (100)
+        let mut context = Context::new();
+        context.set_var("x".to_string(), Value::Number(20.0));
+        assert_eq!(eval_number(&context, build()).unwrap(), 100.0);
+    }
+
+    #[test]
+    fn test_eval_match_no_match() {
+        // match 5 { 0 => 1 } — no arm matches.
+        let expr = Expr::Node(NodeNumber::Match {
+            scrutinee: Box::new(Expr::Node(NodeNumber::Literal(5.0))),
+            arms: vec![MatchArm {
+                pattern: Pattern::Literal(Expr::Node(NodeNumber::Literal(0.0))),
+                guard: None,
+                body: Expr::Node(NodeNumber::Literal(1.0)),
+            }],
+        });
+        let context = Context::new();
+        assert!(eval_number(&context, expr).is_err());
+    }
+
+    #[test]
+    fn test_eval_match_guard_sees_binding() {
+        // match 5 { n if n == 5 => n * 2 } → 10
+        let expr = Expr::Node(NodeNumber::Match {
+            scrutinee: Box::new(Expr::Node(NodeNumber::Literal(5.0))),
+            arms: vec![MatchArm {
+                pattern: Pattern::Binding("n".to_string()),
+                guard: Some(Expr::Node(NodeBool::Compare {
+                    operator: OpCompare::Eq,
+                    left: Box::new(Expr::Variable("n".to_string())),
+                    right: Box::new(Expr::Node(NodeNumber::Literal(5.0))),
+                })),
+                body: Expr::Node(NodeNumber::Binary {
+                    operator: OpBinNumber::Mul,
+                    left: Box::new(Expr::Variable("n".to_string())),
+                    right: Box::new(Expr::Node(NodeNumber::Literal(2.0))),
+                }),
+            }],
+        });
+        let context = Context::new();
+        assert_eq!(eval_number(&context, expr).unwrap(), 10.0);
     }
 
     #[test]

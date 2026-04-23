@@ -24,10 +24,25 @@ pub enum ExprGeneric {
 }
 
 pub type ExprNumber = Expr<NodeNumber>;
-pub type ExprString = Expr<String>;
+pub type ExprString = Expr<NodeString>;
 pub type ExprBool = Expr<NodeBool>;
 pub type ExprColor = Expr<Color>;
 pub type ExprGraphic = Expr<Graphic>;
+
+// --- Match ---
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum Pattern<E> {
+    Binding(String),
+    Literal(E),
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct MatchArm<E> {
+    pub pattern: Pattern<E>,
+    pub guard: Option<ExprBool>,
+    pub body: E,
+}
 
 // --- Number Type ---
 
@@ -48,6 +63,22 @@ pub enum NodeNumber {
         operator: OpBinNumber,
         left: Box<ExprNumber>,
         right: Box<ExprNumber>,
+    },
+    Match {
+        scrutinee: Box<ExprNumber>,
+        arms: Vec<MatchArm<ExprNumber>>,
+    },
+}
+
+// --- String Type ---
+
+/// String Node
+#[derive(Debug, Clone, PartialEq)]
+pub enum NodeString {
+    Literal(String),
+    Match {
+        scrutinee: Box<ExprString>,
+        arms: Vec<MatchArm<ExprString>>,
     },
 }
 
@@ -93,6 +124,10 @@ pub enum NodeBool {
     Unary {
         operator: OpUnBool,
         operand: Box<ExprBool>,
+    },
+    Match {
+        scrutinee: Box<ExprBool>,
+        arms: Vec<MatchArm<ExprBool>>,
     },
 }
 

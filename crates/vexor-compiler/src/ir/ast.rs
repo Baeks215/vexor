@@ -46,6 +46,19 @@ pub enum OpUn {
     Not,
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub enum Pattern {
+    Binding(String),
+    Literal(Expr),
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct MatchArm {
+    pub pattern: Pattern,
+    pub guard: Option<Expr>,
+    pub body: Expr,
+}
+
 /// Expression
 #[derive(Debug, Clone, PartialEq)]
 pub enum Expr {
@@ -71,6 +84,11 @@ pub enum Expr {
     Call {
         function: String,
         args: Vec<Expr>,
+    },
+    /// Match expression
+    Match {
+        scrutinee: Box<Expr>,
+        arms: Vec<MatchArm>,
     },
 }
 

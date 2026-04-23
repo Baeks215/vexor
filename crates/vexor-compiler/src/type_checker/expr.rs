@@ -2,8 +2,8 @@
 
 use crate::ir::ast;
 use crate::ir::typed::expr::{
-    ExprBool, ExprColor, ExprGeneric, ExprGraphic, ExprNumber, ExprString, NodeBool, NodeNumber,
-    OpBinBool, OpBinNumber, OpCompare, OpUnBool,
+    ExprBool, ExprColor, ExprGeneric, ExprGraphic, ExprNumber, ExprString, MatchArm, NodeBool,
+    NodeNumber, NodeString, OpBinBool, OpBinNumber, OpCompare, OpUnBool, Pattern,
 };
 use crate::ir::typed::{self, Type};
 use crate::type_checker::{Constraint, Context, TResult};
@@ -37,7 +37,7 @@ fn check_func_args(
 
 /// Checks an expression expecting a Number type.
 pub fn check_number(context: &Context, expr: ast::Expr) -> TResult<ExprNumber> {
-    use NodeNumber::{Binary, Literal};
+    use NodeNumber::{Binary, Literal, Match};
     match expr {
         ast::Expr::LNumber(num) => Ok(ExprNumber::Node(Literal(num))),
         ast::Expr::Variable(name) => {
@@ -65,8 +65,49 @@ pub fn check_number(context: &Context, expr: ast::Expr) -> TResult<ExprNumber> {
                 right: Box::new(right),
             }))
         }
+        ast::Expr::Match { scrutinee, arms } => {
+            let scrutinee = Box::new(check_number(context, *scrutinee)?);
+            let arms = check_match_arms(context, Type::Number, arms, check_number)?;
+            Ok(ExprNumber::Node(Match { scrutinee, arms }))
+        }
         _ => Err("Unexpected expression, expected a number".to_string()),
     }
+}
+
+/// Type-checks match arms for a match whose scrutinee and body are of type E.
+fn check_match_arms<F, E>(
+    context: &Context,
+    ty: Type,
+    arms: Vec<ast::MatchArm>,
+    check: F,
+) -> TResult<Vec<MatchArm<E>>>
+where
+    F: Fn(&Context, ast::Expr) -> TResult<E>,
+{
+    arms.into_iter()
+        .map(|arm| {
+            let ast::MatchArm {
+                pattern,
+                guard,
+                body,
+            } = arm;
+            let (pattern, scope) = match pattern {
+                ast::Pattern::Binding(name) => {
+                    let scope = context.with_var(name.clone(), ty);
+                    (Pattern::Binding(name), Some(scope))
+                }
+                ast::Pattern::Literal(e) => (Pattern::Literal(check(context, e)?), None),
+            };
+            let arm_ctx = scope.as_ref().unwrap_or(context);
+            let guard = guard.map(|g| check_bool(arm_ctx, g)).transpose()?;
+            let body = check(arm_ctx, body)?;
+            Ok(MatchArm {
+                pattern,
+                guard,
+                body,
+            })
+        })
+        .collect()
 }
 
 /// Maps general binary operators to number binary operations.
@@ -106,7 +147,7 @@ fn map_op_bool(op: ast::OpBin) -> Option<OpBinBool> {
 
 /// Checks an expression expecting a Bool type.
 pub fn check_bool(context: &Context, expr: ast::Expr) -> TResult<ExprBool> {
-    use NodeBool::{Binary, Compare, Literal, Unary};
+    use NodeBool::{Binary, Compare, Literal, Match, Unary};
     match expr {
         ast::Expr::LBool(b) => Ok(ExprBool::Node(Literal(b))),
         ast::Expr::Variable(name) => {
@@ -161,6 +202,11 @@ pub fn check_bool(context: &Context, expr: ast::Expr) -> TResult<ExprBool> {
                 right: Box::new(right),
             }))
         }
+        ast::Expr::Match { scrutinee, arms } => {
+            let scrutinee = Box::new(check_bool(context, *scrutinee)?);
+            let arms = check_match_arms(context, Type::Bool, arms, check_bool)?;
+            Ok(ExprBool::Node(Match { scrutinee, arms }))
+        }
         _ => Err("Unexpected expression, expected a bool".to_string()),
     }
 }
@@ -168,7 +214,7 @@ pub fn check_bool(context: &Context, expr: ast::Expr) -> TResult<ExprBool> {
 /// Checks an expression expecting a String type.
 pub fn check_string(context: &Context, expr: ast::Expr) -> TResult<ExprString> {
     match expr {
-        ast::Expr::LString(s) => Ok(ExprString::Node(s)),
+        ast::Expr::LString(s) => Ok(ExprString::Node(NodeString::Literal(s))),
         ast::Expr::Variable(name) => {
             context.check_var(&name, Is(Type::String))?;
             Ok(ExprString::Variable(name))
@@ -179,6 +225,11 @@ pub fn check_string(context: &Context, expr: ast::Expr) -> TResult<ExprString> {
                 function,
                 arguments: typed_args,
             })
+        }
+        ast::Expr::Match { scrutinee, arms } => {
+            let scrutinee = Box::new(check_string(context, *scrutinee)?);
+            let arms = check_match_arms(context, Type::String, arms, check_string)?;
+            Ok(ExprString::Node(NodeString::Match { scrutinee, arms }))
         }
         _ => Err("Unexpected expression, expected a string".to_string()),
     }
@@ -457,6 +508,140 @@ mod tests {
             right: Box::new(ast::Expr::LNumber(2.0)),
         };
         assert!(check_bool(&context, expr).is_err());
+    }
+
+    #[test]
+    fn test_check_match_basic() {
+        let mut context = Context::new();
+        context.set_var("x".to_string(), Type::Number);
+
+        // match x { x if x > 10 => 100, 2 => 99, y => y + 1 }
+        let expr = ast::Expr::Match {
+            scrutinee: Box::new(ast::Expr::Variable("x".to_string())),
+            arms: vec![
+                ast::MatchArm {
+                    pattern: ast::Pattern::Binding("x".to_string()),
+                    guard: Some(ast::Expr::Binary {
+                        operator: OpBin::Gt,
+                        left: Box::new(ast::Expr::Variable("x".to_string())),
+                        right: Box::new(ast::Expr::LNumber(10.0)),
+                    }),
+                    body: ast::Expr::LNumber(100.0),
+                },
+                ast::MatchArm {
+                    pattern: ast::Pattern::Literal(ast::Expr::LNumber(2.0)),
+                    guard: None,
+                    body: ast::Expr::LNumber(99.0),
+                },
+                ast::MatchArm {
+                    pattern: ast::Pattern::Binding("y".to_string()),
+                    guard: None,
+                    body: ast::Expr::Binary {
+                        operator: OpBin::Add,
+                        left: Box::new(ast::Expr::Variable("y".to_string())),
+                        right: Box::new(ast::Expr::LNumber(1.0)),
+                    },
+                },
+            ],
+        };
+        let res = check_number(&context, expr).unwrap();
+        match res {
+            ExprNumber::Node(NodeNumber::Match { arms, .. }) => {
+                assert_eq!(arms.len(), 3);
+            }
+            _ => panic!("Expected Match node, got {:?}", res),
+        }
+    }
+
+    #[test]
+    fn test_check_match_non_bool_guard() {
+        let context = Context::new();
+        // match 1 { x if x => 0 }  — guard is number, not bool.
+        let expr = ast::Expr::Match {
+            scrutinee: Box::new(ast::Expr::LNumber(1.0)),
+            arms: vec![ast::MatchArm {
+                pattern: ast::Pattern::Binding("x".to_string()),
+                guard: Some(ast::Expr::Variable("x".to_string())),
+                body: ast::Expr::LNumber(0.0),
+            }],
+        };
+        assert!(check_number(&context, expr).is_err());
+    }
+
+    #[test]
+    fn test_check_match_non_number_body() {
+        let context = Context::new();
+        // match 1 { x => "foo" } — body is string, context expects number.
+        let expr = ast::Expr::Match {
+            scrutinee: Box::new(ast::Expr::LNumber(1.0)),
+            arms: vec![ast::MatchArm {
+                pattern: ast::Pattern::Binding("x".to_string()),
+                guard: None,
+                body: ast::Expr::LString("foo".to_string()),
+            }],
+        };
+        assert!(check_number(&context, expr).is_err());
+    }
+
+    #[test]
+    fn test_check_match_rejected_in_color_graphic_context() {
+        let context = Context::new();
+        let expr = ast::Expr::Match {
+            scrutinee: Box::new(ast::Expr::LNumber(1.0)),
+            arms: vec![ast::MatchArm {
+                pattern: ast::Pattern::Binding("x".to_string()),
+                guard: None,
+                body: ast::Expr::LNumber(1.0),
+            }],
+        };
+        assert!(check_color(&context, expr.clone()).is_err());
+        assert!(check_graphic(&context, expr).is_err());
+    }
+
+    #[test]
+    fn test_check_match_string() {
+        let context = Context::new();
+        // match "a" { "a" => "yes", x => x }
+        let expr = ast::Expr::Match {
+            scrutinee: Box::new(ast::Expr::LString("a".to_string())),
+            arms: vec![
+                ast::MatchArm {
+                    pattern: ast::Pattern::Literal(ast::Expr::LString("a".to_string())),
+                    guard: None,
+                    body: ast::Expr::LString("yes".to_string()),
+                },
+                ast::MatchArm {
+                    pattern: ast::Pattern::Binding("x".to_string()),
+                    guard: None,
+                    body: ast::Expr::Variable("x".to_string()),
+                },
+            ],
+        };
+        let res = check_string(&context, expr).unwrap();
+        assert!(matches!(res, ExprString::Node(NodeString::Match { .. })));
+    }
+
+    #[test]
+    fn test_check_match_bool() {
+        let context = Context::new();
+        // match true { true => false, x => x }
+        let expr = ast::Expr::Match {
+            scrutinee: Box::new(ast::Expr::LBool(true)),
+            arms: vec![
+                ast::MatchArm {
+                    pattern: ast::Pattern::Literal(ast::Expr::LBool(true)),
+                    guard: None,
+                    body: ast::Expr::LBool(false),
+                },
+                ast::MatchArm {
+                    pattern: ast::Pattern::Binding("x".to_string()),
+                    guard: None,
+                    body: ast::Expr::Variable("x".to_string()),
+                },
+            ],
+        };
+        let res = check_bool(&context, expr).unwrap();
+        assert!(matches!(res, ExprBool::Node(NodeBool::Match { .. })));
     }
 
     #[test]

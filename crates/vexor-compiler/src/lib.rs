@@ -134,6 +134,29 @@ mod tests {
     }
 
     #[test]
+    fn test_compile_with_match() {
+        let input = "let x: number = 5\nlet r: number = match x { x if x > 10 => 100, 2 => 99, y => y + 1 }\nexport circle(r)";
+        let scene = compile(input).expect("compile should succeed");
+        assert_eq!(scene.exports.len(), 1);
+        assert_eq!(scene.exports[0], Graphic::Circle { radius: 6.0 });
+    }
+
+    #[test]
+    fn test_compile_with_string_match() {
+        let input = "let s: string = match \"hi\" { \"hi\" => \"hello\", x => x }\nexport text(s)";
+        let scene = compile(input).expect("compile should succeed");
+        assert_eq!(scene.exports.len(), 1);
+        assert_eq!(scene.exports[0], Graphic::Text("hello".to_string()));
+    }
+
+    #[test]
+    fn test_compile_with_bool_match() {
+        let input = "let flag: bool = match true { true => false, x => x }\nexport circle(1)";
+        let scene = compile(input).expect("compile should succeed");
+        assert_eq!(scene.exports.len(), 1);
+    }
+
+    #[test]
     fn test_compile_with_function() {
         let input = "fn double(x: number): number = x + x\nexport circle(double(5))";
         let scene = compile(input).expect("compile should succeed");

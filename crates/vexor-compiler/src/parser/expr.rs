@@ -3,12 +3,12 @@
 use crate::ir::Number;
 use crate::ir::ast;
 use crate::parser::graphic::p_graphic;
-use crate::parser::keyword::{pk_color, pk_false, pk_true};
+use crate::parser::keyword::{pk_color, pk_false, pk_if, pk_match, pk_true};
 use crate::parser::p_identifier_no_ws;
-use crate::parser::{Input, bracketed, lexeme, p_identifier};
-use winnow::ascii::float;
+use crate::parser::{Input, bracketed, lexeme, ml_lexeme, p_identifier};
+use winnow::ascii::{float, multispace0};
 use winnow::combinator::{
-    Infix, Prefix, alt, delimited, dispatch, expression, fail, preceded, separated,
+    Infix, Prefix, alt, delimited, dispatch, expression, fail, opt, preceded, separated,
 };
 use winnow::error::StrContext;
 use winnow::token::take_while;
@@ -60,6 +60,54 @@ pub fn p_call<'a>(input: &mut Input<'a>) -> ModalResult<ast::Expr> {
     .parse_next(input)
 }
 
+/// Parses a pattern.
+///   A bare identifier is a binding, any other expression is a literal match.
+pub fn p_pattern<'a>(input: &mut Input<'a>) -> ModalResult<ast::Pattern> {
+    p_expr
+        .map(|e| match e {
+            ast::Expr::Variable(name) => ast::Pattern::Binding(name),
+            other => ast::Pattern::Literal(other),
+        })
+        .parse_next(input)
+}
+
+/// Parses a match arm: `<pattern> [if <guard>] => <body>`.
+pub fn p_match_arm<'a>(input: &mut Input<'a>) -> ModalResult<ast::MatchArm> {
+    (
+        p_pattern,
+        opt(preceded(pk_if, p_expr)),
+        preceded(lexeme("=>"), p_expr),
+    )
+        .map(|(pattern, guard, body)| ast::MatchArm {
+            pattern,
+            guard,
+            body,
+        })
+        .parse_next(input)
+}
+
+/// Parses a match expression: `match <expr> { <arm>, <arm>, ... }`.
+pub fn p_match<'a>(input: &mut Input<'a>) -> ModalResult<ast::Expr> {
+    preceded(
+        pk_match,
+        (
+            p_expr,
+            delimited(
+                ml_lexeme("{"),
+                separated(1.., p_match_arm, ml_lexeme(",")),
+                (multispace0, ml_lexeme("}")),
+            ),
+        ),
+    )
+    .map(
+        |(scrutinee, arms): (ast::Expr, Vec<ast::MatchArm>)| ast::Expr::Match {
+            scrutinee: Box::new(scrutinee),
+            arms,
+        },
+    )
+    .parse_next(input)
+}
+
 /// Parses an atom.
 pub fn p_atom<'a>(input: &mut Input<'a>) -> ModalResult<ast::Expr> {
     alt((
@@ -68,6 +116,7 @@ pub fn p_atom<'a>(input: &mut Input<'a>) -> ModalResult<ast::Expr> {
         p_bool.map(|b| ast::Expr::LBool(b)),
         p_color.map(|c| ast::Expr::LColor(c)),
         p_graphic.map(|g| ast::Expr::LGraphic(g)),
+        p_match,
         p_call,
         p_identifier.map(|s| ast::Expr::Variable(s.to_string())),
     ))
@@ -502,5 +551,67 @@ mod tests {
                 right: Box::new(ast::Expr::LNumber(2.0)),
             }
         );
+    }
+
+    #[test]
+    fn test_p_match() {
+        // Full match with three arms: guard, literal, binding.
+        let mut input = Input::new("match x { x if x > 10 => 100, 2 => 99, y => y + 1 }");
+        let res = p_expr.parse_next(&mut input).unwrap();
+        let (scrutinee, arms) = match res {
+            ast::Expr::Match { scrutinee, arms } => (scrutinee, arms),
+            other => panic!("Expected Match, got {:?}", other),
+        };
+        assert_eq!(*scrutinee, ast::Expr::Variable("x".to_string()));
+        assert_eq!(arms.len(), 3);
+
+        // arm 0: binding `x` with guard `x > 10` body `100`
+        assert_eq!(arms[0].pattern, ast::Pattern::Binding("x".to_string()));
+        assert_eq!(
+            arms[0].guard,
+            Some(ast::Expr::Binary {
+                operator: ast::OpBin::Gt,
+                left: Box::new(ast::Expr::Variable("x".to_string())),
+                right: Box::new(ast::Expr::LNumber(10.0)),
+            })
+        );
+        assert_eq!(arms[0].body, ast::Expr::LNumber(100.0));
+
+        // arm 1: literal 2, no guard
+        assert_eq!(
+            arms[1].pattern,
+            ast::Pattern::Literal(ast::Expr::LNumber(2.0))
+        );
+        assert_eq!(arms[1].guard, None);
+        assert_eq!(arms[1].body, ast::Expr::LNumber(99.0));
+
+        // arm 2: binding `y`, body `y + 1`
+        assert_eq!(arms[2].pattern, ast::Pattern::Binding("y".to_string()));
+        assert_eq!(arms[2].guard, None);
+        assert_eq!(
+            arms[2].body,
+            ast::Expr::Binary {
+                operator: ast::OpBin::Add,
+                left: Box::new(ast::Expr::Variable("y".to_string())),
+                right: Box::new(ast::Expr::LNumber(1.0)),
+            }
+        );
+    }
+
+    #[test]
+    fn test_p_match_single_arm() {
+        let mut input = Input::new("match x { 2 => 99 }");
+        let res = p_expr.parse_next(&mut input).unwrap();
+        match res {
+            ast::Expr::Match { arms, .. } => {
+                assert_eq!(arms.len(), 1);
+                assert_eq!(
+                    arms[0].pattern,
+                    ast::Pattern::Literal(ast::Expr::LNumber(2.0))
+                );
+                assert!(arms[0].guard.is_none());
+            }
+            other => panic!("Expected Match, got {:?}", other),
+        }
     }
 }
