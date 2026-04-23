@@ -63,6 +63,19 @@ pub enum OpCompare {
     Neq,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum OpBinBool {
+    And,
+    Or,
+    Eq,
+    Neq,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum OpUnBool {
+    Not,
+}
+
 /// Bool Node
 #[derive(Debug, Clone, PartialEq)]
 pub enum NodeBool {
@@ -71,6 +84,15 @@ pub enum NodeBool {
         operator: OpCompare,
         left: Box<ExprNumber>,
         right: Box<ExprNumber>,
+    },
+    Binary {
+        operator: OpBinBool,
+        left: Box<ExprBool>,
+        right: Box<ExprBool>,
+    },
+    Unary {
+        operator: OpUnBool,
+        operand: Box<ExprBool>,
     },
 }
 

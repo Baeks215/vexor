@@ -37,6 +37,13 @@ pub enum OpBin {
     Lte,
     Eq,
     Neq,
+    And,
+    Or,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum OpUn {
+    Not,
 }
 
 /// Expression
@@ -55,6 +62,10 @@ pub enum Expr {
         operator: OpBin,
         left: Box<Expr>,
         right: Box<Expr>,
+    },
+    Unary {
+        operator: OpUn,
+        operand: Box<Expr>,
     },
     /// Function call
     Call {
