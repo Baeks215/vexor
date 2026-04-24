@@ -16,20 +16,24 @@ pub use program::*;
 /// Parser input type with location information.
 type Input<'a> = LocatingSlice<&'a str>;
 
-/// Combinator to discard whitespace after a parser
-fn lexeme<'a, F, O>(inner: F) -> impl ModalParser<Input<'a>, O, ContextError>
-where
-    F: ModalParser<Input<'a>, O, ContextError>,
-{
-    terminated(inner, space0)
+trait WhiteSpaceParser<'a, O>: ModalParser<Input<'a>, O, ContextError> {
+    /// Discard whitespace after the parser.
+    fn ws(self) -> impl ModalParser<Input<'a>, O, ContextError>;
+    /// Discard whitespace after the parser, including newlines.
+    fn mws(self) -> impl ModalParser<Input<'a>, O, ContextError>;
 }
 
-/// Combinator to discard whitespace after a parser, including newlines.
-fn ml_lexeme<'a, F, O>(inner: F) -> impl ModalParser<Input<'a>, O, ContextError>
+impl<'a, O, P> WhiteSpaceParser<'a, O> for P
 where
-    F: ModalParser<Input<'a>, O, ContextError>,
+    P: ModalParser<Input<'a>, O, ContextError>,
 {
-    terminated(inner, multispace0)
+    fn ws(self) -> impl ModalParser<Input<'a>, O, ContextError> {
+        terminated(self, space0)
+    }
+
+    fn mws(self) -> impl ModalParser<Input<'a>, O, ContextError> {
+        terminated(self, multispace0)
+    }
 }
 
 /// Parse identifier without parsing whitespace after
@@ -45,7 +49,7 @@ fn p_identifier_no_ws<'a>(input: &mut Input<'a>) -> ModalResult<&'a str> {
 
 /// Parse identifier
 fn p_identifier<'a>(input: &mut Input<'a>) -> ModalResult<&'a str> {
-    lexeme(p_identifier_no_ws).parse_next(input)
+    p_identifier_no_ws.ws().parse_next(input)
 }
 
 // --- Helpers ---
@@ -104,11 +108,11 @@ mod tests {
     #[test]
     fn test_lexeme() {
         let mut input = Input::new("foo  ");
-        assert_eq!(lexeme("foo").parse_next(&mut input).unwrap(), "foo");
+        assert_eq!("foo".ws().parse_next(&mut input).unwrap(), "foo");
         assert_eq!(*input, "");
 
         let mut input = Input::new("foo\n\t ");
-        assert_eq!(lexeme("foo").parse_next(&mut input).unwrap(), "foo");
+        assert_eq!("foo".ws().parse_next(&mut input).unwrap(), "foo");
         assert_eq!(*input, "\n\t ");
     }
 

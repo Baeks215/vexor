@@ -6,7 +6,7 @@ use crate::parser::expr::p_expr;
 use crate::parser::keyword::{
     pk_bool, pk_color, pk_export, pk_fn, pk_graphic, pk_let, pk_number, pk_string, pk_where,
 };
-use crate::parser::{Input, braced, bracketed, lexeme, ml_lexeme, p_identifier};
+use crate::parser::{Input, WhiteSpaceParser, braced, bracketed, p_identifier};
 use itertools::{Either, Itertools};
 use winnow::ascii::{line_ending, multispace0};
 use winnow::combinator::{alt, delimited, opt, preceded, separated, separated_pair};
@@ -31,14 +31,7 @@ fn p_type<'a>(input: &mut Input<'a>) -> ModalResult<Type> {
 }
 
 fn p_assignment<'a>(input: &mut Input<'a>) -> ModalResult<ast::Assignment> {
-    (
-        pk_let,
-        p_identifier,
-        lexeme(":"),
-        p_type,
-        lexeme("="),
-        p_expr,
-    )
+    (pk_let, p_identifier, ":".ws(), p_type, "=".ws(), p_expr)
         .map(|(_, i, _, t, _, e)| ast::Assignment {
             ty: t,
             identifier: i.to_string(),
@@ -52,14 +45,14 @@ fn p_function<'a>(input: &mut Input<'a>) -> ModalResult<ast::Function> {
         preceded(pk_fn, p_identifier), // function name
         bracketed(separated(
             0..,
-            separated_pair(p_identifier, lexeme(":"), p_type),
-            lexeme(","),
+            separated_pair(p_identifier, ":".ws(), p_type),
+            ",".ws(),
         )), // parameters
-        preceded(lexeme(":"), p_type), // return type
-        preceded(ml_lexeme("="), p_expr), // return expression
+        preceded(":".ws(), p_type),    // return type
+        preceded("=".mws(), p_expr),   // return expression
         opt(preceded(
-            lexeme(pk_where),
-            ml_lexeme(braced(separated(0.., p_assignment, multispace0))),
+            pk_where.ws(),
+            braced(separated(0.., p_assignment, multispace0)).mws(),
         )), // where scope
     )
         .map(
@@ -99,9 +92,9 @@ pub fn parse_program<'a>(
     delimited(
         multispace0,
         separated_pair(
-            separated(0.., p_program_unit, lexeme(line_ending)),
+            separated(0.., p_program_unit, line_ending.ws()),
             multispace0,
-            separated(0.., p_export, lexeme(line_ending)),
+            separated(0.., p_export, line_ending.ws()),
         )
         .map(|(units, exports): (Vec<ProgramUnit>, Vec<ast::Expr>)| {
             let (functions, statements) = units.into_iter().partition_map(|u| match u {
