@@ -32,15 +32,22 @@ define_keywords! {
     pk_export => "export",
     pk_fn => "fn",
     pk_where => "where",
+    pk_match => "match",
+    pk_if => "if",
+    pk_else => "else",
     // Types
     pk_number => "number",
     pk_string => "string",
+    pk_bool => "bool",
     pk_color => "color",
     pk_graphic => "graphic",
     // Primitives
     pk_circle => "circle",
     pk_rect => "rect",
     pk_text => "text",
+    // Bool literals
+    pk_true => "true",
+    pk_false => "false",
 }
 
 #[cfg(test)]
@@ -53,6 +60,9 @@ mod tests {
         assert!(is_keyword("export"));
         assert!(is_keyword("color"));
         assert!(is_keyword("circle"));
+        assert!(is_keyword("bool"));
+        assert!(is_keyword("true"));
+        assert!(is_keyword("false"));
     }
 
     #[test]

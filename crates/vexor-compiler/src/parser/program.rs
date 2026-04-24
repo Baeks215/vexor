@@ -4,7 +4,7 @@ use crate::ir::ast;
 use crate::ir::typed::Type;
 use crate::parser::expr::p_expr;
 use crate::parser::keyword::{
-    pk_color, pk_export, pk_fn, pk_graphic, pk_let, pk_number, pk_string, pk_where,
+    pk_bool, pk_color, pk_export, pk_fn, pk_graphic, pk_let, pk_number, pk_string, pk_where,
 };
 use crate::parser::{Input, bracketed, lexeme, ml_lexeme, p_identifier};
 use itertools::{Either, Itertools};
@@ -23,6 +23,7 @@ fn p_type<'a>(input: &mut Input<'a>) -> ModalResult<Type> {
     alt((
         pk_number.map(|_| Type::Number),
         pk_string.map(|_| Type::String),
+        pk_bool.map(|_| Type::Bool),
         pk_color.map(|_| Type::Color),
         pk_graphic.map(|_| Type::Graphic),
     ))
@@ -146,6 +147,17 @@ mod tests {
         assert_eq!(ty, Type::String);
         assert_eq!(identifier, "my_var");
         assert_eq!(value, ast::Expr::LString("hello".to_string()));
+
+        let mut input = Input::new("let b: bool = true");
+        let res = p_assignment.parse_next(&mut input).unwrap();
+        let ast::Assignment {
+            ty,
+            identifier,
+            value,
+        } = res;
+        assert_eq!(ty, Type::Bool);
+        assert_eq!(identifier, "b");
+        assert_eq!(value, ast::Expr::LBool(true));
     }
 
     #[test]

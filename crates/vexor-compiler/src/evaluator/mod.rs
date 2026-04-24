@@ -19,6 +19,7 @@ type EResult<O> = Result<O, EError>;
 enum Value {
     Number(Number),
     String(String),
+    Bool(bool),
     Color(scene::Color),
     Graphic(scene::Graphic),
 }
@@ -68,6 +69,16 @@ impl Context {
             this.vars.insert(name.clone(), arg);
         }
         this
+    }
+
+    /// Clone context with one extra variable bound.
+    fn with_var(&self, name: String, value: Value) -> Self {
+        let mut vars = self.vars.clone();
+        vars.insert(name, value);
+        Self {
+            functions: self.functions.clone(),
+            vars,
+        }
     }
 
     /// Add a function to the context

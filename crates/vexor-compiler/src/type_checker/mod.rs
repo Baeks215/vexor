@@ -79,6 +79,16 @@ impl Context {
         }
     }
 
+    /// Clone context with one extra variable bound.
+    fn with_var(&self, name: String, ty: Type) -> Self {
+        let mut var_types = self.var_types.clone();
+        var_types.insert(name, ty);
+        Self {
+            functions: self.functions.clone(),
+            var_types,
+        }
+    }
+
     /// Add a function to the context.
     fn add_function(&mut self, name: String, function: FunctionType) {
         self.functions.insert(name, function);

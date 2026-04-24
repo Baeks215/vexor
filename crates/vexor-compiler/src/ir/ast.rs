@@ -31,6 +31,32 @@ pub enum OpBin {
     Sub,
     Mul,
     Div,
+    Gt,
+    Gte,
+    Lt,
+    Lte,
+    Eq,
+    Neq,
+    And,
+    Or,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum OpUn {
+    Not,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum Pattern {
+    Binding(String),
+    Literal(Expr),
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct MatchArm {
+    pub pattern: Pattern,
+    pub guard: Option<Expr>,
+    pub body: Expr,
 }
 
 /// Expression
@@ -39,6 +65,7 @@ pub enum Expr {
     // Literals
     LNumber(Number),
     LString(String),
+    LBool(bool),
     LColor(Color),
     LGraphic(Graphic),
     // Variable
@@ -49,10 +76,25 @@ pub enum Expr {
         left: Box<Expr>,
         right: Box<Expr>,
     },
+    Unary {
+        operator: OpUn,
+        operand: Box<Expr>,
+    },
     /// Function call
     Call {
         function: String,
         args: Vec<Expr>,
+    },
+    /// Match expression
+    Match {
+        scrutinee: Box<Expr>,
+        arms: Vec<MatchArm>,
+    },
+    /// If expression
+    If {
+        condition: Box<Expr>,
+        then_branch: Box<Expr>,
+        else_branch: Box<Expr>,
     },
 }
 
