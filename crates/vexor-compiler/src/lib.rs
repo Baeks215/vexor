@@ -157,6 +157,42 @@ mod tests {
     }
 
     #[test]
+    fn test_compile_with_if() {
+        let input =
+            "let x: number = 5\nlet r: number = if x > 10 { 100 } else { x + 1 }\nexport circle(r)";
+        let scene = compile(input).expect("compile should succeed");
+        assert_eq!(scene.exports.len(), 1);
+        assert_eq!(scene.exports[0], Graphic::Circle { radius: 6.0 });
+    }
+
+    #[test]
+    fn test_compile_with_if_string() {
+        let input = "let s: string = if true { \"yes\" } else { \"no\" }\nexport text(s)";
+        let scene = compile(input).expect("compile should succeed");
+        assert_eq!(scene.exports.len(), 1);
+        assert_eq!(scene.exports[0], Graphic::Text("yes".to_string()));
+    }
+
+    #[test]
+    fn test_compile_with_if_bool() {
+        let input = "let b: bool = if false { true } else { false }\nexport circle(1)";
+        let scene = compile(input).expect("compile should succeed");
+        assert_eq!(scene.exports.len(), 1);
+    }
+
+    #[test]
+    fn test_compile_rejects_if_non_bool() {
+        assert!(compile("let x: number = if 1 { 1 } else { 2 }\nexport circle(1)").is_none());
+    }
+
+    #[test]
+    fn test_compile_if_else_if_nesting() {
+        let input = "let x: number = 5\nlet r: number = if x > 10 { 100 } else { if x > 3 { 50 } else { 0 } }\nexport circle(r)";
+        let scene = compile(input).expect("compile should succeed");
+        assert_eq!(scene.exports[0], Graphic::Circle { radius: 50.0 });
+    }
+
+    #[test]
     fn test_compile_with_function() {
         let input = "fn double(x: number): number = x + x\nexport circle(double(5))";
         let scene = compile(input).expect("compile should succeed");

@@ -3,7 +3,7 @@
 use crate::ir::Number;
 use crate::ir::ast;
 use crate::parser::graphic::p_graphic;
-use crate::parser::keyword::{pk_color, pk_false, pk_if, pk_match, pk_true};
+use crate::parser::keyword::{pk_color, pk_else, pk_false, pk_if, pk_match, pk_true};
 use crate::parser::p_identifier_no_ws;
 use crate::parser::{Input, bracketed, lexeme, ml_lexeme, p_identifier};
 use winnow::ascii::{float, multispace0};
@@ -108,6 +108,28 @@ pub fn p_match<'a>(input: &mut Input<'a>) -> ModalResult<ast::Expr> {
     .parse_next(input)
 }
 
+/// Parses an if expression: `if <cond> { <then> } else { <else> }`.
+pub fn p_if<'a>(input: &mut Input<'a>) -> ModalResult<ast::Expr> {
+    (
+        preceded(pk_if, p_expr),
+        delimited(ml_lexeme("{"), p_expr, (multispace0, ml_lexeme("}"))),
+        preceded(
+            pk_else,
+            delimited(ml_lexeme("{"), p_expr, (multispace0, ml_lexeme("}"))),
+        ),
+    )
+        .map(
+            |(condition, then_branch, else_branch): (ast::Expr, ast::Expr, ast::Expr)| {
+                ast::Expr::If {
+                    condition: Box::new(condition),
+                    then_branch: Box::new(then_branch),
+                    else_branch: Box::new(else_branch),
+                }
+            },
+        )
+        .parse_next(input)
+}
+
 /// Parses an atom.
 pub fn p_atom<'a>(input: &mut Input<'a>) -> ModalResult<ast::Expr> {
     alt((
@@ -116,6 +138,7 @@ pub fn p_atom<'a>(input: &mut Input<'a>) -> ModalResult<ast::Expr> {
         p_bool.map(|b| ast::Expr::LBool(b)),
         p_color.map(|c| ast::Expr::LColor(c)),
         p_graphic.map(|g| ast::Expr::LGraphic(g)),
+        p_if,
         p_match,
         p_call,
         p_identifier.map(|s| ast::Expr::Variable(s.to_string())),
@@ -596,6 +619,55 @@ mod tests {
                 right: Box::new(ast::Expr::LNumber(1.0)),
             }
         );
+    }
+
+    #[test]
+    fn test_p_if() {
+        let mut input = Input::new("if x > 10 { 100 } else { x + 1 }");
+        let res = p_expr.parse_next(&mut input).unwrap();
+        let (condition, then_branch, else_branch) = match res {
+            ast::Expr::If {
+                condition,
+                then_branch,
+                else_branch,
+            } => (condition, then_branch, else_branch),
+            other => panic!("Expected If, got {:?}", other),
+        };
+        assert_eq!(
+            *condition,
+            ast::Expr::Binary {
+                operator: ast::OpBin::Gt,
+                left: Box::new(ast::Expr::Variable("x".to_string())),
+                right: Box::new(ast::Expr::LNumber(10.0)),
+            }
+        );
+        assert_eq!(*then_branch, ast::Expr::LNumber(100.0));
+        assert_eq!(
+            *else_branch,
+            ast::Expr::Binary {
+                operator: ast::OpBin::Add,
+                left: Box::new(ast::Expr::Variable("x".to_string())),
+                right: Box::new(ast::Expr::LNumber(1.0)),
+            }
+        );
+    }
+
+    #[test]
+    fn test_p_if_nested() {
+        let mut input = Input::new("if a { if b { 1 } else { 2 } } else { 3 }");
+        let res = p_expr.parse_next(&mut input).unwrap();
+        match res {
+            ast::Expr::If {
+                condition,
+                then_branch,
+                else_branch,
+            } => {
+                assert_eq!(*condition, ast::Expr::Variable("a".to_string()));
+                assert!(matches!(*then_branch, ast::Expr::If { .. }));
+                assert_eq!(*else_branch, ast::Expr::LNumber(3.0));
+            }
+            other => panic!("Expected If, got {:?}", other),
+        }
     }
 
     #[test]

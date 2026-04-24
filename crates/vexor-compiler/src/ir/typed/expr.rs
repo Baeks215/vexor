@@ -44,6 +44,15 @@ pub struct MatchArm<E> {
     pub body: E,
 }
 
+// --- If ---
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct If<E> {
+    pub condition: Box<ExprBool>,
+    pub then_branch: Box<E>,
+    pub else_branch: Box<E>,
+}
+
 // --- Number Type ---
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -68,6 +77,7 @@ pub enum NodeNumber {
         scrutinee: Box<ExprNumber>,
         arms: Vec<MatchArm<ExprNumber>>,
     },
+    If(If<ExprNumber>),
 }
 
 // --- String Type ---
@@ -80,6 +90,7 @@ pub enum NodeString {
         scrutinee: Box<ExprString>,
         arms: Vec<MatchArm<ExprString>>,
     },
+    If(If<ExprString>),
 }
 
 // --- Bool Type ---
@@ -129,6 +140,7 @@ pub enum NodeBool {
         scrutinee: Box<ExprBool>,
         arms: Vec<MatchArm<ExprBool>>,
     },
+    If(If<ExprBool>),
 }
 
 // Other types are only literals for now

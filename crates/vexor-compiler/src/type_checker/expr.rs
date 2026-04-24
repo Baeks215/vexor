@@ -2,7 +2,7 @@
 
 use crate::ir::ast;
 use crate::ir::typed::expr::{
-    ExprBool, ExprColor, ExprGeneric, ExprGraphic, ExprNumber, ExprString, MatchArm, NodeBool,
+    ExprBool, ExprColor, ExprGeneric, ExprGraphic, ExprNumber, ExprString, If, MatchArm, NodeBool,
     NodeNumber, NodeString, OpBinBool, OpBinNumber, OpCompare, OpUnBool, Pattern,
 };
 use crate::ir::typed::{self, Type};
@@ -70,8 +70,40 @@ pub fn check_number(context: &Context, expr: ast::Expr) -> TResult<ExprNumber> {
             let arms = check_match_arms(context, Type::Number, arms, check_number)?;
             Ok(ExprNumber::Node(Match { scrutinee, arms }))
         }
+        ast::Expr::If {
+            condition,
+            then_branch,
+            else_branch,
+        } => Ok(ExprNumber::Node(NodeNumber::If(check_if(
+            context,
+            *condition,
+            *then_branch,
+            *else_branch,
+            check_number,
+        )?))),
         _ => Err("Unexpected expression, expected a number".to_string()),
     }
+}
+
+/// Type-checks the condition (bool) and both branches (of type E) of an if expression.
+fn check_if<F, E>(
+    context: &Context,
+    condition: ast::Expr,
+    then_branch: ast::Expr,
+    else_branch: ast::Expr,
+    check: F,
+) -> TResult<If<E>>
+where
+    F: Fn(&Context, ast::Expr) -> TResult<E>,
+{
+    let condition = Box::new(check_bool(context, condition)?);
+    let then_branch = Box::new(check(context, then_branch)?);
+    let else_branch = Box::new(check(context, else_branch)?);
+    Ok(If {
+        condition,
+        then_branch,
+        else_branch,
+    })
 }
 
 /// Type-checks match arms for a match whose scrutinee and body are of type E.
@@ -207,6 +239,17 @@ pub fn check_bool(context: &Context, expr: ast::Expr) -> TResult<ExprBool> {
             let arms = check_match_arms(context, Type::Bool, arms, check_bool)?;
             Ok(ExprBool::Node(Match { scrutinee, arms }))
         }
+        ast::Expr::If {
+            condition,
+            then_branch,
+            else_branch,
+        } => Ok(ExprBool::Node(NodeBool::If(check_if(
+            context,
+            *condition,
+            *then_branch,
+            *else_branch,
+            check_bool,
+        )?))),
         _ => Err("Unexpected expression, expected a bool".to_string()),
     }
 }
@@ -231,6 +274,17 @@ pub fn check_string(context: &Context, expr: ast::Expr) -> TResult<ExprString> {
             let arms = check_match_arms(context, Type::String, arms, check_string)?;
             Ok(ExprString::Node(NodeString::Match { scrutinee, arms }))
         }
+        ast::Expr::If {
+            condition,
+            then_branch,
+            else_branch,
+        } => Ok(ExprString::Node(NodeString::If(check_if(
+            context,
+            *condition,
+            *then_branch,
+            *else_branch,
+            check_string,
+        )?))),
         _ => Err("Unexpected expression, expected a string".to_string()),
     }
 }
@@ -642,6 +696,79 @@ mod tests {
         };
         let res = check_bool(&context, expr).unwrap();
         assert!(matches!(res, ExprBool::Node(NodeBool::Match { .. })));
+    }
+
+    #[test]
+    fn test_check_if_number() {
+        let context = Context::new();
+        // if true { 1 } else { 2 }  in number context
+        let expr = ast::Expr::If {
+            condition: Box::new(ast::Expr::LBool(true)),
+            then_branch: Box::new(ast::Expr::LNumber(1.0)),
+            else_branch: Box::new(ast::Expr::LNumber(2.0)),
+        };
+        let res = check_number(&context, expr).unwrap();
+        assert!(matches!(res, ExprNumber::Node(NodeNumber::If(_))));
+    }
+
+    #[test]
+    fn test_check_if_string() {
+        let context = Context::new();
+        let expr = ast::Expr::If {
+            condition: Box::new(ast::Expr::LBool(true)),
+            then_branch: Box::new(ast::Expr::LString("a".to_string())),
+            else_branch: Box::new(ast::Expr::LString("b".to_string())),
+        };
+        let res = check_string(&context, expr).unwrap();
+        assert!(matches!(res, ExprString::Node(NodeString::If(_))));
+    }
+
+    #[test]
+    fn test_check_if_bool() {
+        let context = Context::new();
+        let expr = ast::Expr::If {
+            condition: Box::new(ast::Expr::LBool(true)),
+            then_branch: Box::new(ast::Expr::LBool(false)),
+            else_branch: Box::new(ast::Expr::LBool(true)),
+        };
+        let res = check_bool(&context, expr).unwrap();
+        assert!(matches!(res, ExprBool::Node(NodeBool::If(_))));
+    }
+
+    #[test]
+    fn test_check_if_non_bool_condition() {
+        let context = Context::new();
+        // if 1 { 1 } else { 2 }  — condition is number, not bool.
+        let expr = ast::Expr::If {
+            condition: Box::new(ast::Expr::LNumber(1.0)),
+            then_branch: Box::new(ast::Expr::LNumber(1.0)),
+            else_branch: Box::new(ast::Expr::LNumber(2.0)),
+        };
+        assert!(check_number(&context, expr).is_err());
+    }
+
+    #[test]
+    fn test_check_if_branch_type_mismatch() {
+        let context = Context::new();
+        // number context, else branch is a string
+        let expr = ast::Expr::If {
+            condition: Box::new(ast::Expr::LBool(true)),
+            then_branch: Box::new(ast::Expr::LNumber(1.0)),
+            else_branch: Box::new(ast::Expr::LString("nope".to_string())),
+        };
+        assert!(check_number(&context, expr).is_err());
+    }
+
+    #[test]
+    fn test_check_if_rejected_in_color_graphic_context() {
+        let context = Context::new();
+        let expr = ast::Expr::If {
+            condition: Box::new(ast::Expr::LBool(true)),
+            then_branch: Box::new(ast::Expr::LNumber(1.0)),
+            else_branch: Box::new(ast::Expr::LNumber(2.0)),
+        };
+        assert!(check_color(&context, expr.clone()).is_err());
+        assert!(check_graphic(&context, expr).is_err());
     }
 
     #[test]

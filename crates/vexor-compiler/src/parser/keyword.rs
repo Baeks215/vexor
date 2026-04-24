@@ -34,6 +34,7 @@ define_keywords! {
     pk_where => "where",
     pk_match => "match",
     pk_if => "if",
+    pk_else => "else",
     // Types
     pk_number => "number",
     pk_string => "string",

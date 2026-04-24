@@ -90,6 +90,12 @@ pub enum Expr {
         scrutinee: Box<Expr>,
         arms: Vec<MatchArm>,
     },
+    /// If expression
+    If {
+        condition: Box<Expr>,
+        then_branch: Box<Expr>,
+        else_branch: Box<Expr>,
+    },
 }
 
 // --- Program ---
