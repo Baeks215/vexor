@@ -50,12 +50,21 @@ fn p_identifier<'a>(input: &mut Input<'a>) -> ModalResult<&'a str> {
 
 // --- Helpers ---
 
-/// Parse between brackets
+/// Parse between brackets "()"
 fn bracketed<'a, F, O>(inner: F) -> impl ModalParser<Input<'a>, O, ContextError>
 where
     F: ModalParser<Input<'a>, O, ContextError>,
 {
-    delimited('(', inner, ')')
+    delimited(('(', space0), inner, (space0, ')'))
+}
+
+/// Parse between braces "{}"
+///   Can contain new lines within braces
+fn braced<'a, F, O>(inner: F) -> impl ModalParser<Input<'a>, O, ContextError>
+where
+    F: ModalParser<Input<'a>, O, ContextError>,
+{
+    delimited(('{', multispace0), inner, (multispace0, '}'))
 }
 
 #[cfg(test)]
@@ -115,5 +124,39 @@ mod tests {
             "foo"
         );
         assert_eq!(*input, "");
+
+        // Whitespace inside brackets
+        let mut input = Input::new("( foo )");
+        assert_eq!(bracketed("foo").parse_next(&mut input).unwrap(), "foo");
+        assert_eq!(*input, "");
+
+        let mut input = Input::new("( ( foo ) )");
+        assert_eq!(
+            bracketed(bracketed("foo")).parse_next(&mut input).unwrap(),
+            "foo"
+        );
+        assert_eq!(*input, "");
+    }
+
+    #[test]
+    fn test_braced() {
+        let mut input = Input::new("{foo}");
+        assert_eq!(braced("foo").parse_next(&mut input).unwrap(), "foo");
+        assert_eq!(*input, "");
+
+        // Whitespace inside braces
+        let mut input = Input::new("{ foo }");
+        assert_eq!(braced("foo").parse_next(&mut input).unwrap(), "foo");
+        assert_eq!(*input, "");
+
+        // Newlines inside braces
+        let mut input = Input::new("{\n  foo\n}");
+        assert_eq!(braced("foo").parse_next(&mut input).unwrap(), "foo");
+        assert_eq!(*input, "");
+
+        // braced does NOT consume trailing whitespace after `}`
+        let mut input = Input::new("{foo}\n");
+        assert_eq!(braced("foo").parse_next(&mut input).unwrap(), "foo");
+        assert_eq!(*input, "\n");
     }
 }
