@@ -5,8 +5,8 @@ use crate::ir::ast;
 use crate::parser::graphic::p_graphic;
 use crate::parser::keyword::{pk_color, pk_else, pk_false, pk_if, pk_match, pk_true};
 use crate::parser::p_identifier_no_ws;
-use crate::parser::{Input, bracketed, lexeme, ml_lexeme, p_identifier};
-use winnow::ascii::{float, multispace0};
+use crate::parser::{Input, braced, bracketed, lexeme, ml_lexeme, p_identifier};
+use winnow::ascii::float;
 use winnow::combinator::{
     Infix, Prefix, alt, delimited, dispatch, expression, fail, opt, preceded, separated,
 };
@@ -92,11 +92,7 @@ pub fn p_match<'a>(input: &mut Input<'a>) -> ModalResult<ast::Expr> {
         pk_match,
         (
             p_expr,
-            delimited(
-                ml_lexeme("{"),
-                separated(1.., p_match_arm, ml_lexeme(",")),
-                (multispace0, ml_lexeme("}")),
-            ),
+            ml_lexeme(braced(separated(1.., p_match_arm, ml_lexeme(",")))),
         ),
     )
     .map(
@@ -112,11 +108,8 @@ pub fn p_match<'a>(input: &mut Input<'a>) -> ModalResult<ast::Expr> {
 pub fn p_if<'a>(input: &mut Input<'a>) -> ModalResult<ast::Expr> {
     (
         preceded(pk_if, p_expr),
-        delimited(ml_lexeme("{"), p_expr, (multispace0, ml_lexeme("}"))),
-        preceded(
-            pk_else,
-            delimited(ml_lexeme("{"), p_expr, (multispace0, ml_lexeme("}"))),
-        ),
+        ml_lexeme(braced(p_expr)),
+        preceded(pk_else, ml_lexeme(braced(p_expr))),
     )
         .map(
             |(condition, then_branch, else_branch): (ast::Expr, ast::Expr, ast::Expr)| {

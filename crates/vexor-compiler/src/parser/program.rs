@@ -6,7 +6,7 @@ use crate::parser::expr::p_expr;
 use crate::parser::keyword::{
     pk_bool, pk_color, pk_export, pk_fn, pk_graphic, pk_let, pk_number, pk_string, pk_where,
 };
-use crate::parser::{Input, bracketed, lexeme, ml_lexeme, p_identifier};
+use crate::parser::{Input, braced, bracketed, lexeme, ml_lexeme, p_identifier};
 use itertools::{Either, Itertools};
 use winnow::ascii::{line_ending, multispace0};
 use winnow::combinator::{alt, delimited, opt, preceded, separated, separated_pair};
@@ -57,10 +57,9 @@ fn p_function<'a>(input: &mut Input<'a>) -> ModalResult<ast::Function> {
         )), // parameters
         preceded(lexeme(":"), p_type), // return type
         preceded(ml_lexeme("="), p_expr), // return expression
-        opt(delimited(
-            (pk_where, multispace0, ml_lexeme("{")),
-            separated(0.., p_assignment, multispace0),
-            (multispace0, ml_lexeme("}")),
+        opt(preceded(
+            lexeme(pk_where),
+            ml_lexeme(braced(separated(0.., p_assignment, multispace0))),
         )), // where scope
     )
         .map(
