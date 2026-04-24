@@ -3,7 +3,7 @@
 use crate::ir::ast;
 use crate::parser::expr::p_expr;
 use crate::parser::keyword::{pk_circle, pk_rect, pk_text};
-use crate::parser::{Input, bracketed, lexeme};
+use crate::parser::{Input, WhiteSpaceParser, bracketed};
 use winnow::combinator::{alt, preceded, separated_pair};
 use winnow::{ModalResult, Parser};
 
@@ -16,15 +16,12 @@ fn pg_circle<'a>(input: &mut Input<'a>) -> ModalResult<ast::Graphic> {
 }
 
 fn pg_rect<'a>(input: &mut Input<'a>) -> ModalResult<ast::Graphic> {
-    preceded(
-        pk_rect,
-        bracketed(separated_pair(p_expr, lexeme(','), p_expr)),
-    )
-    .map(|(w, h)| ast::Graphic::Rect {
-        width: Box::new(w),
-        height: Box::new(h),
-    })
-    .parse_next(input)
+    preceded(pk_rect, bracketed(separated_pair(p_expr, ','.ws(), p_expr)))
+        .map(|(w, h)| ast::Graphic::Rect {
+            width: Box::new(w),
+            height: Box::new(h),
+        })
+        .parse_next(input)
 }
 
 fn pg_text<'a>(input: &mut Input<'a>) -> ModalResult<ast::Graphic> {
@@ -35,7 +32,7 @@ fn pg_text<'a>(input: &mut Input<'a>) -> ModalResult<ast::Graphic> {
 
 /// Parses a basic graphic.
 pub fn p_graphic<'a>(input: &mut Input<'a>) -> ModalResult<ast::Graphic> {
-    lexeme(alt((pg_circle, pg_rect, pg_text))).parse_next(input)
+    alt((pg_circle, pg_rect, pg_text)).ws().parse_next(input)
 }
 
 #[cfg(test)]

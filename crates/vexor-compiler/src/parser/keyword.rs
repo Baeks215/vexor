@@ -1,6 +1,6 @@
 //! Keyword parsers.
 
-use super::{Input, lexeme};
+use super::{Input, WhiteSpaceParser};
 use winnow::error::StrContext;
 use winnow::{ModalResult, Parser};
 
@@ -14,7 +14,9 @@ macro_rules! define_keywords {
         $(
             #[doc = concat!("Parses the `", $kw_str, "` keyword.")]
             pub fn $func_name<'a>(input: &mut Input<'a>) -> ModalResult<&'a str> {
-                lexeme($kw_str.context(StrContext::Label(concat!("keyword '", $kw_str, "'"))))
+                $kw_str
+                    .context(StrContext::Label(concat!("keyword '", $kw_str, "'")))
+                    .ws()
                     .parse_next(input)
             }
         )*

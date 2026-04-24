@@ -193,6 +193,45 @@ mod tests {
     }
 
     #[test]
+    fn test_compile_with_if_graphic() {
+        let input = "export if true { circle(10) } else { rect(5, 5) }";
+        let scene = compile(input).expect("compile should succeed");
+        assert_eq!(scene.exports[0], Graphic::Circle { radius: 10.0 });
+
+        let input = "export if false { circle(10) } else { rect(5, 5) }";
+        let scene = compile(input).expect("compile should succeed");
+        assert_eq!(
+            scene.exports[0],
+            Graphic::Rect {
+                width: 5.0,
+                height: 5.0,
+            }
+        );
+    }
+
+    #[test]
+    fn test_compile_with_match_graphic() {
+        // match body and scrutinee share a type — graphic here.
+        let input =
+            "let g: graphic = circle(10)\nexport match g { circle(10) => rect(1, 2), x => x }";
+        let scene = compile(input).expect("compile should succeed");
+        assert_eq!(
+            scene.exports[0],
+            Graphic::Rect {
+                width: 1.0,
+                height: 2.0,
+            }
+        );
+    }
+
+    #[test]
+    fn test_compile_with_if_color() {
+        let input = "let c: color = if true { color.rgb(1, 0, 0, 1) } else { color.rgb(0, 0, 1, 1) }\nexport circle(1)";
+        let scene = compile(input).expect("compile should succeed");
+        assert_eq!(scene.exports.len(), 1);
+    }
+
+    #[test]
     fn test_compile_with_function() {
         let input = "fn double(x: number): number = x + x\nexport circle(double(5))";
         let scene = compile(input).expect("compile should succeed");

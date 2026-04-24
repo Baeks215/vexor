@@ -5,8 +5,8 @@ use crate::ir::ast;
 use crate::parser::graphic::p_graphic;
 use crate::parser::keyword::{pk_color, pk_else, pk_false, pk_if, pk_match, pk_true};
 use crate::parser::p_identifier_no_ws;
-use crate::parser::{Input, bracketed, lexeme, ml_lexeme, p_identifier};
-use winnow::ascii::{float, multispace0};
+use crate::parser::{Input, WhiteSpaceParser, braced, bracketed, p_identifier};
+use winnow::ascii::float;
 use winnow::combinator::{
     Infix, Prefix, alt, delimited, dispatch, expression, fail, opt, preceded, separated,
 };
@@ -18,12 +18,17 @@ use winnow::{ModalResult, Parser};
 
 /// Parses a number literal.
 pub fn p_number<'a>(input: &mut Input<'a>) -> ModalResult<Number> {
-    lexeme(float.context(StrContext::Label("number"))).parse_next(input)
+    float
+        .context(StrContext::Label("number"))
+        .ws()
+        .parse_next(input)
 }
 
 /// Parses a string literal.
 pub fn p_string<'a>(input: &mut Input<'a>) -> ModalResult<&'a str> {
-    lexeme(delimited('"', take_while(0.., |c: char| c != '"'), '"')).parse_next(input)
+    delimited('"', take_while(0.., |c: char| c != '"'), '"')
+        .ws()
+        .parse_next(input)
 }
 
 /// Parses a bool literal.
@@ -33,31 +38,33 @@ pub fn p_bool<'a>(input: &mut Input<'a>) -> ModalResult<bool> {
 
 /// Parses a color.
 pub fn p_color<'a>(input: &mut Input<'a>) -> ModalResult<ast::Color> {
-    lexeme(preceded(
+    preceded(
         (pk_color, ".rgb"),
         bracketed(
-            separated(4, p_expr, lexeme(',')).map(|mut es: Vec<ast::Expr>| ast::Color::Rgba {
+            separated(4, p_expr, ','.ws()).map(|mut es: Vec<ast::Expr>| ast::Color::Rgba {
                 r: Box::new(es.remove(0)),
                 g: Box::new(es.remove(0)),
                 b: Box::new(es.remove(0)),
                 a: Box::new(es.remove(0)),
             }),
         ),
-    ))
+    )
+    .ws()
     .parse_next(input)
 }
 
 /// Parses a function call.
 pub fn p_call<'a>(input: &mut Input<'a>) -> ModalResult<ast::Expr> {
-    lexeme((
+    (
         p_identifier_no_ws,
-        bracketed(separated(0.., p_expr, lexeme(','))),
-    ))
-    .map(|(function, args)| ast::Expr::Call {
-        function: function.to_string(),
-        args,
-    })
-    .parse_next(input)
+        bracketed(separated(0.., p_expr, ','.ws())),
+    )
+        .ws()
+        .map(|(function, args)| ast::Expr::Call {
+            function: function.to_string(),
+            args,
+        })
+        .parse_next(input)
 }
 
 /// Parses a pattern.
@@ -76,7 +83,7 @@ pub fn p_match_arm<'a>(input: &mut Input<'a>) -> ModalResult<ast::MatchArm> {
     (
         p_pattern,
         opt(preceded(pk_if, p_expr)),
-        preceded(lexeme("=>"), p_expr),
+        preceded("=>".ws(), p_expr),
     )
         .map(|(pattern, guard, body)| ast::MatchArm {
             pattern,
@@ -90,14 +97,7 @@ pub fn p_match_arm<'a>(input: &mut Input<'a>) -> ModalResult<ast::MatchArm> {
 pub fn p_match<'a>(input: &mut Input<'a>) -> ModalResult<ast::Expr> {
     preceded(
         pk_match,
-        (
-            p_expr,
-            delimited(
-                ml_lexeme("{"),
-                separated(1.., p_match_arm, ml_lexeme(",")),
-                (multispace0, ml_lexeme("}")),
-            ),
-        ),
+        (p_expr, braced(separated(1.., p_match_arm, ",".mws())).ws()),
     )
     .map(
         |(scrutinee, arms): (ast::Expr, Vec<ast::MatchArm>)| ast::Expr::Match {
@@ -112,11 +112,8 @@ pub fn p_match<'a>(input: &mut Input<'a>) -> ModalResult<ast::Expr> {
 pub fn p_if<'a>(input: &mut Input<'a>) -> ModalResult<ast::Expr> {
     (
         preceded(pk_if, p_expr),
-        delimited(ml_lexeme("{"), p_expr, (multispace0, ml_lexeme("}"))),
-        preceded(
-            pk_else,
-            delimited(ml_lexeme("{"), p_expr, (multispace0, ml_lexeme("}"))),
-        ),
+        braced(p_expr).ws(),
+        preceded(pk_else, braced(p_expr).ws()),
     )
         .map(
             |(condition, then_branch, else_branch): (ast::Expr, ast::Expr, ast::Expr)| {
@@ -148,11 +145,11 @@ pub fn p_atom<'a>(input: &mut Input<'a>) -> ModalResult<ast::Expr> {
 
 /// Parses an expression.
 pub fn p_expr<'a>(input: &mut Input<'a>) -> ModalResult<ast::Expr> {
-    expression(p_atom).infix(dispatch! {lexeme(alt((
+    expression(p_atom).infix(dispatch! {alt((
         alt(("&&", "||")),
         alt(("==", "!=", ">=", "<=")),
         alt(("+", "-", "*", "/", ">", "<")),
-    )));
+    )).ws();
         "||" => Infix::Left(1, |_, a, b| Ok(ast::Expr::Binary { operator: ast::OpBin::Or, left: Box::new(a), right: Box::new(b) })),
         "&&" => Infix::Left(2, |_, a, b| Ok(ast::Expr::Binary { operator: ast::OpBin::And, left: Box::new(a), right: Box::new(b) })),
         "==" => Infix::Left(3, |_, a, b| Ok(ast::Expr::Binary { operator: ast::OpBin::Eq, left: Box::new(a), right: Box::new(b) })),
@@ -167,7 +164,7 @@ pub fn p_expr<'a>(input: &mut Input<'a>) -> ModalResult<ast::Expr> {
         "/" => Infix::Left(7, |_, a, b| Ok(ast::Expr::Binary { operator: ast::OpBin::Div, left: Box::new(a), right: Box::new(b) })),
         _ => fail,
     })
-    .prefix(dispatch! {lexeme("!");
+    .prefix(dispatch! {"!".ws();
         "!" => Prefix(11, |_, a| Ok(ast::Expr::Unary { operator: ast::OpUn::Not, operand: Box::new(a) })),
         _ => fail,
     })
