@@ -71,9 +71,11 @@ mod tests {
                 identifier: "r".to_string(),
                 value: ExprGeneric::Number(Expr::Node(NodeNumber::Literal(10.0))),
             }],
-            exports: vec![Expr::Node(crate::ir::typed::Graphic::Circle {
-                radius: Box::new(Expr::Variable("r".to_string())),
-            })],
+            exports: vec![Expr::Node(NodeGraphic::Literal(
+                crate::ir::typed::Graphic::Circle {
+                    radius: Box::new(Expr::Variable("r".to_string())),
+                },
+            ))],
         };
 
         let scene = eval_program(program).unwrap();
@@ -98,12 +100,12 @@ mod tests {
         let program = typed::Program {
             functions: vec![double],
             scope: vec![],
-            exports: vec![Expr::Node(typed::Graphic::Circle {
+            exports: vec![Expr::Node(NodeGraphic::Literal(typed::Graphic::Circle {
                 radius: Box::new(Expr::Call {
                     function: "double".to_string(),
                     arguments: vec![ExprGeneric::Number(Expr::Node(NodeNumber::Literal(7.0)))],
                 }),
-            })],
+            }))],
         };
         let scene = eval_program(program).unwrap();
         assert_eq!(scene.exports.len(), 1);

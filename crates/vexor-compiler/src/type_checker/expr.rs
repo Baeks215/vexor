@@ -3,7 +3,8 @@
 use crate::ir::ast;
 use crate::ir::typed::expr::{
     ExprBool, ExprColor, ExprGeneric, ExprGraphic, ExprNumber, ExprString, If, MatchArm, NodeBool,
-    NodeNumber, NodeString, OpBinBool, OpBinNumber, OpCompare, OpUnBool, Pattern,
+    NodeColor, NodeGraphic, NodeNumber, NodeString, OpBinBool, OpBinNumber, OpCompare, OpUnBool,
+    Pattern,
 };
 use crate::ir::typed::{self, Type};
 use crate::type_checker::{Constraint, Context, TResult};
@@ -297,7 +298,12 @@ pub fn check_color(context: &Context, expr: ast::Expr) -> TResult<ExprColor> {
             let g = Box::new(check_number(context, *g)?);
             let b = Box::new(check_number(context, *b)?);
             let a = Box::new(check_number(context, *a)?);
-            Ok(ExprColor::Node(typed::Color::Rgba { r, g, b, a }))
+            Ok(ExprColor::Node(NodeColor::Literal(typed::Color::Rgba {
+                r,
+                g,
+                b,
+                a,
+            })))
         }
         ast::Expr::Variable(name) => {
             context.check_var(&name, Is(Type::Color))?;
@@ -310,6 +316,22 @@ pub fn check_color(context: &Context, expr: ast::Expr) -> TResult<ExprColor> {
                 arguments: typed_args,
             })
         }
+        ast::Expr::Match { scrutinee, arms } => {
+            let scrutinee = Box::new(check_color(context, *scrutinee)?);
+            let arms = check_match_arms(context, Type::Color, arms, check_color)?;
+            Ok(ExprColor::Node(NodeColor::Match { scrutinee, arms }))
+        }
+        ast::Expr::If {
+            condition,
+            then_branch,
+            else_branch,
+        } => Ok(ExprColor::Node(NodeColor::If(check_if(
+            context,
+            *condition,
+            *then_branch,
+            *else_branch,
+            check_color,
+        )?))),
         _ => Err("Unexpected expression, expected a color".to_string()),
     }
 }
@@ -319,16 +341,22 @@ pub fn check_graphic(context: &Context, expr: ast::Expr) -> TResult<ExprGraphic>
     match expr {
         ast::Expr::LGraphic(ast::Graphic::Circle { radius }) => {
             let radius = Box::new(check_number(context, *radius)?);
-            Ok(ExprGraphic::Node(typed::Graphic::Circle { radius }))
+            Ok(ExprGraphic::Node(NodeGraphic::Literal(
+                typed::Graphic::Circle { radius },
+            )))
         }
         ast::Expr::LGraphic(ast::Graphic::Rect { width, height }) => {
             let width = Box::new(check_number(context, *width)?);
             let height = Box::new(check_number(context, *height)?);
-            Ok(ExprGraphic::Node(typed::Graphic::Rect { width, height }))
+            Ok(ExprGraphic::Node(NodeGraphic::Literal(
+                typed::Graphic::Rect { width, height },
+            )))
         }
         ast::Expr::LGraphic(ast::Graphic::Text(text)) => {
             let text = Box::new(check_string(context, *text)?);
-            Ok(ExprGraphic::Node(typed::Graphic::Text(text)))
+            Ok(ExprGraphic::Node(NodeGraphic::Literal(
+                typed::Graphic::Text(text),
+            )))
         }
         ast::Expr::Variable(name) => {
             context.check_var(&name, Is(Type::Graphic))?;
@@ -341,6 +369,22 @@ pub fn check_graphic(context: &Context, expr: ast::Expr) -> TResult<ExprGraphic>
                 arguments: typed_args,
             })
         }
+        ast::Expr::Match { scrutinee, arms } => {
+            let scrutinee = Box::new(check_graphic(context, *scrutinee)?);
+            let arms = check_match_arms(context, Type::Graphic, arms, check_graphic)?;
+            Ok(ExprGraphic::Node(NodeGraphic::Match { scrutinee, arms }))
+        }
+        ast::Expr::If {
+            condition,
+            then_branch,
+            else_branch,
+        } => Ok(ExprGraphic::Node(NodeGraphic::If(check_if(
+            context,
+            *condition,
+            *then_branch,
+            *else_branch,
+            check_graphic,
+        )?))),
         _ => Err("Unexpected expression, expected a graphic".to_string()),
     }
 }
@@ -638,21 +682,6 @@ mod tests {
     }
 
     #[test]
-    fn test_check_match_rejected_in_color_graphic_context() {
-        let context = Context::new();
-        let expr = ast::Expr::Match {
-            scrutinee: Box::new(ast::Expr::LNumber(1.0)),
-            arms: vec![ast::MatchArm {
-                pattern: ast::Pattern::Binding("x".to_string()),
-                guard: None,
-                body: ast::Expr::LNumber(1.0),
-            }],
-        };
-        assert!(check_color(&context, expr.clone()).is_err());
-        assert!(check_graphic(&context, expr).is_err());
-    }
-
-    #[test]
     fn test_check_match_string() {
         let context = Context::new();
         // match "a" { "a" => "yes", x => x }
@@ -760,18 +789,6 @@ mod tests {
     }
 
     #[test]
-    fn test_check_if_rejected_in_color_graphic_context() {
-        let context = Context::new();
-        let expr = ast::Expr::If {
-            condition: Box::new(ast::Expr::LBool(true)),
-            then_branch: Box::new(ast::Expr::LNumber(1.0)),
-            else_branch: Box::new(ast::Expr::LNumber(2.0)),
-        };
-        assert!(check_color(&context, expr.clone()).is_err());
-        assert!(check_graphic(&context, expr).is_err());
-    }
-
-    #[test]
     fn test_check_bool_eq_dispatch() {
         let context = Context::new();
 
@@ -802,5 +819,112 @@ mod tests {
             }
             _ => panic!("Expected Compare Eq for number operands, got {:?}", res),
         }
+    }
+
+    // --- if/match in Color/Graphic context ---
+
+    fn red_literal() -> ast::Expr {
+        ast::Expr::LColor(ast::Color::Rgba {
+            r: Box::new(ast::Expr::LNumber(1.0)),
+            g: Box::new(ast::Expr::LNumber(0.0)),
+            b: Box::new(ast::Expr::LNumber(0.0)),
+            a: Box::new(ast::Expr::LNumber(1.0)),
+        })
+    }
+
+    fn blue_literal() -> ast::Expr {
+        ast::Expr::LColor(ast::Color::Rgba {
+            r: Box::new(ast::Expr::LNumber(0.0)),
+            g: Box::new(ast::Expr::LNumber(0.0)),
+            b: Box::new(ast::Expr::LNumber(1.0)),
+            a: Box::new(ast::Expr::LNumber(1.0)),
+        })
+    }
+
+    #[test]
+    fn test_check_if_color() {
+        let context = Context::new();
+        let expr = ast::Expr::If {
+            condition: Box::new(ast::Expr::LBool(true)),
+            then_branch: Box::new(red_literal()),
+            else_branch: Box::new(blue_literal()),
+        };
+        let res = check_color(&context, expr).unwrap();
+        assert!(matches!(res, ExprColor::Node(NodeColor::If(_))));
+    }
+
+    #[test]
+    fn test_check_if_color_wrong_branch_type() {
+        let context = Context::new();
+        // color context, else branch is a number
+        let expr = ast::Expr::If {
+            condition: Box::new(ast::Expr::LBool(true)),
+            then_branch: Box::new(red_literal()),
+            else_branch: Box::new(ast::Expr::LNumber(1.0)),
+        };
+        assert!(check_color(&context, expr).is_err());
+    }
+
+    #[test]
+    fn test_check_match_color() {
+        let context = Context::new();
+        // match red { red => blue, x => x }
+        let expr = ast::Expr::Match {
+            scrutinee: Box::new(red_literal()),
+            arms: vec![
+                ast::MatchArm {
+                    pattern: ast::Pattern::Literal(red_literal()),
+                    guard: None,
+                    body: blue_literal(),
+                },
+                ast::MatchArm {
+                    pattern: ast::Pattern::Binding("x".to_string()),
+                    guard: None,
+                    body: ast::Expr::Variable("x".to_string()),
+                },
+            ],
+        };
+        let res = check_color(&context, expr).unwrap();
+        assert!(matches!(res, ExprColor::Node(NodeColor::Match { .. })));
+    }
+
+    #[test]
+    fn test_check_if_graphic() {
+        let context = Context::new();
+        let expr = ast::Expr::If {
+            condition: Box::new(ast::Expr::LBool(true)),
+            then_branch: Box::new(ast::Expr::LGraphic(ast::Graphic::Circle {
+                radius: Box::new(ast::Expr::LNumber(10.0)),
+            })),
+            else_branch: Box::new(ast::Expr::LGraphic(ast::Graphic::Rect {
+                width: Box::new(ast::Expr::LNumber(5.0)),
+                height: Box::new(ast::Expr::LNumber(5.0)),
+            })),
+        };
+        let res = check_graphic(&context, expr).unwrap();
+        assert!(matches!(res, ExprGraphic::Node(NodeGraphic::If(_))));
+    }
+
+    #[test]
+    fn test_check_match_graphic() {
+        let context = Context::new();
+        let circle = ast::Expr::LGraphic(ast::Graphic::Circle {
+            radius: Box::new(ast::Expr::LNumber(10.0)),
+        });
+        let rect = ast::Expr::LGraphic(ast::Graphic::Rect {
+            width: Box::new(ast::Expr::LNumber(5.0)),
+            height: Box::new(ast::Expr::LNumber(5.0)),
+        });
+        // match circle { g => g }
+        let expr = ast::Expr::Match {
+            scrutinee: Box::new(circle),
+            arms: vec![ast::MatchArm {
+                pattern: ast::Pattern::Binding("g".to_string()),
+                guard: None,
+                body: rect,
+            }],
+        };
+        let res = check_graphic(&context, expr).unwrap();
+        assert!(matches!(res, ExprGraphic::Node(NodeGraphic::Match { .. })));
     }
 }

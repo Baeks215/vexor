@@ -7,7 +7,8 @@ use crate::ir::scene;
 use crate::ir::typed;
 use crate::ir::typed::expr::{
     Expr, ExprBool, ExprColor, ExprGeneric, ExprGraphic, ExprNumber, ExprString, If, MatchArm,
-    NodeBool, NodeNumber, NodeString, OpBinBool, OpBinNumber, OpCompare, OpUnBool, Pattern,
+    NodeBool, NodeColor, NodeGraphic, NodeNumber, NodeString, OpBinBool, OpBinNumber, OpCompare,
+    OpUnBool, Pattern,
 };
 
 pub fn eval_generic(context: &Context, expr: ExprGeneric) -> EResult<Value> {
@@ -233,12 +234,25 @@ pub fn eval_color(context: &Context, expr: ExprColor) -> EResult<scene::Color> {
             Value::Color(x) => Ok(x),
             _ => Err("Expected a color".to_string()),
         },
-        Expr::Node(typed::Color::Rgba { r, g, b, a }) => Ok(scene::Color::Rgba {
-            r: eval_number(context, *r)?,
-            g: eval_number(context, *g)?,
-            b: eval_number(context, *b)?,
-            a: eval_number(context, *a)?,
-        }),
+        Expr::Node(NodeColor::Literal(typed::Color::Rgba { r, g, b, a })) => {
+            Ok(scene::Color::Rgba {
+                r: eval_number(context, *r)?,
+                g: eval_number(context, *g)?,
+                b: eval_number(context, *b)?,
+                a: eval_number(context, *a)?,
+            })
+        }
+        Expr::Node(NodeColor::Match { scrutinee, arms }) => {
+            let s = eval_color(context, *scrutinee)?;
+            eval_match(
+                context,
+                arms,
+                Value::Color(s),
+                move |ctx, lit| Ok(eval_color(ctx, lit)? == s),
+                eval_color,
+            )
+        }
+        Expr::Node(NodeColor::If(if_)) => eval_if(context, if_, eval_color),
     }
 }
 
@@ -255,16 +269,32 @@ pub fn eval_graphic(context: &Context, expr: ExprGraphic) -> EResult<scene::Grap
             Value::Graphic(x) => Ok(x),
             _ => Err("Expected a graphic".to_string()),
         },
-        Expr::Node(typed::Graphic::Circle { radius }) => Ok(scene::Graphic::Circle {
-            radius: eval_number(context, *radius)?,
-        }),
-        Expr::Node(typed::Graphic::Rect { width, height }) => Ok(scene::Graphic::Rect {
-            width: eval_number(context, *width)?,
-            height: eval_number(context, *height)?,
-        }),
-        Expr::Node(typed::Graphic::Text(text)) => {
+        Expr::Node(NodeGraphic::Literal(typed::Graphic::Circle { radius })) => {
+            Ok(scene::Graphic::Circle {
+                radius: eval_number(context, *radius)?,
+            })
+        }
+        Expr::Node(NodeGraphic::Literal(typed::Graphic::Rect { width, height })) => {
+            Ok(scene::Graphic::Rect {
+                width: eval_number(context, *width)?,
+                height: eval_number(context, *height)?,
+            })
+        }
+        Expr::Node(NodeGraphic::Literal(typed::Graphic::Text(text))) => {
             Ok(scene::Graphic::Text(eval_string(context, *text)?))
         }
+        Expr::Node(NodeGraphic::Match { scrutinee, arms }) => {
+            let s = eval_graphic(context, *scrutinee)?;
+            let s_cmp = s.clone();
+            eval_match(
+                context,
+                arms,
+                Value::Graphic(s),
+                move |ctx, lit| Ok(eval_graphic(ctx, lit)? == s_cmp),
+                eval_graphic,
+            )
+        }
+        Expr::Node(NodeGraphic::If(if_)) => eval_if(context, if_, eval_graphic),
     }
 }
 
@@ -332,12 +362,12 @@ mod tests {
     #[test]
     fn test_eval_color() {
         let context = Context::new();
-        let expr = Expr::Node(typed::Color::Rgba {
+        let expr = Expr::Node(NodeColor::Literal(typed::Color::Rgba {
             r: Box::new(Expr::Node(NodeNumber::Literal(1.0))),
             g: Box::new(Expr::Node(NodeNumber::Literal(0.5))),
             b: Box::new(Expr::Node(NodeNumber::Literal(0.0))),
             a: Box::new(Expr::Node(NodeNumber::Literal(1.0))),
-        });
+        }));
 
         let res = eval_color(&context, expr).unwrap();
         assert_eq!(
@@ -356,15 +386,15 @@ mod tests {
         let context = Context::new();
 
         // Circle
-        let expr = Expr::Node(typed::Graphic::Circle {
+        let expr = Expr::Node(NodeGraphic::Literal(typed::Graphic::Circle {
             radius: Box::new(Expr::Node(NodeNumber::Literal(15.0))),
-        });
+        }));
         let res = eval_graphic(&context, expr).unwrap();
         assert_eq!(res, scene::Graphic::Circle { radius: 15.0 });
 
         // Text
-        let expr = Expr::Node(typed::Graphic::Text(Box::new(Expr::Node(
-            NodeString::Literal("hi".to_string()),
+        let expr = Expr::Node(NodeGraphic::Literal(typed::Graphic::Text(Box::new(
+            Expr::Node(NodeString::Literal("hi".to_string())),
         ))));
         let res = eval_graphic(&context, expr).unwrap();
         assert_eq!(res, scene::Graphic::Text("hi".to_string()));
@@ -679,5 +709,178 @@ mod tests {
             right: bad,
         });
         assert_eq!(eval_bool(&context, expr).unwrap(), true);
+    }
+
+    // --- if/match for Color / Graphic ---
+
+    fn red_expr() -> ExprColor {
+        Expr::Node(NodeColor::Literal(typed::Color::Rgba {
+            r: Box::new(Expr::Node(NodeNumber::Literal(1.0))),
+            g: Box::new(Expr::Node(NodeNumber::Literal(0.0))),
+            b: Box::new(Expr::Node(NodeNumber::Literal(0.0))),
+            a: Box::new(Expr::Node(NodeNumber::Literal(1.0))),
+        }))
+    }
+
+    fn blue_expr() -> ExprColor {
+        Expr::Node(NodeColor::Literal(typed::Color::Rgba {
+            r: Box::new(Expr::Node(NodeNumber::Literal(0.0))),
+            g: Box::new(Expr::Node(NodeNumber::Literal(0.0))),
+            b: Box::new(Expr::Node(NodeNumber::Literal(1.0))),
+            a: Box::new(Expr::Node(NodeNumber::Literal(1.0))),
+        }))
+    }
+
+    fn red_scene() -> scene::Color {
+        scene::Color::Rgba {
+            r: 1.0,
+            g: 0.0,
+            b: 0.0,
+            a: 1.0,
+        }
+    }
+
+    fn blue_scene() -> scene::Color {
+        scene::Color::Rgba {
+            r: 0.0,
+            g: 0.0,
+            b: 1.0,
+            a: 1.0,
+        }
+    }
+
+    #[test]
+    fn test_eval_if_color() {
+        let context = Context::new();
+        // if true { red } else { blue } → red
+        let expr = Expr::Node(NodeColor::If(If {
+            condition: Box::new(Expr::Node(NodeBool::Literal(true))),
+            then_branch: Box::new(red_expr()),
+            else_branch: Box::new(blue_expr()),
+        }));
+        assert_eq!(eval_color(&context, expr).unwrap(), red_scene());
+
+        // if false { red } else { blue } → blue
+        let expr = Expr::Node(NodeColor::If(If {
+            condition: Box::new(Expr::Node(NodeBool::Literal(false))),
+            then_branch: Box::new(red_expr()),
+            else_branch: Box::new(blue_expr()),
+        }));
+        assert_eq!(eval_color(&context, expr).unwrap(), blue_scene());
+    }
+
+    #[test]
+    fn test_eval_match_color_literal() {
+        let context = Context::new();
+        // match red { red => blue, x => x } → blue
+        let expr = Expr::Node(NodeColor::Match {
+            scrutinee: Box::new(red_expr()),
+            arms: vec![
+                MatchArm {
+                    pattern: Pattern::Literal(red_expr()),
+                    guard: None,
+                    body: blue_expr(),
+                },
+                MatchArm {
+                    pattern: Pattern::Binding("x".to_string()),
+                    guard: None,
+                    body: Expr::Variable("x".to_string()),
+                },
+            ],
+        });
+        assert_eq!(eval_color(&context, expr).unwrap(), blue_scene());
+    }
+
+    #[test]
+    fn test_eval_match_color_binding() {
+        let context = Context::new();
+        // match red { blue => red, x => x } → red (binding arm wins)
+        let expr = Expr::Node(NodeColor::Match {
+            scrutinee: Box::new(red_expr()),
+            arms: vec![
+                MatchArm {
+                    pattern: Pattern::Literal(blue_expr()),
+                    guard: None,
+                    body: red_expr(),
+                },
+                MatchArm {
+                    pattern: Pattern::Binding("x".to_string()),
+                    guard: None,
+                    body: Expr::Variable("x".to_string()),
+                },
+            ],
+        });
+        assert_eq!(eval_color(&context, expr).unwrap(), red_scene());
+    }
+
+    #[test]
+    fn test_eval_match_color_no_match() {
+        let context = Context::new();
+        // match red { blue => red } → err
+        let expr = Expr::Node(NodeColor::Match {
+            scrutinee: Box::new(red_expr()),
+            arms: vec![MatchArm {
+                pattern: Pattern::Literal(blue_expr()),
+                guard: None,
+                body: red_expr(),
+            }],
+        });
+        assert!(eval_color(&context, expr).is_err());
+    }
+
+    #[test]
+    fn test_eval_if_graphic() {
+        let context = Context::new();
+        let circle = Expr::Node(NodeGraphic::Literal(typed::Graphic::Circle {
+            radius: Box::new(Expr::Node(NodeNumber::Literal(10.0))),
+        }));
+        let rect = Expr::Node(NodeGraphic::Literal(typed::Graphic::Rect {
+            width: Box::new(Expr::Node(NodeNumber::Literal(5.0))),
+            height: Box::new(Expr::Node(NodeNumber::Literal(5.0))),
+        }));
+        let expr = Expr::Node(NodeGraphic::If(If {
+            condition: Box::new(Expr::Node(NodeBool::Literal(false))),
+            then_branch: Box::new(circle),
+            else_branch: Box::new(rect),
+        }));
+        assert_eq!(
+            eval_graphic(&context, expr).unwrap(),
+            scene::Graphic::Rect {
+                width: 5.0,
+                height: 5.0
+            }
+        );
+    }
+
+    #[test]
+    fn test_eval_match_graphic() {
+        let context = Context::new();
+        let circle = || {
+            Expr::Node(NodeGraphic::Literal(typed::Graphic::Circle {
+                radius: Box::new(Expr::Node(NodeNumber::Literal(10.0))),
+            }))
+        };
+        let rect = || {
+            Expr::Node(NodeGraphic::Literal(typed::Graphic::Rect {
+                width: Box::new(Expr::Node(NodeNumber::Literal(5.0))),
+                height: Box::new(Expr::Node(NodeNumber::Literal(5.0))),
+            }))
+        };
+        // match circle { circle => rect } → rect
+        let expr = Expr::Node(NodeGraphic::Match {
+            scrutinee: Box::new(circle()),
+            arms: vec![MatchArm {
+                pattern: Pattern::Literal(circle()),
+                guard: None,
+                body: rect(),
+            }],
+        });
+        assert_eq!(
+            eval_graphic(&context, expr).unwrap(),
+            scene::Graphic::Rect {
+                width: 5.0,
+                height: 5.0
+            }
+        );
     }
 }

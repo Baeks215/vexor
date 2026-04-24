@@ -26,8 +26,8 @@ pub enum ExprGeneric {
 pub type ExprNumber = Expr<NodeNumber>;
 pub type ExprString = Expr<NodeString>;
 pub type ExprBool = Expr<NodeBool>;
-pub type ExprColor = Expr<Color>;
-pub type ExprGraphic = Expr<Graphic>;
+pub type ExprColor = Expr<NodeColor>;
+pub type ExprGraphic = Expr<NodeGraphic>;
 
 // --- Match ---
 
@@ -143,4 +143,28 @@ pub enum NodeBool {
     If(If<ExprBool>),
 }
 
-// Other types are only literals for now
+// --- Color Type ---
+
+/// Color Node
+#[derive(Debug, Clone, PartialEq)]
+pub enum NodeColor {
+    Literal(Color),
+    Match {
+        scrutinee: Box<ExprColor>,
+        arms: Vec<MatchArm<ExprColor>>,
+    },
+    If(If<ExprColor>),
+}
+
+// --- Graphic Type ---
+
+/// Graphic Node
+#[derive(Debug, Clone, PartialEq)]
+pub enum NodeGraphic {
+    Literal(Graphic),
+    Match {
+        scrutinee: Box<ExprGraphic>,
+        arms: Vec<MatchArm<ExprGraphic>>,
+    },
+    If(If<ExprGraphic>),
+}
