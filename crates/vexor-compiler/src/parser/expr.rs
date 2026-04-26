@@ -100,8 +100,9 @@ pub fn p_match_arm<'a>(input: &mut Input<'a>) -> ModalResult<ast::MatchArm> {
 pub fn p_match<'a>(input: &mut Input<'a>) -> ModalResult<ast::Expr> {
     preceded(
         pk_match.ws(),
-        (p_expr, braced(separated(1.., p_match_arm, ",".mws())).ws()),
+        (p_expr, braced(separated(1.., p_match_arm, ",".mws()))),
     )
+    .ws()
     .map(
         |(scrutinee, arms): (ast::Expr, Vec<ast::MatchArm>)| ast::Expr::Match {
             scrutinee: Box::new(scrutinee),
@@ -116,8 +117,9 @@ pub fn p_if<'a>(input: &mut Input<'a>) -> ModalResult<ast::Expr> {
     (
         preceded(pk_if.ws(), p_expr),
         braced(p_expr).ws(),
-        preceded(pk_else.ws(), braced(p_expr).ws()),
+        preceded(pk_else.ws(), braced(p_expr)),
     )
+        .ws()
         .map(
             |(condition, then_branch, else_branch): (ast::Expr, ast::Expr, ast::Expr)| {
                 ast::Expr::If {
