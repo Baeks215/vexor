@@ -280,8 +280,8 @@ pub fn eval_graphic(context: &Context, expr: ExprGraphic) -> EResult<scene::Grap
                 height: eval_number(context, *height)?,
             })
         }
-        Expr::Node(NodeGraphic::Literal(typed::Graphic::Text(text))) => {
-            Ok(scene::Graphic::Text(eval_string(context, *text)?))
+        Expr::Node(NodeGraphic::Literal(typed::Graphic::Text { content })) => {
+            Ok(scene::Graphic::Text(eval_string(context, *content)?))
         }
         Expr::Node(NodeGraphic::Match { scrutinee, arms }) => {
             let s = eval_graphic(context, *scrutinee)?;
@@ -393,9 +393,9 @@ mod tests {
         assert_eq!(res, scene::Graphic::Circle { radius: 15.0 });
 
         // Text
-        let expr = Expr::Node(NodeGraphic::Literal(typed::Graphic::Text(Box::new(
-            Expr::Node(NodeString::Literal("hi".to_string())),
-        ))));
+        let expr = Expr::Node(NodeGraphic::Literal(typed::Graphic::Text {
+            content: Box::new(Expr::Node(NodeString::Literal("hi".to_string()))),
+        }));
         let res = eval_graphic(&context, expr).unwrap();
         assert_eq!(res, scene::Graphic::Text("hi".to_string()));
     }

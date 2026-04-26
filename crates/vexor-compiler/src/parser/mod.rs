@@ -7,8 +7,8 @@ use winnow::token::take_while;
 use winnow::{LocatingSlice, ModalParser, ModalResult, Parser};
 
 mod expr;
-mod graphic;
 mod keyword;
+mod object;
 mod program;
 
 pub use program::*;

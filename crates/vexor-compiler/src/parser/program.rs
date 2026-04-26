@@ -154,10 +154,14 @@ mod tests {
 
     #[test]
     fn test_p_export() {
-        let mut input = Input::new("export circle(10)");
+        let mut input = Input::new("export Circle { radius: 10 }");
         let res = p_export.parse_next(&mut input).unwrap();
-        if let ast::Expr::LGraphic(ast::Graphic::Circle { radius }) = res {
-            assert_eq!(*radius, ast::Expr::LNumber(10.0));
+        if let ast::Expr::LObject(ast::Object { name, fields }) = res {
+            assert_eq!(name, "Circle");
+            assert_eq!(
+                fields,
+                vec![("radius".to_string(), ast::Expr::LNumber(10.0))]
+            );
         } else {
             panic!("Expected Export, got {:?}", res);
         }
@@ -186,14 +190,17 @@ mod tests {
 
     #[test]
     fn test_parse_program_with_function() {
-        let input = "fn mk(r: number): number = r + 1\nexport circle(mk(5))";
+        let input = "fn mk(r: number): number = r + 1\nexport Circle { radius: mk(5) }";
         let res = parse_program(input).unwrap();
         assert_eq!(res.functions.len(), 1);
         assert!(res.scope.is_empty());
         assert_eq!(res.exports.len(), 1);
 
-        if let ast::Expr::LGraphic(ast::Graphic::Circle { radius }) = &res.exports[0] {
-            match &**radius {
+        if let ast::Expr::LObject(ast::Object { name, fields }) = &res.exports[0] {
+            assert_eq!(name, "Circle");
+            assert_eq!(fields.len(), 1);
+            assert_eq!(fields[0].0, "radius");
+            match &fields[0].1 {
                 ast::Expr::Call { function, args } => {
                     assert_eq!(function, "mk");
                     assert_eq!(args.len(), 1);
@@ -208,7 +215,7 @@ mod tests {
 
     #[test]
     fn test_parse_program() {
-        let input = "  let x: number = 10  \n \t export circle(x)  \n";
+        let input = "  let x: number = 10  \n \t export Circle { radius: x }  \n";
         let res = parse_program(input).unwrap();
         assert_eq!(res.scope.len(), 1);
 
@@ -221,8 +228,11 @@ mod tests {
         assert_eq!(identifier, "x");
         assert_eq!(*value, ast::Expr::LNumber(10.0));
 
-        if let ast::Expr::LGraphic(ast::Graphic::Circle { radius }) = &res.exports[0] {
-            assert_eq!(**radius, ast::Expr::Variable("x".to_string()));
+        if let ast::Expr::LObject(ast::Object { name, fields }) = &res.exports[0] {
+            assert_eq!(name, "Circle");
+            assert_eq!(fields.len(), 1);
+            assert_eq!(fields[0].0, "radius");
+            assert_eq!(fields[0].1, ast::Expr::Variable("x".to_string()));
         } else {
             panic!("Expected Export, got {:?}", res.exports[0]);
         }

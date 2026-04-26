@@ -131,8 +131,9 @@ mod tests {
                 identifier: "x".to_string(),
                 value: ast::Expr::LNumber(10.0),
             }],
-            exports: vec![ast::Expr::LGraphic(ast::Graphic::Circle {
-                radius: Box::new(ast::Expr::Variable("x".to_string())),
+            exports: vec![ast::Expr::LObject(ast::Object {
+                name: "Circle".to_string(),
+                fields: vec![("radius".to_string(), ast::Expr::Variable("x".to_string()))],
             })],
         };
         let res = check_program(program).unwrap();
@@ -234,11 +235,15 @@ mod tests {
                 ),
             }],
             scope: vec![],
-            exports: vec![ast::Expr::LGraphic(ast::Graphic::Circle {
-                radius: Box::new(ast::Expr::Call {
-                    function: "double".to_string(),
-                    args: vec![ast::Expr::LNumber(3.0)],
-                }),
+            exports: vec![ast::Expr::LObject(ast::Object {
+                name: "Circle".to_string(),
+                fields: vec![(
+                    "radius".to_string(),
+                    ast::Expr::Call {
+                        function: "double".to_string(),
+                        args: vec![ast::Expr::LNumber(3.0)],
+                    },
+                )],
             })],
         };
         let res = check_program(program).unwrap();

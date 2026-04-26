@@ -36,7 +36,9 @@ pub enum Graphic {
         width: Box<ExprNumber>,
         height: Box<ExprNumber>,
     },
-    Text(Box<ExprString>),
+    Text {
+        content: Box<ExprString>,
+    },
 }
 
 // --- Program ---

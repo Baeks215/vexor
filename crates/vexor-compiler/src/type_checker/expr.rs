@@ -336,28 +336,63 @@ pub fn check_color(context: &Context, expr: ast::Expr) -> TResult<ExprColor> {
     }
 }
 
+macro_rules! extract_fields {
+    ($fields:expr, [$($name:ident),+]) => {{
+        let fields: Vec<(String, _)> = $fields;
+
+        // Check for unexpected
+        let expected = [$(stringify!($name)),+];
+        for (key, _) in fields.iter() {
+            if !expected.contains(&key.as_str()) {
+                // TODO: Return multiple errors for each unexpected field
+                return Err(format!("unexpected field: {key}"));
+            }
+        }
+
+        // Extract and move fields to tupl
+        let mut map: std::collections::HashMap<String, _> = fields.into_iter().collect();
+
+        $(
+            let $name = map.remove(stringify!($name))
+                .ok_or_else(|| format!("missing field: {}", stringify!($name)))?;
+        )+
+
+        ($($name),+)
+    }};
+}
+
 /// Checks an expression expecting a Graphic type.
 pub fn check_graphic(context: &Context, expr: ast::Expr) -> TResult<ExprGraphic> {
     match expr {
-        ast::Expr::LGraphic(ast::Graphic::Circle { radius }) => {
-            let radius = Box::new(check_number(context, *radius)?);
-            Ok(ExprGraphic::Node(NodeGraphic::Literal(
-                typed::Graphic::Circle { radius },
-            )))
-        }
-        ast::Expr::LGraphic(ast::Graphic::Rect { width, height }) => {
-            let width = Box::new(check_number(context, *width)?);
-            let height = Box::new(check_number(context, *height)?);
-            Ok(ExprGraphic::Node(NodeGraphic::Literal(
-                typed::Graphic::Rect { width, height },
-            )))
-        }
-        ast::Expr::LGraphic(ast::Graphic::Text(text)) => {
-            let text = Box::new(check_string(context, *text)?);
-            Ok(ExprGraphic::Node(NodeGraphic::Literal(
-                typed::Graphic::Text(text),
-            )))
-        }
+        ast::Expr::LObject(ast::Object { name, fields }) => match name.as_str() {
+            "Circle" => {
+                let radius = extract_fields!(fields, [radius]);
+                Ok(ExprGraphic::Node(NodeGraphic::Literal(
+                    typed::Graphic::Circle {
+                        radius: Box::new(check_number(context, radius)?),
+                    },
+                )))
+            }
+            "Rect" => {
+                let (width, height) = extract_fields!(fields, [width, height]);
+                Ok(ExprGraphic::Node(NodeGraphic::Literal(
+                    typed::Graphic::Rect {
+                        width: Box::new(check_number(context, width)?),
+                        height: Box::new(check_number(context, height)?),
+                    },
+                )))
+            }
+            "Text" => {
+                let content = extract_fields!(fields, [content]);
+                Ok(ExprGraphic::Node(NodeGraphic::Literal(
+                    typed::Graphic::Text {
+                        content: Box::new(check_string(context, content)?),
+                    },
+                )))
+            }
+
+            _ => Err("Unexpected object name".to_string()),
+        },
         ast::Expr::Variable(name) => {
             context.check_var(&name, Is(Type::Graphic))?;
             Ok(ExprGraphic::Variable(name))
@@ -893,12 +928,16 @@ mod tests {
         let context = Context::new();
         let expr = ast::Expr::If {
             condition: Box::new(ast::Expr::LBool(true)),
-            then_branch: Box::new(ast::Expr::LGraphic(ast::Graphic::Circle {
-                radius: Box::new(ast::Expr::LNumber(10.0)),
+            then_branch: Box::new(ast::Expr::LObject(ast::Object {
+                name: "Circle".to_string(),
+                fields: vec![("radius".to_string(), ast::Expr::LNumber(10.0))],
             })),
-            else_branch: Box::new(ast::Expr::LGraphic(ast::Graphic::Rect {
-                width: Box::new(ast::Expr::LNumber(5.0)),
-                height: Box::new(ast::Expr::LNumber(5.0)),
+            else_branch: Box::new(ast::Expr::LObject(ast::Object {
+                name: "Rect".to_string(),
+                fields: vec![
+                    ("width".to_string(), ast::Expr::LNumber(5.0)),
+                    ("height".to_string(), ast::Expr::LNumber(5.0)),
+                ],
             })),
         };
         let res = check_graphic(&context, expr).unwrap();
@@ -908,12 +947,16 @@ mod tests {
     #[test]
     fn test_check_match_graphic() {
         let context = Context::new();
-        let circle = ast::Expr::LGraphic(ast::Graphic::Circle {
-            radius: Box::new(ast::Expr::LNumber(10.0)),
+        let circle = ast::Expr::LObject(ast::Object {
+            name: "Circle".to_string(),
+            fields: vec![("radius".to_string(), ast::Expr::LNumber(10.0))],
         });
-        let rect = ast::Expr::LGraphic(ast::Graphic::Rect {
-            width: Box::new(ast::Expr::LNumber(5.0)),
-            height: Box::new(ast::Expr::LNumber(5.0)),
+        let rect = ast::Expr::LObject(ast::Object {
+            name: "Rect".to_string(),
+            fields: vec![
+                ("width".to_string(), ast::Expr::LNumber(5.0)),
+                ("height".to_string(), ast::Expr::LNumber(5.0)),
+            ],
         });
         // match circle { g => g }
         let expr = ast::Expr::Match {

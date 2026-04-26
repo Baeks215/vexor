@@ -43,10 +43,6 @@ define_keywords! {
     pk_bool => "bool",
     pk_color => "color",
     pk_graphic => "graphic",
-    // Primitives
-    pk_circle => "circle",
-    pk_rect => "rect",
-    pk_text => "text",
     // Bool literals
     pk_true => "true",
     pk_false => "false",
@@ -61,10 +57,10 @@ mod tests {
         assert!(is_keyword("let"));
         assert!(is_keyword("export"));
         assert!(is_keyword("color"));
-        assert!(is_keyword("circle"));
         assert!(is_keyword("bool"));
         assert!(is_keyword("true"));
         assert!(is_keyword("false"));
+        assert!(!is_keyword("not_a_keyword"));
     }
 
     #[test]
@@ -73,8 +69,8 @@ mod tests {
         assert_eq!(pk_let.parse_next(&mut input).unwrap(), "let");
         assert_eq!(*input, "");
 
-        let mut input = Input::new("circle\n");
-        assert_eq!(pk_circle.parse_next(&mut input).unwrap(), "circle");
+        let mut input = Input::new("number\n");
+        assert_eq!(pk_number.parse_next(&mut input).unwrap(), "number");
         assert_eq!(*input, "\n");
 
         let mut input = Input::new("not_a_keyword");

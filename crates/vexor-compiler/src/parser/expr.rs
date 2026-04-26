@@ -2,8 +2,8 @@
 
 use crate::ir::Number;
 use crate::ir::ast;
-use crate::parser::graphic::p_graphic;
 use crate::parser::keyword::{pk_color, pk_else, pk_false, pk_if, pk_match, pk_true};
+use crate::parser::object::p_object;
 use crate::parser::p_identifier_no_ws;
 use crate::parser::{Input, WhiteSpaceParser, braced, bracketed, p_identifier};
 use winnow::ascii::float;
@@ -134,7 +134,7 @@ pub fn p_atom<'a>(input: &mut Input<'a>) -> ModalResult<ast::Expr> {
         p_string.map(|s| ast::Expr::LString(s.to_string())),
         p_bool.map(|b| ast::Expr::LBool(b)),
         p_color.map(|c| ast::Expr::LColor(c)),
-        p_graphic.map(|g| ast::Expr::LGraphic(g)),
+        p_object.map(|o| ast::Expr::LObject(o)),
         p_if,
         p_match,
         p_call,
