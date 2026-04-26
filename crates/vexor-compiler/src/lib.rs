@@ -276,7 +276,7 @@ mod tests {
     #[test]
     fn test_compile_with_match_graphic() {
         let input = format!(
-            "let g: graphic = Circle {{ x: 0, y: 0, radius: 10, color: {RED} }}\nexport match g {{ Circle {{ x: 0, y: 0, radius: 10, color: {RED} }} => Rect {{ x: 0, y: 0, width: 1, height: 2, color: {RED} }}, x => x }}"
+            "let g: graphic = Circle {{ x: 0, y: 0, radius: 10, color: {RED} }}\nexport match g {{ x if true => Rect {{ x: 0, y: 0, width: 1, height: 2, color: {RED} }}, y => y }}"
         );
         let scene = compile(&input).expect("compile should succeed");
         assert_eq!(scene.exports[0], rect(0.0, 0.0, 1.0, 2.0));

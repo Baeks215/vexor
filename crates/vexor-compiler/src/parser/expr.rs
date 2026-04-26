@@ -70,15 +70,23 @@ pub fn p_call<'a>(input: &mut Input<'a>) -> ModalResult<ast::Expr> {
         .parse_next(input)
 }
 
-/// Parses a pattern.
-///   A bare identifier is a binding, any other expression is a literal match.
+/// Parses a literal expression: number, string, or bool.
+pub fn p_literal<'a>(input: &mut Input<'a>) -> ModalResult<ast::Expr> {
+    alt((
+        p_number.map(ast::Expr::LNumber),
+        p_string.map(|s| ast::Expr::LString(s.to_string())),
+        p_bool.map(ast::Expr::LBool),
+    ))
+    .parse_next(input)
+}
+
+/// Parses a pattern: a literal or a binding identifier.
 pub fn p_pattern<'a>(input: &mut Input<'a>) -> ModalResult<ast::Pattern> {
-    p_expr
-        .map(|e| match e {
-            ast::Expr::Variable(name) => ast::Pattern::Binding(name),
-            other => ast::Pattern::Literal(other),
-        })
-        .parse_next(input)
+    alt((
+        p_literal.map(ast::Pattern::Literal),
+        p_identifier.map(|s| ast::Pattern::Binding(s.to_string())),
+    ))
+    .parse_next(input)
 }
 
 /// Parses a match arm: `<pattern> [if <guard>] => <body>`.
@@ -135,9 +143,7 @@ pub fn p_if<'a>(input: &mut Input<'a>) -> ModalResult<ast::Expr> {
 /// Parses an atom.
 pub fn p_atom<'a>(input: &mut Input<'a>) -> ModalResult<ast::Expr> {
     alt((
-        p_number.map(|n| ast::Expr::LNumber(n)),
-        p_string.map(|s| ast::Expr::LString(s.to_string())),
-        p_bool.map(|b| ast::Expr::LBool(b)),
+        p_literal,
         p_color.map(|c| ast::Expr::LColor(c)),
         p_object.map(|o| ast::Expr::LObject(o)),
         p_if,
@@ -670,6 +676,16 @@ mod tests {
             }
             other => panic!("Expected If, got {:?}", other),
         }
+    }
+
+    #[test]
+    fn test_p_pattern_rejects_expr() {
+        // Arbitrary expressions are no longer valid patterns.
+        let mut input = Input::new("1 + 2 => 0");
+        assert!(p_match_arm.parse_next(&mut input).is_err());
+
+        let mut input = Input::new("foo() => 0");
+        assert!(p_match_arm.parse_next(&mut input).is_err());
     }
 
     #[test]
