@@ -2,7 +2,8 @@
 
 use crate::ir::Number;
 use crate::ir::ast;
-use crate::parser::keyword::{pk_color, pk_else, pk_false, pk_if, pk_match, pk_true};
+use crate::parser::keyword::pk_rgb;
+use crate::parser::keyword::{pk_else, pk_false, pk_if, pk_match, pk_true};
 use crate::parser::object::p_object;
 use crate::parser::p_identifier_no_ws;
 use crate::parser::{Input, WhiteSpaceParser, braced, bracketed, p_identifier};
@@ -41,7 +42,7 @@ pub fn p_bool<'a>(input: &mut Input<'a>) -> ModalResult<bool> {
 /// Parses a color.
 pub fn p_color<'a>(input: &mut Input<'a>) -> ModalResult<ast::Color> {
     preceded(
-        (pk_color, ".rgb"),
+        pk_rgb,
         bracketed(
             separated(4, p_expr, ','.ws()).map(|mut es: Vec<ast::Expr>| ast::Color::Rgba {
                 r: Box::new(es.remove(0)),
@@ -209,7 +210,7 @@ mod tests {
 
     #[test]
     fn test_p_color() {
-        let mut input = Input::new("color.rgb(0.5, 0.6, 0.1, 1)");
+        let mut input = Input::new("rgb(0.5, 0.6, 0.1, 1)");
         let res = p_color.parse_next(&mut input).unwrap();
         match res {
             ast::Color::Rgba { r, g, b, a } => {

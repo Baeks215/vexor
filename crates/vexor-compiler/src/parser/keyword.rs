@@ -45,6 +45,8 @@ define_keywords! {
     // Bool literals
     pk_true => "true",
     pk_false => "false",
+    // Standard functions
+    pk_rgb => "rgb",
 }
 
 #[cfg(test)]

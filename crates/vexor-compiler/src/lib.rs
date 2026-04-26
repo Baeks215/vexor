@@ -69,7 +69,7 @@ mod tests {
         }
     }
 
-    const RED: &str = "color.rgb(1, 0, 0, 1)";
+    const RED: &str = "rgb(1, 0, 0, 1)";
 
     #[test]
     fn test_compile_single_export() {
@@ -285,7 +285,7 @@ mod tests {
     #[test]
     fn test_compile_with_if_color() {
         let input = format!(
-            "let c: color = if true {{ color.rgb(1, 0, 0, 1) }} else {{ color.rgb(0, 0, 1, 1) }}\nexport Circle {{ x: 0, y: 0, radius: 1, color: {RED} }}"
+            "let c: color = if true {{ rgb(1, 0, 0, 1) }} else {{ rgb(0, 0, 1, 1) }}\nexport Circle {{ x: 0, y: 0, radius: 1, color: {RED} }}"
         );
         let scene = compile(&input).expect("compile should succeed");
         assert_eq!(scene.exports.len(), 1);
