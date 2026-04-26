@@ -133,7 +133,20 @@ mod tests {
             }],
             exports: vec![ast::Expr::LObject(ast::Object {
                 name: "Circle".to_string(),
-                fields: vec![("radius".to_string(), ast::Expr::Variable("x".to_string()))],
+                fields: vec![
+                    ("x".to_string(), ast::Expr::LNumber(0.0)),
+                    ("y".to_string(), ast::Expr::LNumber(0.0)),
+                    ("radius".to_string(), ast::Expr::Variable("x".to_string())),
+                    (
+                        "color".to_string(),
+                        ast::Expr::LColor(ast::Color::Rgba {
+                            r: Box::new(ast::Expr::LNumber(1.0)),
+                            g: Box::new(ast::Expr::LNumber(0.0)),
+                            b: Box::new(ast::Expr::LNumber(0.0)),
+                            a: Box::new(ast::Expr::LNumber(1.0)),
+                        }),
+                    ),
+                ],
             })],
         };
         let res = check_program(program).unwrap();
@@ -237,13 +250,26 @@ mod tests {
             scope: vec![],
             exports: vec![ast::Expr::LObject(ast::Object {
                 name: "Circle".to_string(),
-                fields: vec![(
-                    "radius".to_string(),
-                    ast::Expr::Call {
-                        function: "double".to_string(),
-                        args: vec![ast::Expr::LNumber(3.0)],
-                    },
-                )],
+                fields: vec![
+                    ("x".to_string(), ast::Expr::LNumber(0.0)),
+                    ("y".to_string(), ast::Expr::LNumber(0.0)),
+                    (
+                        "radius".to_string(),
+                        ast::Expr::Call {
+                            function: "double".to_string(),
+                            args: vec![ast::Expr::LNumber(3.0)],
+                        },
+                    ),
+                    (
+                        "color".to_string(),
+                        ast::Expr::LColor(ast::Color::Rgba {
+                            r: Box::new(ast::Expr::LNumber(1.0)),
+                            g: Box::new(ast::Expr::LNumber(0.0)),
+                            b: Box::new(ast::Expr::LNumber(0.0)),
+                            a: Box::new(ast::Expr::LNumber(1.0)),
+                        }),
+                    ),
+                ],
             })],
         };
         let res = check_program(program).unwrap();

@@ -1,6 +1,6 @@
 //! Typed IR nodes
 
-use crate::ir::typed::expr::{ExprGeneric, ExprGraphic, ExprNumber, ExprString};
+use crate::ir::typed::expr::{ExprColor, ExprGeneric, ExprGraphic, ExprNumber, ExprString};
 
 pub mod expr;
 
@@ -30,14 +30,23 @@ pub enum Color {
 #[derive(Debug, Clone, PartialEq)]
 pub enum Graphic {
     Circle {
+        x: Box<ExprNumber>,
+        y: Box<ExprNumber>,
         radius: Box<ExprNumber>,
+        color: Box<ExprColor>,
     },
     Rect {
+        x: Box<ExprNumber>,
+        y: Box<ExprNumber>,
         width: Box<ExprNumber>,
         height: Box<ExprNumber>,
+        color: Box<ExprColor>,
     },
     Text {
+        x: Box<ExprNumber>,
+        y: Box<ExprNumber>,
         content: Box<ExprString>,
+        color: Box<ExprColor>,
     },
 }
 

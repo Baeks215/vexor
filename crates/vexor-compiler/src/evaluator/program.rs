@@ -63,6 +63,28 @@ mod tests {
         assert!(eval_assignment(&mut context, stmt2).is_err());
     }
 
+    fn red_color_expr() -> Box<ExprColor> {
+        Box::new(Expr::Node(NodeColor::Literal(typed::Color::Rgba {
+            r: Box::new(Expr::Node(NodeNumber::Literal(1.0))),
+            g: Box::new(Expr::Node(NodeNumber::Literal(0.0))),
+            b: Box::new(Expr::Node(NodeNumber::Literal(0.0))),
+            a: Box::new(Expr::Node(NodeNumber::Literal(1.0))),
+        })))
+    }
+
+    fn red_scene() -> scene::Color {
+        scene::Color::Rgba {
+            r: 1.0,
+            g: 0.0,
+            b: 0.0,
+            a: 1.0,
+        }
+    }
+
+    fn zero() -> Box<ExprNumber> {
+        Box::new(Expr::Node(NodeNumber::Literal(0.0)))
+    }
+
     #[test]
     fn test_eval_program() {
         let program = typed::Program {
@@ -73,20 +95,29 @@ mod tests {
             }],
             exports: vec![Expr::Node(NodeGraphic::Literal(
                 crate::ir::typed::Graphic::Circle {
+                    x: zero(),
+                    y: zero(),
                     radius: Box::new(Expr::Variable("r".to_string())),
+                    color: red_color_expr(),
                 },
             ))],
         };
 
         let scene = eval_program(program).unwrap();
         assert_eq!(scene.exports.len(), 1);
-        assert_eq!(scene.exports[0], scene::Graphic::Circle { radius: 10.0 });
+        assert_eq!(
+            scene.exports[0],
+            scene::Graphic::Circle {
+                x: 0.0,
+                y: 0.0,
+                radius: 10.0,
+                color: red_scene()
+            }
+        );
     }
 
     #[test]
     fn test_eval_program_with_function() {
-        // fn double(x: number): number { return x + x }
-        // export circle(double(7))
         let double = typed::Function {
             name: "double".to_string(),
             params: vec![("x".to_string(), typed::Type::Number)],
@@ -101,14 +132,25 @@ mod tests {
             functions: vec![double],
             scope: vec![],
             exports: vec![Expr::Node(NodeGraphic::Literal(typed::Graphic::Circle {
+                x: zero(),
+                y: zero(),
                 radius: Box::new(Expr::Call {
                     function: "double".to_string(),
                     arguments: vec![ExprGeneric::Number(Expr::Node(NodeNumber::Literal(7.0)))],
                 }),
+                color: red_color_expr(),
             }))],
         };
         let scene = eval_program(program).unwrap();
         assert_eq!(scene.exports.len(), 1);
-        assert_eq!(scene.exports[0], scene::Graphic::Circle { radius: 14.0 });
+        assert_eq!(
+            scene.exports[0],
+            scene::Graphic::Circle {
+                x: 0.0,
+                y: 0.0,
+                radius: 14.0,
+                color: red_scene()
+            }
+        );
     }
 }

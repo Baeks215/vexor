@@ -366,27 +366,37 @@ pub fn check_graphic(context: &Context, expr: ast::Expr) -> TResult<ExprGraphic>
     match expr {
         ast::Expr::LObject(ast::Object { name, fields }) => match name.as_str() {
             "Circle" => {
-                let radius = extract_fields!(fields, [radius]);
+                let (x, y, radius, color) = extract_fields!(fields, [x, y, radius, color]);
                 Ok(ExprGraphic::Node(NodeGraphic::Literal(
                     typed::Graphic::Circle {
+                        x: Box::new(check_number(context, x)?),
+                        y: Box::new(check_number(context, y)?),
                         radius: Box::new(check_number(context, radius)?),
+                        color: Box::new(check_color(context, color)?),
                     },
                 )))
             }
             "Rect" => {
-                let (width, height) = extract_fields!(fields, [width, height]);
+                let (x, y, width, height, color) =
+                    extract_fields!(fields, [x, y, width, height, color]);
                 Ok(ExprGraphic::Node(NodeGraphic::Literal(
                     typed::Graphic::Rect {
+                        x: Box::new(check_number(context, x)?),
+                        y: Box::new(check_number(context, y)?),
                         width: Box::new(check_number(context, width)?),
                         height: Box::new(check_number(context, height)?),
+                        color: Box::new(check_color(context, color)?),
                     },
                 )))
             }
             "Text" => {
-                let content = extract_fields!(fields, [content]);
+                let (x, y, content, color) = extract_fields!(fields, [x, y, content, color]);
                 Ok(ExprGraphic::Node(NodeGraphic::Literal(
                     typed::Graphic::Text {
+                        x: Box::new(check_number(context, x)?),
+                        y: Box::new(check_number(context, y)?),
                         content: Box::new(check_string(context, content)?),
+                        color: Box::new(check_color(context, color)?),
                     },
                 )))
             }
@@ -923,22 +933,38 @@ mod tests {
         assert!(matches!(res, ExprColor::Node(NodeColor::Match { .. })));
     }
 
+    fn circle_literal() -> ast::Expr {
+        ast::Expr::LObject(ast::Object {
+            name: "Circle".to_string(),
+            fields: vec![
+                ("x".to_string(), ast::Expr::LNumber(0.0)),
+                ("y".to_string(), ast::Expr::LNumber(0.0)),
+                ("radius".to_string(), ast::Expr::LNumber(10.0)),
+                ("color".to_string(), red_literal()),
+            ],
+        })
+    }
+
+    fn rect_literal() -> ast::Expr {
+        ast::Expr::LObject(ast::Object {
+            name: "Rect".to_string(),
+            fields: vec![
+                ("x".to_string(), ast::Expr::LNumber(0.0)),
+                ("y".to_string(), ast::Expr::LNumber(0.0)),
+                ("width".to_string(), ast::Expr::LNumber(5.0)),
+                ("height".to_string(), ast::Expr::LNumber(5.0)),
+                ("color".to_string(), blue_literal()),
+            ],
+        })
+    }
+
     #[test]
     fn test_check_if_graphic() {
         let context = Context::new();
         let expr = ast::Expr::If {
             condition: Box::new(ast::Expr::LBool(true)),
-            then_branch: Box::new(ast::Expr::LObject(ast::Object {
-                name: "Circle".to_string(),
-                fields: vec![("radius".to_string(), ast::Expr::LNumber(10.0))],
-            })),
-            else_branch: Box::new(ast::Expr::LObject(ast::Object {
-                name: "Rect".to_string(),
-                fields: vec![
-                    ("width".to_string(), ast::Expr::LNumber(5.0)),
-                    ("height".to_string(), ast::Expr::LNumber(5.0)),
-                ],
-            })),
+            then_branch: Box::new(circle_literal()),
+            else_branch: Box::new(rect_literal()),
         };
         let res = check_graphic(&context, expr).unwrap();
         assert!(matches!(res, ExprGraphic::Node(NodeGraphic::If(_))));
@@ -947,24 +973,13 @@ mod tests {
     #[test]
     fn test_check_match_graphic() {
         let context = Context::new();
-        let circle = ast::Expr::LObject(ast::Object {
-            name: "Circle".to_string(),
-            fields: vec![("radius".to_string(), ast::Expr::LNumber(10.0))],
-        });
-        let rect = ast::Expr::LObject(ast::Object {
-            name: "Rect".to_string(),
-            fields: vec![
-                ("width".to_string(), ast::Expr::LNumber(5.0)),
-                ("height".to_string(), ast::Expr::LNumber(5.0)),
-            ],
-        });
-        // match circle { g => g }
+        // match circle { g => rect }
         let expr = ast::Expr::Match {
-            scrutinee: Box::new(circle),
+            scrutinee: Box::new(circle_literal()),
             arms: vec![ast::MatchArm {
                 pattern: ast::Pattern::Binding("g".to_string()),
                 guard: None,
-                body: rect,
+                body: rect_literal(),
             }],
         };
         let res = check_graphic(&context, expr).unwrap();

@@ -166,11 +166,34 @@ mod tests {
             panic!("Expected Color");
         }
 
-        let graphic = Value::Graphic(scene::Graphic::Circle { radius: 10.0 });
+        let graphic = Value::Graphic(scene::Graphic::Circle {
+            x: 0.0,
+            y: 0.0,
+            radius: 10.0,
+            color: scene::Color::Rgba {
+                r: 1.0,
+                g: 0.0,
+                b: 0.0,
+                a: 1.0,
+            },
+        });
         context.set_var("ball".to_string(), graphic.clone());
 
         if let Value::Graphic(g) = context.get_var("ball").unwrap() {
-            assert_eq!(g, scene::Graphic::Circle { radius: 10.0 });
+            assert_eq!(
+                g,
+                scene::Graphic::Circle {
+                    x: 0.0,
+                    y: 0.0,
+                    radius: 10.0,
+                    color: scene::Color::Rgba {
+                        r: 1.0,
+                        g: 0.0,
+                        b: 0.0,
+                        a: 1.0
+                    },
+                }
+            );
         } else {
             panic!("Expected Graphic");
         }
