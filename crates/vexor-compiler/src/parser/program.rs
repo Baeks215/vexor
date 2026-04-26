@@ -27,11 +27,19 @@ fn p_type<'a>(input: &mut Input<'a>) -> ModalResult<Type> {
         pk_color.map(|_| Type::Color),
         pk_graphic.map(|_| Type::Graphic),
     ))
+    .ws()
     .parse_next(input)
 }
 
 fn p_assignment<'a>(input: &mut Input<'a>) -> ModalResult<ast::Assignment> {
-    (pk_let, p_identifier, ":".ws(), p_type, "=".ws(), p_expr)
+    (
+        pk_let.ws(),
+        p_identifier,
+        ":".ws(),
+        p_type,
+        "=".ws(),
+        p_expr,
+    )
         .map(|(_, i, _, t, _, e)| ast::Assignment {
             ty: t,
             identifier: i.to_string(),
@@ -42,14 +50,14 @@ fn p_assignment<'a>(input: &mut Input<'a>) -> ModalResult<ast::Assignment> {
 
 fn p_function<'a>(input: &mut Input<'a>) -> ModalResult<ast::Function> {
     (
-        preceded(pk_fn, p_identifier), // function name
+        preceded(pk_fn.ws(), p_identifier), // function name
         bracketed(separated(
             0..,
             separated_pair(p_identifier, ":".ws(), p_type),
             ",".ws(),
         )), // parameters
-        preceded(":".ws(), p_type),    // return type
-        preceded("=".mws(), p_expr),   // return expression
+        preceded(":".ws(), p_type),         // return type
+        preceded("=".mws(), p_expr),        // return expression
         opt(preceded(
             pk_where.ws(),
             braced(separated(0.., p_assignment, multispace0)).mws(),
@@ -80,7 +88,7 @@ fn p_program_unit<'a>(input: &mut Input<'a>) -> ModalResult<ProgramUnit> {
 }
 
 fn p_export<'a>(input: &mut Input<'a>) -> ModalResult<ast::Expr> {
-    preceded(pk_export, p_expr).parse_next(input)
+    preceded(pk_export.ws(), p_expr).parse_next(input)
 }
 
 /// Parses a program from the given input string.

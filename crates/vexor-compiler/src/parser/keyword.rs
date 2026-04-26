@@ -1,6 +1,6 @@
 //! Keyword parsers.
 
-use super::{Input, WhiteSpaceParser};
+use super::Input;
 use winnow::error::StrContext;
 use winnow::{ModalResult, Parser};
 
@@ -16,7 +16,6 @@ macro_rules! define_keywords {
             pub fn $func_name<'a>(input: &mut Input<'a>) -> ModalResult<&'a str> {
                 $kw_str
                     .context(StrContext::Label(concat!("keyword '", $kw_str, "'")))
-                    .ws()
                     .parse_next(input)
             }
         )*
@@ -67,7 +66,7 @@ mod tests {
     fn test_keyword_parsers() {
         let mut input = Input::new("let  ");
         assert_eq!(pk_let.parse_next(&mut input).unwrap(), "let");
-        assert_eq!(*input, "");
+        assert_eq!(*input, "  ");
 
         let mut input = Input::new("number\n");
         assert_eq!(pk_number.parse_next(&mut input).unwrap(), "number");

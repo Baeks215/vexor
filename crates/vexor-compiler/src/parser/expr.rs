@@ -33,7 +33,9 @@ pub fn p_string<'a>(input: &mut Input<'a>) -> ModalResult<&'a str> {
 
 /// Parses a bool literal.
 pub fn p_bool<'a>(input: &mut Input<'a>) -> ModalResult<bool> {
-    alt((pk_true.map(|_| true), pk_false.map(|_| false))).parse_next(input)
+    alt((pk_true.map(|_| true), pk_false.map(|_| false)))
+        .ws()
+        .parse_next(input)
 }
 
 /// Parses a color.
@@ -82,7 +84,7 @@ pub fn p_pattern<'a>(input: &mut Input<'a>) -> ModalResult<ast::Pattern> {
 pub fn p_match_arm<'a>(input: &mut Input<'a>) -> ModalResult<ast::MatchArm> {
     (
         p_pattern,
-        opt(preceded(pk_if, p_expr)),
+        opt(preceded(pk_if.ws(), p_expr)),
         preceded("=>".ws(), p_expr),
     )
         .map(|(pattern, guard, body)| ast::MatchArm {
@@ -96,7 +98,7 @@ pub fn p_match_arm<'a>(input: &mut Input<'a>) -> ModalResult<ast::MatchArm> {
 /// Parses a match expression: `match <expr> { <arm>, <arm>, ... }`.
 pub fn p_match<'a>(input: &mut Input<'a>) -> ModalResult<ast::Expr> {
     preceded(
-        pk_match,
+        pk_match.ws(),
         (p_expr, braced(separated(1.., p_match_arm, ",".mws())).ws()),
     )
     .map(
@@ -111,9 +113,9 @@ pub fn p_match<'a>(input: &mut Input<'a>) -> ModalResult<ast::Expr> {
 /// Parses an if expression: `if <cond> { <then> } else { <else> }`.
 pub fn p_if<'a>(input: &mut Input<'a>) -> ModalResult<ast::Expr> {
     (
-        preceded(pk_if, p_expr),
+        preceded(pk_if.ws(), p_expr),
         braced(p_expr).ws(),
-        preceded(pk_else, braced(p_expr).ws()),
+        preceded(pk_else.ws(), braced(p_expr).ws()),
     )
         .map(
             |(condition, then_branch, else_branch): (ast::Expr, ast::Expr, ast::Expr)| {
