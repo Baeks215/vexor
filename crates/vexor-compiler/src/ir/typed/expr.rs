@@ -9,7 +9,7 @@ pub enum Expr<T> {
     Variable(String),
     Field {
         object: String,
-        fields: Vec<String>,
+        field: String,
     },
     Node(T),
     Call {

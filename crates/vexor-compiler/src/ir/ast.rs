@@ -72,7 +72,7 @@ pub enum Expr {
     // Field access
     Field {
         object: String,
-        fields: Vec<String>,
+        field: String,
     },
     // Expressions with operators
     Binary {

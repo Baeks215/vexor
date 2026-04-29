@@ -37,56 +37,6 @@ fn check_func_args(
         .collect::<Result<Vec<_>, _>>()
 }
 
-/// Checks an expression expecting a Number type.
-pub fn check_number(context: &Context, expr: ast::Expr) -> TResult<ExprNumber> {
-    use NodeNumber::{Binary, Literal, Match};
-    match expr {
-        ast::Expr::LNumber(num) => Ok(ExprNumber::Node(Literal(num))),
-        ast::Expr::Variable(name) => {
-            context.check_var(&name, Is(Type::Number))?;
-            Ok(ExprNumber::Variable(name))
-        }
-        ast::Expr::Call { function, args } => {
-            let typed_args = check_func_args(context, &function, args, Is(Type::Number))?;
-            Ok(ExprNumber::Call {
-                function,
-                arguments: typed_args,
-            })
-        }
-        ast::Expr::Binary {
-            operator,
-            left,
-            right,
-        } => {
-            let op = map_op_num(operator).ok_or("Invalid operator for number")?;
-            let left = check_number(context, *left)?;
-            let right = check_number(context, *right)?;
-            Ok(ExprNumber::Node(Binary {
-                operator: op,
-                left: Box::new(left),
-                right: Box::new(right),
-            }))
-        }
-        ast::Expr::Match { scrutinee, arms } => {
-            let scrutinee = Box::new(check_number(context, *scrutinee)?);
-            let arms = check_match_arms(context, Type::Number, arms, check_number)?;
-            Ok(ExprNumber::Node(Match { scrutinee, arms }))
-        }
-        ast::Expr::If {
-            condition,
-            then_branch,
-            else_branch,
-        } => Ok(ExprNumber::Node(NodeNumber::If(check_if(
-            context,
-            *condition,
-            *then_branch,
-            *else_branch,
-            check_number,
-        )?))),
-        _ => Err("Unexpected expression, expected a number".to_string()),
-    }
-}
-
 /// Type-checks the condition (bool) and both branches (of type E) of an if expression.
 fn check_if<F, E>(
     context: &Context,
@@ -179,6 +129,60 @@ fn map_op_bool(op: ast::OpBin) -> Option<OpBinBool> {
     }
 }
 
+/// Checks an expression expecting a Number type.
+pub fn check_number(context: &Context, expr: ast::Expr) -> TResult<ExprNumber> {
+    use NodeNumber::{Binary, Literal, Match};
+    match expr {
+        ast::Expr::LNumber(num) => Ok(ExprNumber::Node(Literal(num))),
+        ast::Expr::Variable(name) => {
+            context.check_var(&name, Is(Type::Number))?;
+            Ok(ExprNumber::Variable(name))
+        }
+        ast::Expr::Call { function, args } => {
+            let typed_args = check_func_args(context, &function, args, Is(Type::Number))?;
+            Ok(ExprNumber::Call {
+                function,
+                arguments: typed_args,
+            })
+        }
+        ast::Expr::Binary {
+            operator,
+            left,
+            right,
+        } => {
+            let op = map_op_num(operator).ok_or("Invalid operator for number")?;
+            let left = check_number(context, *left)?;
+            let right = check_number(context, *right)?;
+            Ok(ExprNumber::Node(Binary {
+                operator: op,
+                left: Box::new(left),
+                right: Box::new(right),
+            }))
+        }
+        ast::Expr::Match { scrutinee, arms } => {
+            let scrutinee = Box::new(check_number(context, *scrutinee)?);
+            let arms = check_match_arms(context, Type::Number, arms, check_number)?;
+            Ok(ExprNumber::Node(Match { scrutinee, arms }))
+        }
+        ast::Expr::If {
+            condition,
+            then_branch,
+            else_branch,
+        } => Ok(ExprNumber::Node(NodeNumber::If(check_if(
+            context,
+            *condition,
+            *then_branch,
+            *else_branch,
+            check_number,
+        )?))),
+        ast::Expr::Unary { .. }
+        | ast::Expr::LBool(_)
+        | ast::Expr::LString(_)
+        | ast::Expr::LColor(_)
+        | ast::Expr::LObject(_) => Err("Unexpected expression, expected a number".to_string()),
+    }
+}
+
 /// Checks an expression expecting a Bool type.
 pub fn check_bool(context: &Context, expr: ast::Expr) -> TResult<ExprBool> {
     use NodeBool::{Binary, Compare, Literal, Match, Unary};
@@ -252,7 +256,10 @@ pub fn check_bool(context: &Context, expr: ast::Expr) -> TResult<ExprBool> {
             *else_branch,
             check_bool,
         )?))),
-        _ => Err("Unexpected expression, expected a bool".to_string()),
+        ast::Expr::LNumber(_)
+        | ast::Expr::LString(_)
+        | ast::Expr::LColor(_)
+        | ast::Expr::LObject(_) => Err("Unexpected expression, expected a bool".to_string()),
     }
 }
 
@@ -287,7 +294,12 @@ pub fn check_string(context: &Context, expr: ast::Expr) -> TResult<ExprString> {
             *else_branch,
             check_string,
         )?))),
-        _ => Err("Unexpected expression, expected a string".to_string()),
+        ast::Expr::Binary { .. }
+        | ast::Expr::Unary { .. }
+        | ast::Expr::LNumber(_)
+        | ast::Expr::LBool(_)
+        | ast::Expr::LColor(_)
+        | ast::Expr::LObject(_) => Err("Unexpected expression, expected a string".to_string()),
     }
 }
 
@@ -333,7 +345,12 @@ pub fn check_color(context: &Context, expr: ast::Expr) -> TResult<ExprColor> {
             *else_branch,
             check_color,
         )?))),
-        _ => Err("Unexpected expression, expected a color".to_string()),
+        ast::Expr::Binary { .. }
+        | ast::Expr::Unary { .. }
+        | ast::Expr::LNumber(_)
+        | ast::Expr::LBool(_)
+        | ast::Expr::LString(_)
+        | ast::Expr::LObject(_) => Err("Unexpected expression, expected a color".to_string()),
     }
 }
 
@@ -431,7 +448,12 @@ pub fn check_graphic(context: &Context, expr: ast::Expr) -> TResult<ExprGraphic>
             *else_branch,
             check_graphic,
         )?))),
-        _ => Err("Unexpected expression, expected a graphic".to_string()),
+        ast::Expr::Binary { .. }
+        | ast::Expr::Unary { .. }
+        | ast::Expr::LNumber(_)
+        | ast::Expr::LBool(_)
+        | ast::Expr::LString(_)
+        | ast::Expr::LColor(_) => Err("Unexpected expression, expected a graphic".to_string()),
     }
 }
 

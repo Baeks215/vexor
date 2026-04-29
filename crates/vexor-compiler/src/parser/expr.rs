@@ -9,7 +9,6 @@ use crate::parser::p_identifier_no_ws;
 use crate::parser::p_raw_identifier_no_ws;
 use crate::parser::{Input, WhiteSpaceParser, braced, bracketed, p_identifier};
 use winnow::ascii::float;
-use winnow::combinator::repeat;
 use winnow::combinator::{
     Infix, Prefix, alt, delimited, dispatch, expression, fail, opt, preceded, separated,
 };
@@ -146,21 +145,12 @@ pub fn p_if<'a>(input: &mut Input<'a>) -> ModalResult<ast::Expr> {
 pub fn p_identifier_or_field<'a>(input: &mut Input<'a>) -> ModalResult<ast::Expr> {
     (
         p_identifier_no_ws.map(str::to_string),
-        repeat(
-            0..,
-            preceded(".", p_raw_identifier_no_ws.map(str::to_string)),
-        ),
+        opt(preceded(".", p_raw_identifier_no_ws.map(str::to_string))),
     )
         .ws()
-        .map(|(var, fields): (_, Vec<String>)| {
-            if fields.is_empty() {
-                ast::Expr::Variable(var)
-            } else {
-                ast::Expr::Field {
-                    object: var,
-                    fields,
-                }
-            }
+        .map(|(var, field)| match field {
+            Some(field) => ast::Expr::Field { object: var, field },
+            None => ast::Expr::Variable(var),
         })
         .parse_next(input)
 }
