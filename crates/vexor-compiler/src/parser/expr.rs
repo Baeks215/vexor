@@ -6,8 +6,10 @@ use crate::parser::keyword::pk_rgb;
 use crate::parser::keyword::{pk_else, pk_false, pk_if, pk_match, pk_true};
 use crate::parser::object::p_object;
 use crate::parser::p_identifier_no_ws;
+use crate::parser::p_raw_identifier_no_ws;
 use crate::parser::{Input, WhiteSpaceParser, braced, bracketed, p_identifier};
 use winnow::ascii::float;
+use winnow::combinator::repeat;
 use winnow::combinator::{
     Infix, Prefix, alt, delimited, dispatch, expression, fail, opt, preceded, separated,
 };
@@ -140,6 +142,29 @@ pub fn p_if<'a>(input: &mut Input<'a>) -> ModalResult<ast::Expr> {
         .parse_next(input)
 }
 
+/// Parses identifier or object field access
+pub fn p_identifier_or_field<'a>(input: &mut Input<'a>) -> ModalResult<ast::Expr> {
+    (
+        p_identifier_no_ws.map(str::to_string),
+        repeat(
+            0..,
+            preceded(".", p_raw_identifier_no_ws.map(str::to_string)),
+        ),
+    )
+        .ws()
+        .map(|(var, fields): (_, Vec<String>)| {
+            if fields.is_empty() {
+                ast::Expr::Variable(var)
+            } else {
+                ast::Expr::Field {
+                    object: var,
+                    fields,
+                }
+            }
+        })
+        .parse_next(input)
+}
+
 /// Parses an atom.
 pub fn p_atom<'a>(input: &mut Input<'a>) -> ModalResult<ast::Expr> {
     alt((
@@ -149,7 +174,7 @@ pub fn p_atom<'a>(input: &mut Input<'a>) -> ModalResult<ast::Expr> {
         p_if,
         p_match,
         p_call,
-        p_identifier.map(|s| ast::Expr::Variable(s.to_string())),
+        p_identifier_or_field,
     ))
     .parse_next(input)
 }
@@ -175,7 +200,7 @@ pub fn p_expr<'a>(input: &mut Input<'a>) -> ModalResult<ast::Expr> {
         "/" => Infix::Left(7, |_, a, b| Ok(ast::Expr::Binary { operator: ast::OpBin::Div, left: Box::new(a), right: Box::new(b) })),
         _ => fail,
     })
-    .prefix(dispatch! {"!".ws();
+    .prefix(dispatch! {"!";
         "!" => Prefix(11, |_, a| Ok(ast::Expr::Unary { operator: ast::OpUn::Not, operand: Box::new(a) })),
         _ => fail,
     })

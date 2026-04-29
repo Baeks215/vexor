@@ -69,6 +69,11 @@ pub enum Expr {
     LObject(Object),
     // Variable
     Variable(String),
+    // Field access
+    Field {
+        object: String,
+        fields: Vec<String>,
+    },
     // Expressions with operators
     Binary {
         operator: OpBin,

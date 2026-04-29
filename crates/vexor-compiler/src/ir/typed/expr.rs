@@ -7,6 +7,10 @@ use crate::ir::typed::{Color, Graphic};
 #[derive(Debug, Clone, PartialEq)]
 pub enum Expr<T> {
     Variable(String),
+    Field {
+        object: String,
+        fields: Vec<String>,
+    },
     Node(T),
     Call {
         function: String,
