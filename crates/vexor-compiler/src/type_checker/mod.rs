@@ -25,8 +25,9 @@ enum Constraint {
 impl Type {
     /// Check if type satisfies constraint
     fn satisfies(self, constraint: Constraint) -> TResult<Type> {
-        match constraint {
-            Constraint::Is(ty) => (self == ty)
+        match (self, constraint) {
+            (ty @ Type::GType(_), Constraint::Is(Type::Graphic)) => Ok(ty),
+            (_, Constraint::Is(ty)) => (self == ty)
                 .then_some(ty)
                 .ok_or("Type mismatch".to_string()),
         }

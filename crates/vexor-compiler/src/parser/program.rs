@@ -1,10 +1,11 @@
 //! Parser: Text -> AST
 
 use crate::ir::ast;
-use crate::ir::typed::Type;
+use crate::ir::typed::{GraphicType, Type};
 use crate::parser::expr::p_expr;
 use crate::parser::keyword::{
-    pk_bool, pk_color, pk_export, pk_fn, pk_graphic, pk_let, pk_number, pk_string, pk_where,
+    pk_bool, pk_circle, pk_color, pk_export, pk_fn, pk_graphic, pk_let, pk_number, pk_rect,
+    pk_string, pk_text, pk_where,
 };
 use crate::parser::{Input, WhiteSpaceParser, braced, bracketed, p_identifier};
 use itertools::{Either, Itertools};
@@ -26,6 +27,9 @@ fn p_type<'a>(input: &mut Input<'a>) -> ModalResult<Type> {
         pk_bool.map(|_| Type::Bool),
         pk_color.map(|_| Type::Color),
         pk_graphic.map(|_| Type::Graphic),
+        pk_circle.map(|_| Type::GType(GraphicType::Circle)),
+        pk_rect.map(|_| Type::GType(GraphicType::Rect)),
+        pk_text.map(|_| Type::GType(GraphicType::Text)),
     ))
     .ws()
     .parse_next(input)

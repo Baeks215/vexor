@@ -42,6 +42,9 @@ define_keywords! {
     pk_bool => "bool",
     pk_color => "color",
     pk_graphic => "graphic",
+    pk_circle => "circle",
+    pk_rect => "rect",
+    pk_text => "text",
     // Bool literals
     pk_true => "true",
     pk_false => "false",

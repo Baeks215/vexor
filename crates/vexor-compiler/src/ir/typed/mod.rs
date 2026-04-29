@@ -11,6 +11,14 @@ pub enum Type {
     Bool,
     Color,
     Graphic,
+    GType(GraphicType),
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum GraphicType {
+    Circle,
+    Rect,
+    Text,
 }
 
 // --- Primitives ---

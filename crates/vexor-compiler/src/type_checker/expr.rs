@@ -17,6 +17,7 @@ pub fn check_generic(context: &Context, ty: Type, expr: ast::Expr) -> TResult<Ex
         Type::Bool => Ok(ExprGeneric::Bool(check_bool(context, expr)?)),
         Type::Color => Ok(ExprGeneric::Color(check_color(context, expr)?)),
         Type::Graphic => Ok(ExprGeneric::Graphic(check_graphic(context, expr)?)),
+        Type::GType(_) => Ok(ExprGeneric::Graphic(check_graphic(context, expr)?)),
     }
 }
 
