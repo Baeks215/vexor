@@ -2,9 +2,9 @@
 
 use crate::ir::ast;
 use crate::ir::typed::expr::{
-    ExprBool, ExprColor, ExprGeneric, ExprGraphic, ExprNumber, ExprString, If, MatchArm, NodeBool,
-    NodeColor, NodeGraphic, NodeNumber, NodeString, OpBinBool, OpBinNumber, OpCompare, OpUnBool,
-    Pattern,
+    Expr, ExprBool, ExprColor, ExprGeneric, ExprGraphic, ExprNumber, ExprString, If, MatchArm,
+    NodeBool, NodeColor, NodeGraphic, NodeNumber, NodeString, OpBinBool, OpBinNumber, OpCompare,
+    OpUnBool, Pattern,
 };
 use crate::ir::typed::{self, Type};
 use crate::type_checker::{Constraint, Context, TResult};
@@ -175,6 +175,9 @@ pub fn check_number(context: &Context, expr: ast::Expr) -> TResult<ExprNumber> {
             *else_branch,
             check_number,
         )?))),
+        ast::Expr::Field { object, field } => {
+            check_field_access(context, object, field, Is(Type::Number))
+        }
         ast::Expr::Unary { .. }
         | ast::Expr::LBool(_)
         | ast::Expr::LString(_)
@@ -256,6 +259,9 @@ pub fn check_bool(context: &Context, expr: ast::Expr) -> TResult<ExprBool> {
             *else_branch,
             check_bool,
         )?))),
+        ast::Expr::Field { object, field } => {
+            check_field_access(context, object, field, Is(Type::Bool))
+        }
         ast::Expr::LNumber(_)
         | ast::Expr::LString(_)
         | ast::Expr::LColor(_)
@@ -294,6 +300,9 @@ pub fn check_string(context: &Context, expr: ast::Expr) -> TResult<ExprString> {
             *else_branch,
             check_string,
         )?))),
+        ast::Expr::Field { object, field } => {
+            check_field_access(context, object, field, Is(Type::String))
+        }
         ast::Expr::Binary { .. }
         | ast::Expr::Unary { .. }
         | ast::Expr::LNumber(_)
@@ -345,6 +354,9 @@ pub fn check_color(context: &Context, expr: ast::Expr) -> TResult<ExprColor> {
             *else_branch,
             check_color,
         )?))),
+        ast::Expr::Field { object, field } => {
+            check_field_access(context, object, field, Is(Type::Color))
+        }
         ast::Expr::Binary { .. }
         | ast::Expr::Unary { .. }
         | ast::Expr::LNumber(_)
@@ -377,6 +389,41 @@ macro_rules! extract_fields {
 
         ($($name),+)
     }};
+}
+
+/// Checks a field access type
+fn check_field_access<T>(
+    context: &Context,
+    object: String,
+    field: String,
+    constraint: Constraint,
+) -> TResult<Expr<T>> {
+    // Only Graphic types can have fields, for now
+    let obj_ty = context.check_var(&object, Is(Type::Graphic))?;
+    let Type::GType(obj_ty) = obj_ty else {
+        return Err("Expected Graphic type".to_string());
+    };
+    let field_ty = match obj_ty {
+        typed::GraphicType::Circle => match field.as_str() {
+            "x" | "y" | "radius" => Type::Number,
+            "color" => Type::Color,
+            _ => return Err(format!("Unknown field {field} for Circle type")),
+        },
+        typed::GraphicType::Rect => match field.as_str() {
+            "x" | "y" | "width" | "height" => Type::Number,
+            "color" => Type::Color,
+            _ => return Err(format!("Unknown field {field} for Rect type")),
+        },
+        typed::GraphicType::Text => match field.as_str() {
+            "x" | "y" => Type::Number,
+            "content" => Type::String,
+            "color" => Type::Color,
+            _ => return Err(format!("Unknown field {field} for Text type")),
+        },
+    };
+    field_ty
+        .satisfies(constraint)
+        .map(|_| Expr::Field { object, field })
 }
 
 /// Checks an expression expecting a Graphic type.
@@ -448,6 +495,9 @@ pub fn check_graphic(context: &Context, expr: ast::Expr) -> TResult<ExprGraphic>
             *else_branch,
             check_graphic,
         )?))),
+        ast::Expr::Field { object, field } => {
+            check_field_access(context, object, field, Is(Type::Graphic))
+        }
         ast::Expr::Binary { .. }
         | ast::Expr::Unary { .. }
         | ast::Expr::LNumber(_)

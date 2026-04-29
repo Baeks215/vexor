@@ -56,6 +56,9 @@ pub fn eval_number(context: &Context, expr: ExprNumber) -> EResult<Number> {
             )
         }
         Expr::Node(NodeNumber::If(if_)) => eval_if(context, if_, eval_number),
+        Expr::Field { object, field } => {
+            eval_field_access(context, object, field).and_then(Value::as_number)
+        }
     }
 }
 
@@ -118,6 +121,55 @@ where
         return eval_body(arm_ctx, body);
     }
     Err("No match arm matched".to_string())
+}
+
+/// Evaluates a field access expression.
+fn eval_field_access(context: &Context, object: String, field: String) -> EResult<Value> {
+    let object_value = context.get_var(&object)?;
+    let result = match object_value {
+        Value::Graphic(g) => match g {
+            scene::Graphic::Circle {
+                x,
+                y,
+                radius,
+                color,
+            } => match field.as_str() {
+                "x" => Value::Number(x),
+                "y" => Value::Number(y),
+                "radius" => Value::Number(radius),
+                "color" => Value::Color(color),
+                _ => return Err("Unknown field".to_string()),
+            },
+            scene::Graphic::Rect {
+                x,
+                y,
+                width,
+                height,
+                color,
+            } => match field.as_str() {
+                "x" => Value::Number(x),
+                "y" => Value::Number(y),
+                "width" => Value::Number(width),
+                "height" => Value::Number(height),
+                "color" => Value::Color(color),
+                _ => return Err("Unknown field".to_string()),
+            },
+            scene::Graphic::Text {
+                x,
+                y,
+                content,
+                color,
+            } => match field.as_str() {
+                "x" => Value::Number(x),
+                "y" => Value::Number(y),
+                "content" => Value::String(content),
+                "color" => Value::Color(color),
+                _ => return Err("Unknown field".to_string()),
+            },
+        },
+        _ => return Err("Can not access field of this value".to_string()),
+    };
+    Ok(result)
 }
 
 pub fn eval_bool(context: &Context, expr: ExprBool) -> EResult<bool> {
@@ -189,6 +241,9 @@ pub fn eval_bool(context: &Context, expr: ExprBool) -> EResult<bool> {
             )
         }
         Expr::Node(NodeBool::If(if_)) => eval_if(context, if_, eval_bool),
+        Expr::Field { object, field } => {
+            eval_field_access(context, object, field).and_then(Value::as_bool)
+        }
     }
 }
 
@@ -218,6 +273,9 @@ pub fn eval_string(context: &Context, expr: ExprString) -> EResult<String> {
             )
         }
         Expr::Node(NodeString::If(if_)) => eval_if(context, if_, eval_string),
+        Expr::Field { object, field } => {
+            eval_field_access(context, object, field).and_then(Value::as_string)
+        }
     }
 }
 
@@ -253,6 +311,9 @@ pub fn eval_color(context: &Context, expr: ExprColor) -> EResult<scene::Color> {
             )
         }
         Expr::Node(NodeColor::If(if_)) => eval_if(context, if_, eval_color),
+        Expr::Field { object, field } => {
+            eval_field_access(context, object, field).and_then(Value::as_color)
+        }
     }
 }
 
@@ -316,6 +377,9 @@ pub fn eval_graphic(context: &Context, expr: ExprGraphic) -> EResult<scene::Grap
             )
         }
         Expr::Node(NodeGraphic::If(if_)) => eval_if(context, if_, eval_graphic),
+        Expr::Field { object, field } => {
+            eval_field_access(context, object, field).and_then(Value::as_graphic)
+        }
     }
 }
 
