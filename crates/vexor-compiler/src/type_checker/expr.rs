@@ -2,9 +2,9 @@
 
 use crate::ir::ast;
 use crate::ir::typed::expr::{
-    ExprBool, ExprColor, ExprGeneric, ExprGraphic, ExprNumber, ExprString, If, MatchArm, NodeBool,
-    NodeColor, NodeGraphic, NodeNumber, NodeString, OpBinBool, OpBinNumber, OpCompare, OpUnBool,
-    Pattern,
+    Expr, ExprBool, ExprColor, ExprGeneric, ExprGraphic, ExprNumber, ExprString, If, MatchArm,
+    NodeBool, NodeColor, NodeGraphic, NodeNumber, NodeString, OpBinBool, OpBinNumber, OpCompare,
+    OpUnBool, Pattern,
 };
 use crate::ir::typed::{self, Type};
 use crate::type_checker::{Constraint, Context, TResult};
@@ -17,6 +17,7 @@ pub fn check_generic(context: &Context, ty: Type, expr: ast::Expr) -> TResult<Ex
         Type::Bool => Ok(ExprGeneric::Bool(check_bool(context, expr)?)),
         Type::Color => Ok(ExprGeneric::Color(check_color(context, expr)?)),
         Type::Graphic => Ok(ExprGeneric::Graphic(check_graphic(context, expr)?)),
+        Type::GType(_) => Ok(ExprGeneric::Graphic(check_graphic(context, expr)?)),
     }
 }
 
@@ -34,56 +35,6 @@ fn check_func_args(
         .zip(arg_types)
         .map(|(arg, ty)| check_generic(context, ty, arg))
         .collect::<Result<Vec<_>, _>>()
-}
-
-/// Checks an expression expecting a Number type.
-pub fn check_number(context: &Context, expr: ast::Expr) -> TResult<ExprNumber> {
-    use NodeNumber::{Binary, Literal, Match};
-    match expr {
-        ast::Expr::LNumber(num) => Ok(ExprNumber::Node(Literal(num))),
-        ast::Expr::Variable(name) => {
-            context.check_var(&name, Is(Type::Number))?;
-            Ok(ExprNumber::Variable(name))
-        }
-        ast::Expr::Call { function, args } => {
-            let typed_args = check_func_args(context, &function, args, Is(Type::Number))?;
-            Ok(ExprNumber::Call {
-                function,
-                arguments: typed_args,
-            })
-        }
-        ast::Expr::Binary {
-            operator,
-            left,
-            right,
-        } => {
-            let op = map_op_num(operator).ok_or("Invalid operator for number")?;
-            let left = check_number(context, *left)?;
-            let right = check_number(context, *right)?;
-            Ok(ExprNumber::Node(Binary {
-                operator: op,
-                left: Box::new(left),
-                right: Box::new(right),
-            }))
-        }
-        ast::Expr::Match { scrutinee, arms } => {
-            let scrutinee = Box::new(check_number(context, *scrutinee)?);
-            let arms = check_match_arms(context, Type::Number, arms, check_number)?;
-            Ok(ExprNumber::Node(Match { scrutinee, arms }))
-        }
-        ast::Expr::If {
-            condition,
-            then_branch,
-            else_branch,
-        } => Ok(ExprNumber::Node(NodeNumber::If(check_if(
-            context,
-            *condition,
-            *then_branch,
-            *else_branch,
-            check_number,
-        )?))),
-        _ => Err("Unexpected expression, expected a number".to_string()),
-    }
 }
 
 /// Type-checks the condition (bool) and both branches (of type E) of an if expression.
@@ -178,6 +129,63 @@ fn map_op_bool(op: ast::OpBin) -> Option<OpBinBool> {
     }
 }
 
+/// Checks an expression expecting a Number type.
+pub fn check_number(context: &Context, expr: ast::Expr) -> TResult<ExprNumber> {
+    use NodeNumber::{Binary, Literal, Match};
+    match expr {
+        ast::Expr::LNumber(num) => Ok(ExprNumber::Node(Literal(num))),
+        ast::Expr::Variable(name) => {
+            context.check_var(&name, Is(Type::Number))?;
+            Ok(ExprNumber::Variable(name))
+        }
+        ast::Expr::Call { function, args } => {
+            let typed_args = check_func_args(context, &function, args, Is(Type::Number))?;
+            Ok(ExprNumber::Call {
+                function,
+                arguments: typed_args,
+            })
+        }
+        ast::Expr::Binary {
+            operator,
+            left,
+            right,
+        } => {
+            let op = map_op_num(operator).ok_or("Invalid operator for number")?;
+            let left = check_number(context, *left)?;
+            let right = check_number(context, *right)?;
+            Ok(ExprNumber::Node(Binary {
+                operator: op,
+                left: Box::new(left),
+                right: Box::new(right),
+            }))
+        }
+        ast::Expr::Match { scrutinee, arms } => {
+            let scrutinee = Box::new(check_number(context, *scrutinee)?);
+            let arms = check_match_arms(context, Type::Number, arms, check_number)?;
+            Ok(ExprNumber::Node(Match { scrutinee, arms }))
+        }
+        ast::Expr::If {
+            condition,
+            then_branch,
+            else_branch,
+        } => Ok(ExprNumber::Node(NodeNumber::If(check_if(
+            context,
+            *condition,
+            *then_branch,
+            *else_branch,
+            check_number,
+        )?))),
+        ast::Expr::Field { object, field } => {
+            check_field_access(context, object, field, Is(Type::Number))
+        }
+        ast::Expr::Unary { .. }
+        | ast::Expr::LBool(_)
+        | ast::Expr::LString(_)
+        | ast::Expr::LColor(_)
+        | ast::Expr::LObject(_) => Err("Unexpected expression, expected a number".to_string()),
+    }
+}
+
 /// Checks an expression expecting a Bool type.
 pub fn check_bool(context: &Context, expr: ast::Expr) -> TResult<ExprBool> {
     use NodeBool::{Binary, Compare, Literal, Match, Unary};
@@ -251,7 +259,13 @@ pub fn check_bool(context: &Context, expr: ast::Expr) -> TResult<ExprBool> {
             *else_branch,
             check_bool,
         )?))),
-        _ => Err("Unexpected expression, expected a bool".to_string()),
+        ast::Expr::Field { object, field } => {
+            check_field_access(context, object, field, Is(Type::Bool))
+        }
+        ast::Expr::LNumber(_)
+        | ast::Expr::LString(_)
+        | ast::Expr::LColor(_)
+        | ast::Expr::LObject(_) => Err("Unexpected expression, expected a bool".to_string()),
     }
 }
 
@@ -286,7 +300,15 @@ pub fn check_string(context: &Context, expr: ast::Expr) -> TResult<ExprString> {
             *else_branch,
             check_string,
         )?))),
-        _ => Err("Unexpected expression, expected a string".to_string()),
+        ast::Expr::Field { object, field } => {
+            check_field_access(context, object, field, Is(Type::String))
+        }
+        ast::Expr::Binary { .. }
+        | ast::Expr::Unary { .. }
+        | ast::Expr::LNumber(_)
+        | ast::Expr::LBool(_)
+        | ast::Expr::LColor(_)
+        | ast::Expr::LObject(_) => Err("Unexpected expression, expected a string".to_string()),
     }
 }
 
@@ -332,32 +354,120 @@ pub fn check_color(context: &Context, expr: ast::Expr) -> TResult<ExprColor> {
             *else_branch,
             check_color,
         )?))),
-        _ => Err("Unexpected expression, expected a color".to_string()),
+        ast::Expr::Field { object, field } => {
+            check_field_access(context, object, field, Is(Type::Color))
+        }
+        ast::Expr::Binary { .. }
+        | ast::Expr::Unary { .. }
+        | ast::Expr::LNumber(_)
+        | ast::Expr::LBool(_)
+        | ast::Expr::LString(_)
+        | ast::Expr::LObject(_) => Err("Unexpected expression, expected a color".to_string()),
     }
+}
+
+macro_rules! extract_fields {
+    ($fields:expr, [$($name:ident),+]) => {{
+        let fields: Vec<(String, _)> = $fields;
+
+        // Check for unexpected
+        let expected = [$(stringify!($name)),+];
+        for (key, _) in fields.iter() {
+            if !expected.contains(&key.as_str()) {
+                // TODO: Return multiple errors for each unexpected field
+                return Err(format!("unexpected field: {key}"));
+            }
+        }
+
+        // Extract and move fields to tupl
+        let mut map: std::collections::HashMap<String, _> = fields.into_iter().collect();
+
+        $(
+            let $name = map.remove(stringify!($name))
+                .ok_or_else(|| format!("missing field: {}", stringify!($name)))?;
+        )+
+
+        ($($name),+)
+    }};
+}
+
+/// Checks a field access type
+fn check_field_access<T>(
+    context: &Context,
+    object: String,
+    field: String,
+    constraint: Constraint,
+) -> TResult<Expr<T>> {
+    // Only Graphic types can have fields, for now
+    let obj_ty = context.check_var(&object, Is(Type::Graphic))?;
+    let Type::GType(obj_ty) = obj_ty else {
+        return Err("Expected Graphic type".to_string());
+    };
+    let field_ty = match obj_ty {
+        typed::GraphicType::Circle => match field.as_str() {
+            "x" | "y" | "radius" => Type::Number,
+            "color" => Type::Color,
+            _ => return Err(format!("Unknown field {field} for Circle type")),
+        },
+        typed::GraphicType::Rect => match field.as_str() {
+            "x" | "y" | "width" | "height" => Type::Number,
+            "color" => Type::Color,
+            _ => return Err(format!("Unknown field {field} for Rect type")),
+        },
+        typed::GraphicType::Text => match field.as_str() {
+            "x" | "y" => Type::Number,
+            "content" => Type::String,
+            "color" => Type::Color,
+            _ => return Err(format!("Unknown field {field} for Text type")),
+        },
+    };
+    field_ty
+        .satisfies(constraint)
+        .map(|_| Expr::Field { object, field })
 }
 
 /// Checks an expression expecting a Graphic type.
 pub fn check_graphic(context: &Context, expr: ast::Expr) -> TResult<ExprGraphic> {
     match expr {
-        ast::Expr::LGraphic(ast::Graphic::Circle { radius }) => {
-            let radius = Box::new(check_number(context, *radius)?);
-            Ok(ExprGraphic::Node(NodeGraphic::Literal(
-                typed::Graphic::Circle { radius },
-            )))
-        }
-        ast::Expr::LGraphic(ast::Graphic::Rect { width, height }) => {
-            let width = Box::new(check_number(context, *width)?);
-            let height = Box::new(check_number(context, *height)?);
-            Ok(ExprGraphic::Node(NodeGraphic::Literal(
-                typed::Graphic::Rect { width, height },
-            )))
-        }
-        ast::Expr::LGraphic(ast::Graphic::Text(text)) => {
-            let text = Box::new(check_string(context, *text)?);
-            Ok(ExprGraphic::Node(NodeGraphic::Literal(
-                typed::Graphic::Text(text),
-            )))
-        }
+        ast::Expr::LObject(ast::Object { name, fields }) => match name.as_str() {
+            "Circle" => {
+                let (x, y, radius, color) = extract_fields!(fields, [x, y, radius, color]);
+                Ok(ExprGraphic::Node(NodeGraphic::Literal(
+                    typed::Graphic::Circle {
+                        x: Box::new(check_number(context, x)?),
+                        y: Box::new(check_number(context, y)?),
+                        radius: Box::new(check_number(context, radius)?),
+                        color: Box::new(check_color(context, color)?),
+                    },
+                )))
+            }
+            "Rect" => {
+                let (x, y, width, height, color) =
+                    extract_fields!(fields, [x, y, width, height, color]);
+                Ok(ExprGraphic::Node(NodeGraphic::Literal(
+                    typed::Graphic::Rect {
+                        x: Box::new(check_number(context, x)?),
+                        y: Box::new(check_number(context, y)?),
+                        width: Box::new(check_number(context, width)?),
+                        height: Box::new(check_number(context, height)?),
+                        color: Box::new(check_color(context, color)?),
+                    },
+                )))
+            }
+            "Text" => {
+                let (x, y, content, color) = extract_fields!(fields, [x, y, content, color]);
+                Ok(ExprGraphic::Node(NodeGraphic::Literal(
+                    typed::Graphic::Text {
+                        x: Box::new(check_number(context, x)?),
+                        y: Box::new(check_number(context, y)?),
+                        content: Box::new(check_string(context, content)?),
+                        color: Box::new(check_color(context, color)?),
+                    },
+                )))
+            }
+
+            _ => Err("Unexpected object name".to_string()),
+        },
         ast::Expr::Variable(name) => {
             context.check_var(&name, Is(Type::Graphic))?;
             Ok(ExprGraphic::Variable(name))
@@ -385,7 +495,15 @@ pub fn check_graphic(context: &Context, expr: ast::Expr) -> TResult<ExprGraphic>
             *else_branch,
             check_graphic,
         )?))),
-        _ => Err("Unexpected expression, expected a graphic".to_string()),
+        ast::Expr::Field { object, field } => {
+            check_field_access(context, object, field, Is(Type::Graphic))
+        }
+        ast::Expr::Binary { .. }
+        | ast::Expr::Unary { .. }
+        | ast::Expr::LNumber(_)
+        | ast::Expr::LBool(_)
+        | ast::Expr::LString(_)
+        | ast::Expr::LColor(_) => Err("Unexpected expression, expected a graphic".to_string()),
     }
 }
 
@@ -888,18 +1006,38 @@ mod tests {
         assert!(matches!(res, ExprColor::Node(NodeColor::Match { .. })));
     }
 
+    fn circle_literal() -> ast::Expr {
+        ast::Expr::LObject(ast::Object {
+            name: "Circle".to_string(),
+            fields: vec![
+                ("x".to_string(), ast::Expr::LNumber(0.0)),
+                ("y".to_string(), ast::Expr::LNumber(0.0)),
+                ("radius".to_string(), ast::Expr::LNumber(10.0)),
+                ("color".to_string(), red_literal()),
+            ],
+        })
+    }
+
+    fn rect_literal() -> ast::Expr {
+        ast::Expr::LObject(ast::Object {
+            name: "Rect".to_string(),
+            fields: vec![
+                ("x".to_string(), ast::Expr::LNumber(0.0)),
+                ("y".to_string(), ast::Expr::LNumber(0.0)),
+                ("width".to_string(), ast::Expr::LNumber(5.0)),
+                ("height".to_string(), ast::Expr::LNumber(5.0)),
+                ("color".to_string(), blue_literal()),
+            ],
+        })
+    }
+
     #[test]
     fn test_check_if_graphic() {
         let context = Context::new();
         let expr = ast::Expr::If {
             condition: Box::new(ast::Expr::LBool(true)),
-            then_branch: Box::new(ast::Expr::LGraphic(ast::Graphic::Circle {
-                radius: Box::new(ast::Expr::LNumber(10.0)),
-            })),
-            else_branch: Box::new(ast::Expr::LGraphic(ast::Graphic::Rect {
-                width: Box::new(ast::Expr::LNumber(5.0)),
-                height: Box::new(ast::Expr::LNumber(5.0)),
-            })),
+            then_branch: Box::new(circle_literal()),
+            else_branch: Box::new(rect_literal()),
         };
         let res = check_graphic(&context, expr).unwrap();
         assert!(matches!(res, ExprGraphic::Node(NodeGraphic::If(_))));
@@ -908,23 +1046,42 @@ mod tests {
     #[test]
     fn test_check_match_graphic() {
         let context = Context::new();
-        let circle = ast::Expr::LGraphic(ast::Graphic::Circle {
-            radius: Box::new(ast::Expr::LNumber(10.0)),
-        });
-        let rect = ast::Expr::LGraphic(ast::Graphic::Rect {
-            width: Box::new(ast::Expr::LNumber(5.0)),
-            height: Box::new(ast::Expr::LNumber(5.0)),
-        });
-        // match circle { g => g }
+        // match circle { g => rect }
         let expr = ast::Expr::Match {
-            scrutinee: Box::new(circle),
+            scrutinee: Box::new(circle_literal()),
             arms: vec![ast::MatchArm {
                 pattern: ast::Pattern::Binding("g".to_string()),
                 guard: None,
-                body: rect,
+                body: rect_literal(),
             }],
         };
         let res = check_graphic(&context, expr).unwrap();
         assert!(matches!(res, ExprGraphic::Node(NodeGraphic::Match { .. })));
+    }
+
+    #[test]
+    fn test_check_field_access() {
+        let mut context = Context::new();
+        context.set_var("box".to_string(), Type::GType(typed::GraphicType::Rect));
+        let expr = ast::Expr::Field {
+            object: "box".to_string(),
+            field: "color".to_string(),
+        };
+        let res = check_color(&context, expr).unwrap();
+        assert!(matches!(res, ExprColor::Field { .. }));
+
+        let expr = ast::Expr::Field {
+            object: "box".to_string(),
+            field: "width".to_string(),
+        };
+        let res = check_number(&context, expr).unwrap();
+        assert!(matches!(res, ExprNumber::Field { .. }));
+
+        let expr = ast::Expr::Field {
+            object: "box".to_string(),
+            field: "not_a_field".to_string(),
+        };
+        let res = check_number(&context, expr);
+        assert!(matches!(res, Err(_)));
     }
 }

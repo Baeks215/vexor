@@ -7,8 +7,8 @@ use winnow::token::take_while;
 use winnow::{LocatingSlice, ModalParser, ModalResult, Parser};
 
 mod expr;
-mod graphic;
 mod keyword;
+mod object;
 mod program;
 
 pub use program::*;
@@ -36,18 +36,24 @@ where
     }
 }
 
-/// Parse identifier without parsing whitespace after
-fn p_identifier_no_ws<'a>(input: &mut Input<'a>) -> ModalResult<&'a str> {
+/// Parse raw identifier without keyword filtering or whitespace
+fn p_raw_identifier_no_ws<'a>(input: &mut Input<'a>) -> ModalResult<&'a str> {
     (
         take_while(1, |c: char| c.is_alphabetic() || c == '_'),
         take_while(0.., |c: char| c.is_alphanumeric() || c == '_'),
     )
         .take()
+        .parse_next(input)
+}
+
+/// Parse identifier without parsing whitespace after
+fn p_identifier_no_ws<'a>(input: &mut Input<'a>) -> ModalResult<&'a str> {
+    p_raw_identifier_no_ws
         .verify(|ident| !keyword::is_keyword(ident))
         .parse_next(input)
 }
 
-/// Parse identifier
+/// Parse identifier, rejects keywords and parses whitespace after
 fn p_identifier<'a>(input: &mut Input<'a>) -> ModalResult<&'a str> {
     p_identifier_no_ws.ws().parse_next(input)
 }
@@ -96,7 +102,7 @@ mod tests {
         let mut input = Input::new("let");
         assert!(p_identifier.parse_next(&mut input).is_err());
 
-        let mut input = Input::new("color");
+        let mut input = Input::new("Color");
         assert!(p_identifier.parse_next(&mut input).is_err());
 
         // Valid identifier starts with keyword

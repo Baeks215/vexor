@@ -24,6 +24,39 @@ enum Value {
     Graphic(scene::Graphic),
 }
 
+impl Value {
+    fn as_number(self) -> EResult<Number> {
+        match self {
+            Value::Number(n) => Ok(n),
+            _ => Err("Expected a number".to_string()),
+        }
+    }
+    fn as_string(self) -> EResult<String> {
+        match self {
+            Value::String(s) => Ok(s),
+            _ => Err("Expected a string".to_string()),
+        }
+    }
+    fn as_bool(self) -> EResult<bool> {
+        match self {
+            Value::Bool(b) => Ok(b),
+            _ => Err("Expected a boolean".to_string()),
+        }
+    }
+    fn as_color(self) -> EResult<scene::Color> {
+        match self {
+            Value::Color(c) => Ok(c),
+            _ => Err("Expected a color".to_string()),
+        }
+    }
+    fn as_graphic(self) -> EResult<scene::Graphic> {
+        match self {
+            Value::Graphic(g) => Ok(g),
+            _ => Err("Expected a graphic".to_string()),
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct Function {
     pub params: Vec<String>,
@@ -166,11 +199,34 @@ mod tests {
             panic!("Expected Color");
         }
 
-        let graphic = Value::Graphic(scene::Graphic::Circle { radius: 10.0 });
+        let graphic = Value::Graphic(scene::Graphic::Circle {
+            x: 0.0,
+            y: 0.0,
+            radius: 10.0,
+            color: scene::Color::Rgba {
+                r: 1.0,
+                g: 0.0,
+                b: 0.0,
+                a: 1.0,
+            },
+        });
         context.set_var("ball".to_string(), graphic.clone());
 
         if let Value::Graphic(g) = context.get_var("ball").unwrap() {
-            assert_eq!(g, scene::Graphic::Circle { radius: 10.0 });
+            assert_eq!(
+                g,
+                scene::Graphic::Circle {
+                    x: 0.0,
+                    y: 0.0,
+                    radius: 10.0,
+                    color: scene::Color::Rgba {
+                        r: 1.0,
+                        g: 0.0,
+                        b: 0.0,
+                        a: 1.0
+                    },
+                }
+            );
         } else {
             panic!("Expected Graphic");
         }

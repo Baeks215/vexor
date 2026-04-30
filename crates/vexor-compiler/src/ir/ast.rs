@@ -15,12 +15,11 @@ pub enum Color {
     },
 }
 
-/// Renderable graphic component
+/// Object with fields
 #[derive(Debug, Clone, PartialEq)]
-pub enum Graphic {
-    Circle { radius: Box<Expr> },
-    Rect { width: Box<Expr>, height: Box<Expr> },
-    Text(Box<Expr>),
+pub struct Object {
+    pub name: String,
+    pub fields: Vec<(String, Expr)>,
 }
 
 // --- Expressions ---
@@ -67,9 +66,14 @@ pub enum Expr {
     LString(String),
     LBool(bool),
     LColor(Color),
-    LGraphic(Graphic),
+    LObject(Object),
     // Variable
     Variable(String),
+    // Field access
+    Field {
+        object: String,
+        field: String,
+    },
     // Expressions with operators
     Binary {
         operator: OpBin,

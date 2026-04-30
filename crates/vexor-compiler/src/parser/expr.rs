@@ -2,9 +2,11 @@
 
 use crate::ir::Number;
 use crate::ir::ast;
-use crate::parser::graphic::p_graphic;
-use crate::parser::keyword::{pk_color, pk_else, pk_false, pk_if, pk_match, pk_true};
+use crate::parser::keyword::pk_rgb;
+use crate::parser::keyword::{pk_else, pk_false, pk_if, pk_match, pk_true};
+use crate::parser::object::p_object;
 use crate::parser::p_identifier_no_ws;
+use crate::parser::p_raw_identifier_no_ws;
 use crate::parser::{Input, WhiteSpaceParser, braced, bracketed, p_identifier};
 use winnow::ascii::float;
 use winnow::combinator::{
@@ -33,13 +35,15 @@ pub fn p_string<'a>(input: &mut Input<'a>) -> ModalResult<&'a str> {
 
 /// Parses a bool literal.
 pub fn p_bool<'a>(input: &mut Input<'a>) -> ModalResult<bool> {
-    alt((pk_true.map(|_| true), pk_false.map(|_| false))).parse_next(input)
+    alt((pk_true.map(|_| true), pk_false.map(|_| false)))
+        .ws()
+        .parse_next(input)
 }
 
 /// Parses a color.
 pub fn p_color<'a>(input: &mut Input<'a>) -> ModalResult<ast::Color> {
     preceded(
-        (pk_color, ".rgb"),
+        pk_rgb,
         bracketed(
             separated(4, p_expr, ','.ws()).map(|mut es: Vec<ast::Expr>| ast::Color::Rgba {
                 r: Box::new(es.remove(0)),
@@ -67,22 +71,30 @@ pub fn p_call<'a>(input: &mut Input<'a>) -> ModalResult<ast::Expr> {
         .parse_next(input)
 }
 
-/// Parses a pattern.
-///   A bare identifier is a binding, any other expression is a literal match.
+/// Parses a literal expression: Number, String, or Bool.
+pub fn p_literal<'a>(input: &mut Input<'a>) -> ModalResult<ast::Expr> {
+    alt((
+        p_number.map(ast::Expr::LNumber),
+        p_string.map(|s| ast::Expr::LString(s.to_string())),
+        p_bool.map(ast::Expr::LBool),
+    ))
+    .parse_next(input)
+}
+
+/// Parses a pattern: a literal or a binding identifier.
 pub fn p_pattern<'a>(input: &mut Input<'a>) -> ModalResult<ast::Pattern> {
-    p_expr
-        .map(|e| match e {
-            ast::Expr::Variable(name) => ast::Pattern::Binding(name),
-            other => ast::Pattern::Literal(other),
-        })
-        .parse_next(input)
+    alt((
+        p_literal.map(ast::Pattern::Literal),
+        p_identifier.map(|s| ast::Pattern::Binding(s.to_string())),
+    ))
+    .parse_next(input)
 }
 
 /// Parses a match arm: `<pattern> [if <guard>] => <body>`.
 pub fn p_match_arm<'a>(input: &mut Input<'a>) -> ModalResult<ast::MatchArm> {
     (
         p_pattern,
-        opt(preceded(pk_if, p_expr)),
+        opt(preceded(pk_if.ws(), p_expr)),
         preceded("=>".ws(), p_expr),
     )
         .map(|(pattern, guard, body)| ast::MatchArm {
@@ -96,9 +108,10 @@ pub fn p_match_arm<'a>(input: &mut Input<'a>) -> ModalResult<ast::MatchArm> {
 /// Parses a match expression: `match <expr> { <arm>, <arm>, ... }`.
 pub fn p_match<'a>(input: &mut Input<'a>) -> ModalResult<ast::Expr> {
     preceded(
-        pk_match,
-        (p_expr, braced(separated(1.., p_match_arm, ",".mws())).ws()),
+        pk_match.ws(),
+        (p_expr, braced(separated(1.., p_match_arm, ",".mws()))),
     )
+    .ws()
     .map(
         |(scrutinee, arms): (ast::Expr, Vec<ast::MatchArm>)| ast::Expr::Match {
             scrutinee: Box::new(scrutinee),
@@ -111,10 +124,11 @@ pub fn p_match<'a>(input: &mut Input<'a>) -> ModalResult<ast::Expr> {
 /// Parses an if expression: `if <cond> { <then> } else { <else> }`.
 pub fn p_if<'a>(input: &mut Input<'a>) -> ModalResult<ast::Expr> {
     (
-        preceded(pk_if, p_expr),
+        preceded(pk_if.ws(), p_expr),
         braced(p_expr).ws(),
-        preceded(pk_else, braced(p_expr).ws()),
+        preceded(pk_else.ws(), braced(p_expr)),
     )
+        .ws()
         .map(
             |(condition, then_branch, else_branch): (ast::Expr, ast::Expr, ast::Expr)| {
                 ast::Expr::If {
@@ -127,18 +141,30 @@ pub fn p_if<'a>(input: &mut Input<'a>) -> ModalResult<ast::Expr> {
         .parse_next(input)
 }
 
+/// Parses identifier or object field access
+pub fn p_identifier_or_field<'a>(input: &mut Input<'a>) -> ModalResult<ast::Expr> {
+    (
+        p_identifier_no_ws.map(str::to_string),
+        opt(preceded(".", p_raw_identifier_no_ws.map(str::to_string))),
+    )
+        .ws()
+        .map(|(var, field)| match field {
+            Some(field) => ast::Expr::Field { object: var, field },
+            None => ast::Expr::Variable(var),
+        })
+        .parse_next(input)
+}
+
 /// Parses an atom.
 pub fn p_atom<'a>(input: &mut Input<'a>) -> ModalResult<ast::Expr> {
     alt((
-        p_number.map(|n| ast::Expr::LNumber(n)),
-        p_string.map(|s| ast::Expr::LString(s.to_string())),
-        p_bool.map(|b| ast::Expr::LBool(b)),
+        p_literal,
         p_color.map(|c| ast::Expr::LColor(c)),
-        p_graphic.map(|g| ast::Expr::LGraphic(g)),
+        p_object.map(|o| ast::Expr::LObject(o)),
         p_if,
         p_match,
         p_call,
-        p_identifier.map(|s| ast::Expr::Variable(s.to_string())),
+        p_identifier_or_field,
     ))
     .parse_next(input)
 }
@@ -164,7 +190,7 @@ pub fn p_expr<'a>(input: &mut Input<'a>) -> ModalResult<ast::Expr> {
         "/" => Infix::Left(7, |_, a, b| Ok(ast::Expr::Binary { operator: ast::OpBin::Div, left: Box::new(a), right: Box::new(b) })),
         _ => fail,
     })
-    .prefix(dispatch! {"!".ws();
+    .prefix(dispatch! {"!";
         "!" => Prefix(11, |_, a| Ok(ast::Expr::Unary { operator: ast::OpUn::Not, operand: Box::new(a) })),
         _ => fail,
     })
@@ -207,7 +233,7 @@ mod tests {
 
     #[test]
     fn test_p_color() {
-        let mut input = Input::new("color.rgb(0.5, 0.6, 0.1, 1)");
+        let mut input = Input::new("rgb(0.5, 0.6, 0.1, 1)");
         let res = p_color.parse_next(&mut input).unwrap();
         match res {
             ast::Color::Rgba { r, g, b, a } => {
@@ -668,6 +694,16 @@ mod tests {
     }
 
     #[test]
+    fn test_p_pattern_rejects_expr() {
+        // Arbitrary expressions are no longer valid patterns.
+        let mut input = Input::new("1 + 2 => 0");
+        assert!(p_match_arm.parse_next(&mut input).is_err());
+
+        let mut input = Input::new("foo() => 0");
+        assert!(p_match_arm.parse_next(&mut input).is_err());
+    }
+
+    #[test]
     fn test_p_match_single_arm() {
         let mut input = Input::new("match x { 2 => 99 }");
         let res = p_expr.parse_next(&mut input).unwrap();
@@ -681,6 +717,19 @@ mod tests {
                 assert!(arms[0].guard.is_none());
             }
             other => panic!("Expected Match, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn test_p_field_access() {
+        let mut input = Input::new("box.x");
+        let res = p_expr.parse_next(&mut input).unwrap();
+        match res {
+            ast::Expr::Field { object, field } => {
+                assert_eq!(object, "box".to_string());
+                assert_eq!(field, "x".to_string());
+            }
+            other => panic!("Expected Field, got {:?}", other),
         }
     }
 }

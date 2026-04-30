@@ -131,8 +131,22 @@ mod tests {
                 identifier: "x".to_string(),
                 value: ast::Expr::LNumber(10.0),
             }],
-            exports: vec![ast::Expr::LGraphic(ast::Graphic::Circle {
-                radius: Box::new(ast::Expr::Variable("x".to_string())),
+            exports: vec![ast::Expr::LObject(ast::Object {
+                name: "Circle".to_string(),
+                fields: vec![
+                    ("x".to_string(), ast::Expr::LNumber(0.0)),
+                    ("y".to_string(), ast::Expr::LNumber(0.0)),
+                    ("radius".to_string(), ast::Expr::Variable("x".to_string())),
+                    (
+                        "color".to_string(),
+                        ast::Expr::LColor(ast::Color::Rgba {
+                            r: Box::new(ast::Expr::LNumber(1.0)),
+                            g: Box::new(ast::Expr::LNumber(0.0)),
+                            b: Box::new(ast::Expr::LNumber(0.0)),
+                            a: Box::new(ast::Expr::LNumber(1.0)),
+                        }),
+                    ),
+                ],
             })],
         };
         let res = check_program(program).unwrap();
@@ -161,7 +175,7 @@ mod tests {
 
     #[test]
     fn test_check_function() {
-        // Happy path: fn inc(x: number): number { return x }
+        // Happy path: fn inc(x: Number): Number { return x }
         let mut context = Context::new();
         let function = ast::Function {
             name: "inc".to_string(),
@@ -217,7 +231,7 @@ mod tests {
 
     #[test]
     fn test_check_program_with_function() {
-        // fn double(x: number): number { return x + x }
+        // fn double(x: Number): Number { return x + x }
         // export circle(double(3))
         let program = ast::Program {
             functions: vec![ast::Function {
@@ -234,11 +248,28 @@ mod tests {
                 ),
             }],
             scope: vec![],
-            exports: vec![ast::Expr::LGraphic(ast::Graphic::Circle {
-                radius: Box::new(ast::Expr::Call {
-                    function: "double".to_string(),
-                    args: vec![ast::Expr::LNumber(3.0)],
-                }),
+            exports: vec![ast::Expr::LObject(ast::Object {
+                name: "Circle".to_string(),
+                fields: vec![
+                    ("x".to_string(), ast::Expr::LNumber(0.0)),
+                    ("y".to_string(), ast::Expr::LNumber(0.0)),
+                    (
+                        "radius".to_string(),
+                        ast::Expr::Call {
+                            function: "double".to_string(),
+                            args: vec![ast::Expr::LNumber(3.0)],
+                        },
+                    ),
+                    (
+                        "color".to_string(),
+                        ast::Expr::LColor(ast::Color::Rgba {
+                            r: Box::new(ast::Expr::LNumber(1.0)),
+                            g: Box::new(ast::Expr::LNumber(0.0)),
+                            b: Box::new(ast::Expr::LNumber(0.0)),
+                            a: Box::new(ast::Expr::LNumber(1.0)),
+                        }),
+                    ),
+                ],
             })],
         };
         let res = check_program(program).unwrap();

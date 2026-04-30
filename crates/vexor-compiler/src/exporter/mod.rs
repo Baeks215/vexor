@@ -33,10 +33,24 @@ mod tests {
         assert!(result.is_empty());
     }
 
+    fn red() -> crate::ir::scene::Color {
+        crate::ir::scene::Color::Rgba {
+            r: 1.0,
+            g: 0.0,
+            b: 0.0,
+            a: 1.0,
+        }
+    }
+
     #[test]
     fn test_single_export() {
         let scene = Scene {
-            exports: vec![Graphic::Circle { radius: 10.0 }],
+            exports: vec![Graphic::Circle {
+                x: 0.0,
+                y: 0.0,
+                radius: 10.0,
+                color: red(),
+            }],
         };
         let result = export_scene_svg(scene);
         assert_eq!(result.len(), 1);
@@ -48,12 +62,25 @@ mod tests {
     fn test_multiple_exports_naming() {
         let scene = Scene {
             exports: vec![
-                Graphic::Circle { radius: 1.0 },
+                Graphic::Circle {
+                    x: 0.0,
+                    y: 0.0,
+                    radius: 1.0,
+                    color: red(),
+                },
                 Graphic::Rect {
+                    x: 0.0,
+                    y: 0.0,
                     width: 2.0,
                     height: 3.0,
+                    color: red(),
                 },
-                Graphic::Text("hi".to_string()),
+                Graphic::Text {
+                    x: 0.0,
+                    y: 0.0,
+                    content: "hi".to_string(),
+                    color: red(),
+                },
             ],
         };
         let result = export_scene_svg(scene);

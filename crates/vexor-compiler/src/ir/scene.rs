@@ -18,9 +18,25 @@ pub enum Color {
 /// Renderable graphic component, typed
 #[derive(Debug, Clone, PartialEq)]
 pub enum Graphic {
-    Circle { radius: Number },
-    Rect { width: Number, height: Number },
-    Text(String),
+    Circle {
+        x: Number,
+        y: Number,
+        radius: Number,
+        color: Color,
+    },
+    Rect {
+        x: Number,
+        y: Number,
+        width: Number,
+        height: Number,
+        color: Color,
+    },
+    Text {
+        x: Number,
+        y: Number,
+        content: String,
+        color: Color,
+    },
 }
 
 // --- Scene ---
