@@ -102,7 +102,7 @@ mod tests {
         let mut input = Input::new("let");
         assert!(p_identifier.parse_next(&mut input).is_err());
 
-        let mut input = Input::new("color");
+        let mut input = Input::new("Color");
         assert!(p_identifier.parse_next(&mut input).is_err());
 
         // Valid identifier starts with keyword

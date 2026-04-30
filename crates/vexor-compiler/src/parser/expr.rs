@@ -71,7 +71,7 @@ pub fn p_call<'a>(input: &mut Input<'a>) -> ModalResult<ast::Expr> {
         .parse_next(input)
 }
 
-/// Parses a literal expression: number, string, or bool.
+/// Parses a literal expression: Number, String, or Bool.
 pub fn p_literal<'a>(input: &mut Input<'a>) -> ModalResult<ast::Expr> {
     alt((
         p_number.map(ast::Expr::LNumber),

@@ -82,7 +82,7 @@ mod tests {
     #[test]
     fn test_compile_with_assignment() {
         let input =
-            format!("let r: number = 5\nexport Circle {{ x: 0, y: 0, radius: r, color: {RED} }}");
+            format!("let r: Number = 5\nexport Circle {{ x: 0, y: 0, radius: r, color: {RED} }}");
         let scene = compile(&input).expect("compile should succeed");
         assert_eq!(scene.exports.len(), 1);
         assert_eq!(scene.exports[0], circle(0.0, 0.0, 5.0));
@@ -134,7 +134,7 @@ mod tests {
     #[test]
     fn test_compile_with_bool_assignment() {
         let input = format!(
-            "let flag: bool = true\nexport Circle {{ x: 0, y: 0, radius: 1, color: {RED} }}"
+            "let flag: Bool = true\nexport Circle {{ x: 0, y: 0, radius: 1, color: {RED} }}"
         );
         let scene = compile(&input).expect("compile should succeed");
         assert_eq!(scene.exports.len(), 1);
@@ -144,7 +144,7 @@ mod tests {
     #[test]
     fn test_compile_with_compare() {
         let input =
-            format!("let b: bool = 3 > 2\nexport Circle {{ x: 0, y: 0, radius: 1, color: {RED} }}");
+            format!("let b: Bool = 3 > 2\nexport Circle {{ x: 0, y: 0, radius: 1, color: {RED} }}");
         let scene = compile(&input).expect("compile should succeed");
         assert_eq!(scene.exports.len(), 1);
     }
@@ -152,7 +152,7 @@ mod tests {
     #[test]
     fn test_compile_with_bool_function() {
         let input = format!(
-            "fn cmp(a: number, b: number): bool = a > b\nlet flag: bool = cmp(5, 3)\nexport Circle {{ x: 0, y: 0, radius: 1, color: {RED} }}"
+            "fn cmp(a: Number, b: Number): Bool = a > b\nlet flag: Bool = cmp(5, 3)\nexport Circle {{ x: 0, y: 0, radius: 1, color: {RED} }}"
         );
         let scene = compile(&input).expect("compile should succeed");
         assert_eq!(scene.exports.len(), 1);
@@ -161,7 +161,7 @@ mod tests {
     #[test]
     fn test_compile_rejects_compare_as_number() {
         let input = format!(
-            "let x: number = 1 > 2\nexport Circle {{ x: 0, y: 0, radius: 1, color: {RED} }}"
+            "let x: Number = 1 > 2\nexport Circle {{ x: 0, y: 0, radius: 1, color: {RED} }}"
         );
         assert!(compile(&input).is_none());
     }
@@ -169,7 +169,7 @@ mod tests {
     #[test]
     fn test_compile_with_logical_ops() {
         let input = format!(
-            "let x: bool = true && !false || 1 == 1\nexport Circle {{ x: 0, y: 0, radius: 1, color: {RED} }}"
+            "let x: Bool = true && !false || 1 == 1\nexport Circle {{ x: 0, y: 0, radius: 1, color: {RED} }}"
         );
         let scene = compile(&input).expect("compile should succeed");
         assert_eq!(scene.exports.len(), 1);
@@ -178,7 +178,7 @@ mod tests {
     #[test]
     fn test_compile_rejects_logical_on_numbers() {
         let input = format!(
-            "let x: bool = 1 && 2\nexport Circle {{ x: 0, y: 0, radius: 1, color: {RED} }}"
+            "let x: Bool = 1 && 2\nexport Circle {{ x: 0, y: 0, radius: 1, color: {RED} }}"
         );
         assert!(compile(&input).is_none());
     }
@@ -186,7 +186,7 @@ mod tests {
     #[test]
     fn test_compile_with_match() {
         let input = format!(
-            "let x: number = 5\nlet r: number = match x {{ x if x > 10 => 100, 2 => 99, y => y + 1 }}\nexport Circle {{ x: 0, y: 0, radius: r, color: {RED} }}"
+            "let x: Number = 5\nlet r: Number = match x {{ x if x > 10 => 100, 2 => 99, y => y + 1 }}\nexport Circle {{ x: 0, y: 0, radius: r, color: {RED} }}"
         );
         let scene = compile(&input).expect("compile should succeed");
         assert_eq!(scene.exports.len(), 1);
@@ -196,7 +196,7 @@ mod tests {
     #[test]
     fn test_compile_with_string_match() {
         let input = format!(
-            "let s: string = match \"hi\" {{ \"hi\" => \"hello\", x => x }}\nexport Text {{ x: 0, y: 0, content: s, color: {RED} }}"
+            "let s: String = match \"hi\" {{ \"hi\" => \"hello\", x => x }}\nexport Text {{ x: 0, y: 0, content: s, color: {RED} }}"
         );
         let scene = compile(&input).expect("compile should succeed");
         assert_eq!(scene.exports.len(), 1);
@@ -206,7 +206,7 @@ mod tests {
     #[test]
     fn test_compile_with_bool_match() {
         let input = format!(
-            "let flag: bool = match true {{ true => false, x => x }}\nexport Circle {{ x: 0, y: 0, radius: 1, color: {RED} }}"
+            "let flag: Bool = match true {{ true => false, x => x }}\nexport Circle {{ x: 0, y: 0, radius: 1, color: {RED} }}"
         );
         let scene = compile(&input).expect("compile should succeed");
         assert_eq!(scene.exports.len(), 1);
@@ -215,7 +215,7 @@ mod tests {
     #[test]
     fn test_compile_with_if() {
         let input = format!(
-            "let x: number = 5\nlet r: number = if x > 10 {{ 100 }} else {{ x + 1 }}\nexport Circle {{ x: 0, y: 0, radius: r, color: {RED} }}"
+            "let x: Number = 5\nlet r: Number = if x > 10 {{ 100 }} else {{ x + 1 }}\nexport Circle {{ x: 0, y: 0, radius: r, color: {RED} }}"
         );
         let scene = compile(&input).expect("compile should succeed");
         assert_eq!(scene.exports.len(), 1);
@@ -225,7 +225,7 @@ mod tests {
     #[test]
     fn test_compile_with_if_string() {
         let input = format!(
-            "let s: string = if true {{ \"yes\" }} else {{ \"no\" }}\nexport Text {{ x: 0, y: 0, content: s, color: {RED} }}"
+            "let s: String = if true {{ \"yes\" }} else {{ \"no\" }}\nexport Text {{ x: 0, y: 0, content: s, color: {RED} }}"
         );
         let scene = compile(&input).expect("compile should succeed");
         assert_eq!(scene.exports.len(), 1);
@@ -235,7 +235,7 @@ mod tests {
     #[test]
     fn test_compile_with_if_bool() {
         let input = format!(
-            "let b: bool = if false {{ true }} else {{ false }}\nexport Circle {{ x: 0, y: 0, radius: 1, color: {RED} }}"
+            "let b: Bool = if false {{ true }} else {{ false }}\nexport Circle {{ x: 0, y: 0, radius: 1, color: {RED} }}"
         );
         let scene = compile(&input).expect("compile should succeed");
         assert_eq!(scene.exports.len(), 1);
@@ -244,7 +244,7 @@ mod tests {
     #[test]
     fn test_compile_rejects_if_non_bool() {
         let input = format!(
-            "let x: number = if 1 {{ 1 }} else {{ 2 }}\nexport Circle {{ x: 0, y: 0, radius: 1, color: {RED} }}"
+            "let x: Number = if 1 {{ 1 }} else {{ 2 }}\nexport Circle {{ x: 0, y: 0, radius: 1, color: {RED} }}"
         );
         assert!(compile(&input).is_none());
     }
@@ -252,7 +252,7 @@ mod tests {
     #[test]
     fn test_compile_if_else_if_nesting() {
         let input = format!(
-            "let x: number = 5\nlet r: number = if x > 10 {{ 100 }} else {{ if x > 3 {{ 50 }} else {{ 0 }} }}\nexport Circle {{ x: 0, y: 0, radius: r, color: {RED} }}"
+            "let x: Number = 5\nlet r: Number = if x > 10 {{ 100 }} else {{ if x > 3 {{ 50 }} else {{ 0 }} }}\nexport Circle {{ x: 0, y: 0, radius: r, color: {RED} }}"
         );
         let scene = compile(&input).expect("compile should succeed");
         assert_eq!(scene.exports[0], circle(0.0, 0.0, 50.0));
@@ -276,7 +276,7 @@ mod tests {
     #[test]
     fn test_compile_with_match_graphic() {
         let input = format!(
-            "let g: graphic = Circle {{ x: 0, y: 0, radius: 10, color: {RED} }}\nexport match g {{ x if true => Rect {{ x: 0, y: 0, width: 1, height: 2, color: {RED} }}, y => y }}"
+            "let g: Graphic = Circle {{ x: 0, y: 0, radius: 10, color: {RED} }}\nexport match g {{ x if true => Rect {{ x: 0, y: 0, width: 1, height: 2, color: {RED} }}, y => y }}"
         );
         let scene = compile(&input).expect("compile should succeed");
         assert_eq!(scene.exports[0], rect(0.0, 0.0, 1.0, 2.0));
@@ -285,7 +285,7 @@ mod tests {
     #[test]
     fn test_compile_with_if_color() {
         let input = format!(
-            "let c: color = if true {{ rgb(1, 0, 0, 1) }} else {{ rgb(0, 0, 1, 1) }}\nexport Circle {{ x: 0, y: 0, radius: 1, color: {RED} }}"
+            "let c: Color = if true {{ rgb(1, 0, 0, 1) }} else {{ rgb(0, 0, 1, 1) }}\nexport Circle {{ x: 0, y: 0, radius: 1, color: {RED} }}"
         );
         let scene = compile(&input).expect("compile should succeed");
         assert_eq!(scene.exports.len(), 1);
@@ -294,7 +294,7 @@ mod tests {
     #[test]
     fn test_compile_with_field_access() {
         let input = format!(
-            "let box: rect = Rect {{ x: 2, y: 8, width: 10, height: 5, color: {RED} }}\nlet c: circle = Circle {{ x: box.x, y: box.y, radius: 5, color: {RED} }}\nexport c"
+            "let box: Rect = Rect {{ x: 2, y: 8, width: 10, height: 5, color: {RED} }}\nlet c: Circle = Circle {{ x: box.x, y: box.y, radius: 5, color: {RED} }}\nexport c"
         );
         let scene = compile(&input).expect("compile should succeed");
         assert_eq!(scene.exports.len(), 1);
@@ -304,14 +304,14 @@ mod tests {
     #[test]
     fn test_compile_with_function() {
         let input = format!(
-            "fn double(x: number): number = x + x\nexport Circle {{ x: 0, y: 0, radius: double(5), color: {RED} }}"
+            "fn double(x: Number): Number = x + x\nexport Circle {{ x: 0, y: 0, radius: double(5), color: {RED} }}"
         );
         let scene = compile(&input).expect("compile should succeed");
         assert_eq!(scene.exports.len(), 1);
         assert_eq!(scene.exports[0], circle(0.0, 0.0, 10.0));
 
         let input = format!(
-            "fn area(w: number, h: number): number = w * h\nexport Rect {{ x: 0, y: 0, width: area(2, 3), height: 4, color: {RED} }}"
+            "fn area(w: Number, h: Number): Number = w * h\nexport Rect {{ x: 0, y: 0, width: area(2, 3), height: 4, color: {RED} }}"
         );
         let scene = compile(&input).expect("compile should succeed");
         assert_eq!(scene.exports.len(), 1);

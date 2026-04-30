@@ -130,7 +130,7 @@ mod tests {
 
     #[test]
     fn test_p_statement_assignment() {
-        let mut input = Input::new("let x: number = 10");
+        let mut input = Input::new("let x: Number = 10");
         let res = p_assignment.parse_next(&mut input).unwrap();
         let ast::Assignment {
             ty,
@@ -141,7 +141,7 @@ mod tests {
         assert_eq!(identifier, "x");
         assert_eq!(value, ast::Expr::LNumber(10.0));
 
-        let mut input = Input::new("let my_var: string = \"hello\"");
+        let mut input = Input::new("let my_var: String = \"hello\"");
         let res = p_assignment.parse_next(&mut input).unwrap();
         let ast::Assignment {
             ty,
@@ -152,7 +152,7 @@ mod tests {
         assert_eq!(identifier, "my_var");
         assert_eq!(value, ast::Expr::LString("hello".to_string()));
 
-        let mut input = Input::new("let b: bool = true");
+        let mut input = Input::new("let b: Bool = true");
         let res = p_assignment.parse_next(&mut input).unwrap();
         let ast::Assignment {
             ty,
@@ -181,7 +181,7 @@ mod tests {
 
     #[test]
     fn test_p_function() {
-        let input = "fn double(x: number): number = y where {\nlet y: number = x + x\n}";
+        let input = "fn double(x: Number): Number = y where {\nlet y: Number = x + x\n}";
         let mut input = Input::new(input);
         let res = p_function.parse_next(&mut input).unwrap();
         assert_eq!(res.name, "double");
@@ -192,7 +192,7 @@ mod tests {
         assert_eq!(identifier, "y");
 
         // Zero-param, empty-body function
-        let mut input = Input::new("fn five(): number = 5");
+        let mut input = Input::new("fn five(): Number = 5");
         let res = p_function.parse_next(&mut input).unwrap();
         assert_eq!(res.name, "five");
         assert!(res.params.is_empty());
@@ -202,7 +202,7 @@ mod tests {
 
     #[test]
     fn test_parse_program_with_function() {
-        let input = "fn mk(r: number): number = r + 1\nexport Circle { radius: mk(5) }";
+        let input = "fn mk(r: Number): Number = r + 1\nexport Circle { radius: mk(5) }";
         let res = parse_program(input).unwrap();
         assert_eq!(res.functions.len(), 1);
         assert!(res.scope.is_empty());
@@ -227,7 +227,7 @@ mod tests {
 
     #[test]
     fn test_parse_program() {
-        let input = "  let x: number = 10  \n \t export Circle { radius: x }  \n";
+        let input = "  let x: Number = 10  \n \t export Circle { radius: x }  \n";
         let res = parse_program(input).unwrap();
         assert_eq!(res.scope.len(), 1);
 

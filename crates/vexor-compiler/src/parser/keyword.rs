@@ -37,14 +37,14 @@ define_keywords! {
     pk_if => "if",
     pk_else => "else",
     // Types
-    pk_number => "number",
-    pk_string => "string",
-    pk_bool => "bool",
-    pk_color => "color",
-    pk_graphic => "graphic",
-    pk_circle => "circle",
-    pk_rect => "rect",
-    pk_text => "text",
+    pk_number => "Number",
+    pk_string => "String",
+    pk_bool => "Bool",
+    pk_color => "Color",
+    pk_graphic => "Graphic",
+    pk_circle => "Circle",
+    pk_rect => "Rect",
+    pk_text => "Text",
     // Bool literals
     pk_true => "true",
     pk_false => "false",
@@ -60,8 +60,8 @@ mod tests {
     fn test_is_keyword() {
         assert!(is_keyword("let"));
         assert!(is_keyword("export"));
-        assert!(is_keyword("color"));
-        assert!(is_keyword("bool"));
+        assert!(is_keyword("Color"));
+        assert!(is_keyword("Bool"));
         assert!(is_keyword("true"));
         assert!(is_keyword("false"));
         assert!(!is_keyword("not_a_keyword"));
@@ -73,8 +73,8 @@ mod tests {
         assert_eq!(pk_let.parse_next(&mut input).unwrap(), "let");
         assert_eq!(*input, "  ");
 
-        let mut input = Input::new("number\n");
-        assert_eq!(pk_number.parse_next(&mut input).unwrap(), "number");
+        let mut input = Input::new("Number\n");
+        assert_eq!(pk_number.parse_next(&mut input).unwrap(), "Number");
         assert_eq!(*input, "\n");
 
         let mut input = Input::new("not_a_keyword");

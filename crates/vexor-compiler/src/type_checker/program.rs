@@ -175,7 +175,7 @@ mod tests {
 
     #[test]
     fn test_check_function() {
-        // Happy path: fn inc(x: number): number { return x }
+        // Happy path: fn inc(x: Number): Number { return x }
         let mut context = Context::new();
         let function = ast::Function {
             name: "inc".to_string(),
@@ -231,7 +231,7 @@ mod tests {
 
     #[test]
     fn test_check_program_with_function() {
-        // fn double(x: number): number { return x + x }
+        // fn double(x: Number): Number { return x + x }
         // export circle(double(3))
         let program = ast::Program {
             functions: vec![ast::Function {
