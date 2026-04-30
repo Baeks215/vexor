@@ -719,4 +719,17 @@ mod tests {
             other => panic!("Expected Match, got {:?}", other),
         }
     }
+
+    #[test]
+    fn test_p_field_access() {
+        let mut input = Input::new("box.x");
+        let res = p_expr.parse_next(&mut input).unwrap();
+        match res {
+            ast::Expr::Field { object, field } => {
+                assert_eq!(object, "box".to_string());
+                assert_eq!(field, "x".to_string());
+            }
+            other => panic!("Expected Field, got {:?}", other),
+        }
+    }
 }

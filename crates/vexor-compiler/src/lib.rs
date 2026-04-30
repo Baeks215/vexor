@@ -292,6 +292,16 @@ mod tests {
     }
 
     #[test]
+    fn test_compile_with_field_access() {
+        let input = format!(
+            "let box: rect = Rect {{ x: 2, y: 8, width: 10, height: 5, color: {RED} }}\nlet c: circle = Circle {{ x: box.x, y: box.y, radius: 5, color: {RED} }}\nexport c"
+        );
+        let scene = compile(&input).expect("compile should succeed");
+        assert_eq!(scene.exports.len(), 1);
+        assert_eq!(scene.exports[0], circle(2.0, 8.0, 5.0));
+    }
+
+    #[test]
     fn test_compile_with_function() {
         let input = format!(
             "fn double(x: number): number = x + x\nexport Circle {{ x: 0, y: 0, radius: double(5), color: {RED} }}"

@@ -989,4 +989,35 @@ mod tests {
             }
         );
     }
+
+    #[test]
+    fn test_eval_field_access() {
+        let mut context = Context::new();
+        context.set_var(
+            "circle".to_string(),
+            Value::Graphic(scene::Graphic::Circle {
+                x: 2.0,
+                y: 3.0,
+                radius: 5.0,
+                color: blue_scene(),
+            }),
+        );
+        let expr = Expr::Field {
+            object: "circle".to_string(),
+            field: "x".to_string(),
+        };
+        assert_eq!(eval_number(&context, expr).unwrap(), 2.0);
+
+        let expr = Expr::Field {
+            object: "circle".to_string(),
+            field: "color".to_string(),
+        };
+        assert_eq!(eval_color(&context, expr).unwrap(), blue_scene());
+
+        let expr = Expr::Field {
+            object: "circle".to_string(),
+            field: "not_a_field".to_string(),
+        };
+        assert!(eval_number(&context, expr).is_err());
+    }
 }

@@ -1058,4 +1058,30 @@ mod tests {
         let res = check_graphic(&context, expr).unwrap();
         assert!(matches!(res, ExprGraphic::Node(NodeGraphic::Match { .. })));
     }
+
+    #[test]
+    fn test_check_field_access() {
+        let mut context = Context::new();
+        context.set_var("box".to_string(), Type::GType(typed::GraphicType::Rect));
+        let expr = ast::Expr::Field {
+            object: "box".to_string(),
+            field: "color".to_string(),
+        };
+        let res = check_color(&context, expr).unwrap();
+        assert!(matches!(res, ExprColor::Field { .. }));
+
+        let expr = ast::Expr::Field {
+            object: "box".to_string(),
+            field: "width".to_string(),
+        };
+        let res = check_number(&context, expr).unwrap();
+        assert!(matches!(res, ExprNumber::Field { .. }));
+
+        let expr = ast::Expr::Field {
+            object: "box".to_string(),
+            field: "not_a_field".to_string(),
+        };
+        let res = check_number(&context, expr);
+        assert!(matches!(res, Err(_)));
+    }
 }
