@@ -6,7 +6,7 @@ use crate::ir::Number;
 use crate::ir::scene;
 use crate::ir::typed;
 use crate::ir::typed::expr::{
-    Expr, ExprBool, ExprColor, ExprGeneric, ExprGraphic, ExprNumber, ExprString, If, MatchArm,
+    Expr, ExprBool, ExprColor, ExprGeneric, ExprGraphic, ExprNumber, ExprString, MatchArm,
     NodeBool, NodeColor, NodeGraphic, NodeNumber, NodeString, OpBinBool, OpBinNumber, OpCompare,
     OpUnBool, Pattern,
 };
@@ -55,7 +55,11 @@ pub fn eval_number(context: &Context, expr: ExprNumber) -> EResult<Number> {
                 eval_number,
             )
         }
-        Expr::Node(NodeNumber::If(if_)) => eval_if(context, if_, eval_number),
+        Expr::If {
+            condition,
+            then_branch,
+            else_branch,
+        } => eval_if(context, *condition, *then_branch, *else_branch, eval_number),
         Expr::Field { object, field } => {
             eval_field_access(context, object, field).and_then(Value::as_number)
         }
@@ -63,19 +67,20 @@ pub fn eval_number(context: &Context, expr: ExprNumber) -> EResult<Number> {
 }
 
 /// Generic if-expression evaluation.
-fn eval_if<E, U, F>(context: &Context, if_: If<E>, eval_body: F) -> EResult<U>
+fn eval_if<T, U, F>(
+    context: &Context,
+    condition: ExprBool,
+    then_branch: Expr<T>,
+    else_branch: Expr<T>,
+    eval_body: F,
+) -> EResult<U>
 where
-    F: Fn(&Context, E) -> EResult<U>,
+    F: Fn(&Context, Expr<T>) -> EResult<U>,
 {
-    let If {
-        condition,
-        then_branch,
-        else_branch,
-    } = if_;
-    if eval_bool(context, *condition)? {
-        eval_body(context, *then_branch)
+    if eval_bool(context, condition)? {
+        eval_body(context, then_branch)
     } else {
-        eval_body(context, *else_branch)
+        eval_body(context, else_branch)
     }
 }
 
@@ -240,7 +245,11 @@ pub fn eval_bool(context: &Context, expr: ExprBool) -> EResult<bool> {
                 eval_bool,
             )
         }
-        Expr::Node(NodeBool::If(if_)) => eval_if(context, if_, eval_bool),
+        Expr::If {
+            condition,
+            then_branch,
+            else_branch,
+        } => eval_if(context, *condition, *then_branch, *else_branch, eval_bool),
         Expr::Field { object, field } => {
             eval_field_access(context, object, field).and_then(Value::as_bool)
         }
@@ -272,7 +281,11 @@ pub fn eval_string(context: &Context, expr: ExprString) -> EResult<String> {
                 eval_string,
             )
         }
-        Expr::Node(NodeString::If(if_)) => eval_if(context, if_, eval_string),
+        Expr::If {
+            condition,
+            then_branch,
+            else_branch,
+        } => eval_if(context, *condition, *then_branch, *else_branch, eval_string),
         Expr::Field { object, field } => {
             eval_field_access(context, object, field).and_then(Value::as_string)
         }
@@ -310,7 +323,11 @@ pub fn eval_color(context: &Context, expr: ExprColor) -> EResult<scene::Color> {
                 eval_color,
             )
         }
-        Expr::Node(NodeColor::If(if_)) => eval_if(context, if_, eval_color),
+        Expr::If {
+            condition,
+            then_branch,
+            else_branch,
+        } => eval_if(context, *condition, *then_branch, *else_branch, eval_color),
         Expr::Field { object, field } => {
             eval_field_access(context, object, field).and_then(Value::as_color)
         }
@@ -376,7 +393,17 @@ pub fn eval_graphic(context: &Context, expr: ExprGraphic) -> EResult<scene::Grap
                 eval_graphic,
             )
         }
-        Expr::Node(NodeGraphic::If(if_)) => eval_if(context, if_, eval_graphic),
+        Expr::If {
+            condition,
+            then_branch,
+            else_branch,
+        } => eval_if(
+            context,
+            *condition,
+            *then_branch,
+            *else_branch,
+            eval_graphic,
+        ),
         Expr::Field { object, field } => {
             eval_field_access(context, object, field).and_then(Value::as_graphic)
         }
@@ -732,11 +759,11 @@ mod tests {
     fn test_eval_if_true() {
         // if true { 100 } else { 200 } → 100
         let context = Context::new();
-        let expr = Expr::Node(NodeNumber::If(If {
+        let expr = Expr::If {
             condition: Box::new(Expr::Node(NodeBool::Literal(true))),
             then_branch: Box::new(Expr::Node(NodeNumber::Literal(100.0))),
             else_branch: Box::new(Expr::Node(NodeNumber::Literal(200.0))),
-        }));
+        };
         assert_eq!(eval_number(&context, expr).unwrap(), 100.0);
     }
 
@@ -744,11 +771,11 @@ mod tests {
     fn test_eval_if_false() {
         // if false { 100 } else { 200 } → 200
         let context = Context::new();
-        let expr = Expr::Node(NodeNumber::If(If {
+        let expr = Expr::If {
             condition: Box::new(Expr::Node(NodeBool::Literal(false))),
             then_branch: Box::new(Expr::Node(NodeNumber::Literal(100.0))),
             else_branch: Box::new(Expr::Node(NodeNumber::Literal(200.0))),
-        }));
+        };
         assert_eq!(eval_number(&context, expr).unwrap(), 200.0);
     }
 
@@ -761,11 +788,11 @@ mod tests {
             arguments: vec![],
         });
         // if true { 1 } else { <bad> } → 1
-        let expr = Expr::Node(NodeNumber::If(If {
+        let expr = Expr::If {
             condition: Box::new(Expr::Node(NodeBool::Literal(true))),
             then_branch: Box::new(Expr::Node(NodeNumber::Literal(1.0))),
             else_branch: bad,
-        }));
+        };
         assert_eq!(eval_number(&context, expr).unwrap(), 1.0);
 
         let bad = Box::new(Expr::Call {
@@ -773,11 +800,11 @@ mod tests {
             arguments: vec![],
         });
         // if false { <bad> } else { 2 } → 2
-        let expr = Expr::Node(NodeNumber::If(If {
+        let expr = Expr::If {
             condition: Box::new(Expr::Node(NodeBool::Literal(false))),
             then_branch: bad,
             else_branch: Box::new(Expr::Node(NodeNumber::Literal(2.0))),
-        }));
+        };
         assert_eq!(eval_number(&context, expr).unwrap(), 2.0);
     }
 
@@ -785,19 +812,19 @@ mod tests {
     fn test_eval_if_string_and_bool() {
         let context = Context::new();
         // string
-        let expr = Expr::Node(NodeString::If(If {
+        let expr = Expr::If {
             condition: Box::new(Expr::Node(NodeBool::Literal(true))),
             then_branch: Box::new(Expr::Node(NodeString::Literal("yes".to_string()))),
             else_branch: Box::new(Expr::Node(NodeString::Literal("no".to_string()))),
-        }));
+        };
         assert_eq!(eval_string(&context, expr).unwrap(), "yes");
 
         // bool
-        let expr = Expr::Node(NodeBool::If(If {
+        let expr = Expr::If {
             condition: Box::new(Expr::Node(NodeBool::Literal(false))),
             then_branch: Box::new(Expr::Node(NodeBool::Literal(true))),
             else_branch: Box::new(Expr::Node(NodeBool::Literal(false))),
-        }));
+        };
         assert_eq!(eval_bool(&context, expr).unwrap(), false);
     }
 
@@ -871,19 +898,19 @@ mod tests {
     fn test_eval_if_color() {
         let context = Context::new();
         // if true { red } else { blue } → red
-        let expr = Expr::Node(NodeColor::If(If {
+        let expr = Expr::If {
             condition: Box::new(Expr::Node(NodeBool::Literal(true))),
             then_branch: Box::new(red_expr()),
             else_branch: Box::new(blue_expr()),
-        }));
+        };
         assert_eq!(eval_color(&context, expr).unwrap(), red_scene());
 
         // if false { red } else { blue } → blue
-        let expr = Expr::Node(NodeColor::If(If {
+        let expr = Expr::If {
             condition: Box::new(Expr::Node(NodeBool::Literal(false))),
             then_branch: Box::new(red_expr()),
             else_branch: Box::new(blue_expr()),
-        }));
+        };
         assert_eq!(eval_color(&context, expr).unwrap(), blue_scene());
     }
 
@@ -949,11 +976,11 @@ mod tests {
     #[test]
     fn test_eval_if_graphic() {
         let context = Context::new();
-        let expr = Expr::Node(NodeGraphic::If(If {
+        let expr = Expr::If {
             condition: Box::new(Expr::Node(NodeBool::Literal(false))),
             then_branch: Box::new(circle_expr()),
             else_branch: Box::new(rect_expr()),
-        }));
+        };
         assert_eq!(
             eval_graphic(&context, expr).unwrap(),
             scene::Graphic::Rect {

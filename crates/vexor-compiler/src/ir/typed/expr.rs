@@ -16,6 +16,11 @@ pub enum Expr<T> {
         function: String,
         arguments: Vec<ExprGeneric>,
     },
+    If {
+        condition: Box<ExprBool>,
+        then_branch: Box<Expr<T>>,
+        else_branch: Box<Expr<T>>,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -48,15 +53,6 @@ pub struct MatchArm<E> {
     pub body: E,
 }
 
-// --- If ---
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct If<E> {
-    pub condition: Box<ExprBool>,
-    pub then_branch: Box<E>,
-    pub else_branch: Box<E>,
-}
-
 // --- Number Type ---
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -81,7 +77,6 @@ pub enum NodeNumber {
         scrutinee: Box<ExprNumber>,
         arms: Vec<MatchArm<ExprNumber>>,
     },
-    If(If<ExprNumber>),
 }
 
 // --- String Type ---
@@ -94,7 +89,6 @@ pub enum NodeString {
         scrutinee: Box<ExprString>,
         arms: Vec<MatchArm<ExprString>>,
     },
-    If(If<ExprString>),
 }
 
 // --- Bool Type ---
@@ -144,7 +138,6 @@ pub enum NodeBool {
         scrutinee: Box<ExprBool>,
         arms: Vec<MatchArm<ExprBool>>,
     },
-    If(If<ExprBool>),
 }
 
 // --- Color Type ---
@@ -157,7 +150,6 @@ pub enum NodeColor {
         scrutinee: Box<ExprColor>,
         arms: Vec<MatchArm<ExprColor>>,
     },
-    If(If<ExprColor>),
 }
 
 // --- Graphic Type ---
@@ -170,5 +162,4 @@ pub enum NodeGraphic {
         scrutinee: Box<ExprGraphic>,
         arms: Vec<MatchArm<ExprGraphic>>,
     },
-    If(If<ExprGraphic>),
 }

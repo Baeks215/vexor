@@ -2,7 +2,7 @@
 
 use crate::ir::ast;
 use crate::ir::typed::expr::{
-    Expr, ExprBool, ExprColor, ExprGeneric, ExprGraphic, ExprNumber, ExprString, If, MatchArm,
+    Expr, ExprBool, ExprColor, ExprGeneric, ExprGraphic, ExprNumber, ExprString, MatchArm,
     NodeBool, NodeColor, NodeGraphic, NodeNumber, NodeString, OpBinBool, OpBinNumber, OpCompare,
     OpUnBool, Pattern,
 };
@@ -44,14 +44,14 @@ fn check_if<F, E>(
     then_branch: ast::Expr,
     else_branch: ast::Expr,
     check: F,
-) -> TResult<If<E>>
+) -> TResult<Expr<E>>
 where
-    F: Fn(&Context, ast::Expr) -> TResult<E>,
+    F: Fn(&Context, ast::Expr) -> TResult<Expr<E>>,
 {
     let condition = Box::new(check_bool(context, condition)?);
     let then_branch = Box::new(check(context, then_branch)?);
     let else_branch = Box::new(check(context, else_branch)?);
-    Ok(If {
+    Ok(Expr::If {
         condition,
         then_branch,
         else_branch,
@@ -168,13 +168,13 @@ pub fn check_number(context: &Context, expr: ast::Expr) -> TResult<ExprNumber> {
             condition,
             then_branch,
             else_branch,
-        } => Ok(ExprNumber::Node(NodeNumber::If(check_if(
+        } => check_if(
             context,
             *condition,
             *then_branch,
             *else_branch,
             check_number,
-        )?))),
+        ),
         ast::Expr::Field { object, field } => {
             check_field_access(context, object, field, Is(Type::Number))
         }
@@ -252,13 +252,7 @@ pub fn check_bool(context: &Context, expr: ast::Expr) -> TResult<ExprBool> {
             condition,
             then_branch,
             else_branch,
-        } => Ok(ExprBool::Node(NodeBool::If(check_if(
-            context,
-            *condition,
-            *then_branch,
-            *else_branch,
-            check_bool,
-        )?))),
+        } => check_if(context, *condition, *then_branch, *else_branch, check_bool),
         ast::Expr::Field { object, field } => {
             check_field_access(context, object, field, Is(Type::Bool))
         }
@@ -293,13 +287,13 @@ pub fn check_string(context: &Context, expr: ast::Expr) -> TResult<ExprString> {
             condition,
             then_branch,
             else_branch,
-        } => Ok(ExprString::Node(NodeString::If(check_if(
+        } => check_if(
             context,
             *condition,
             *then_branch,
             *else_branch,
             check_string,
-        )?))),
+        ),
         ast::Expr::Field { object, field } => {
             check_field_access(context, object, field, Is(Type::String))
         }
@@ -347,13 +341,7 @@ pub fn check_color(context: &Context, expr: ast::Expr) -> TResult<ExprColor> {
             condition,
             then_branch,
             else_branch,
-        } => Ok(ExprColor::Node(NodeColor::If(check_if(
-            context,
-            *condition,
-            *then_branch,
-            *else_branch,
-            check_color,
-        )?))),
+        } => check_if(context, *condition, *then_branch, *else_branch, check_color),
         ast::Expr::Field { object, field } => {
             check_field_access(context, object, field, Is(Type::Color))
         }
@@ -488,13 +476,13 @@ pub fn check_graphic(context: &Context, expr: ast::Expr) -> TResult<ExprGraphic>
             condition,
             then_branch,
             else_branch,
-        } => Ok(ExprGraphic::Node(NodeGraphic::If(check_if(
+        } => check_if(
             context,
             *condition,
             *then_branch,
             *else_branch,
             check_graphic,
-        )?))),
+        ),
         ast::Expr::Field { object, field } => {
             check_field_access(context, object, field, Is(Type::Graphic))
         }
@@ -855,7 +843,7 @@ mod tests {
             else_branch: Box::new(ast::Expr::LNumber(2.0)),
         };
         let res = check_number(&context, expr).unwrap();
-        assert!(matches!(res, ExprNumber::Node(NodeNumber::If(_))));
+        assert!(matches!(res, Expr::If { .. }));
     }
 
     #[test]
@@ -867,7 +855,7 @@ mod tests {
             else_branch: Box::new(ast::Expr::LString("b".to_string())),
         };
         let res = check_string(&context, expr).unwrap();
-        assert!(matches!(res, ExprString::Node(NodeString::If(_))));
+        assert!(matches!(res, Expr::If { .. }));
     }
 
     #[test]
@@ -879,7 +867,7 @@ mod tests {
             else_branch: Box::new(ast::Expr::LBool(true)),
         };
         let res = check_bool(&context, expr).unwrap();
-        assert!(matches!(res, ExprBool::Node(NodeBool::If(_))));
+        assert!(matches!(res, Expr::If { .. }));
     }
 
     #[test]
@@ -968,7 +956,7 @@ mod tests {
             else_branch: Box::new(blue_literal()),
         };
         let res = check_color(&context, expr).unwrap();
-        assert!(matches!(res, ExprColor::Node(NodeColor::If(_))));
+        assert!(matches!(res, Expr::If { .. }));
     }
 
     #[test]
@@ -1040,7 +1028,7 @@ mod tests {
             else_branch: Box::new(rect_literal()),
         };
         let res = check_graphic(&context, expr).unwrap();
-        assert!(matches!(res, ExprGraphic::Node(NodeGraphic::If(_))));
+        assert!(matches!(res, Expr::If { .. }));
     }
 
     #[test]
