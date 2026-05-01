@@ -94,6 +94,22 @@ where
         .collect()
 }
 
+/// Checks a match expression.
+fn check_match<F, E>(
+    context: &Context,
+    scrutinee: ast::Expr,
+    arms: Vec<ast::MatchArm>,
+    ty: Type,
+    check: F,
+) -> TResult<Expr<E>>
+where
+    F: Fn(&Context, ast::Expr) -> TResult<Expr<E>>,
+{
+    let scrutinee = Box::new(check(context, scrutinee)?);
+    let arms = check_match_arms(context, ty, arms, check)?;
+    Ok(Expr::Match { scrutinee, arms })
+}
+
 /// Maps general binary operators to number binary operations.
 fn map_op_num(op: ast::OpBin) -> Option<OpBinNumber> {
     match op {
@@ -131,7 +147,7 @@ fn map_op_bool(op: ast::OpBin) -> Option<OpBinBool> {
 
 /// Checks an expression expecting a Number type.
 pub fn check_number(context: &Context, expr: ast::Expr) -> TResult<ExprNumber> {
-    use NodeNumber::{Binary, Literal, Match};
+    use NodeNumber::{Binary, Literal};
     match expr {
         ast::Expr::LNumber(num) => Ok(ExprNumber::Node(Literal(num))),
         ast::Expr::Variable(name) => {
@@ -160,9 +176,7 @@ pub fn check_number(context: &Context, expr: ast::Expr) -> TResult<ExprNumber> {
             }))
         }
         ast::Expr::Match { scrutinee, arms } => {
-            let scrutinee = Box::new(check_number(context, *scrutinee)?);
-            let arms = check_match_arms(context, Type::Number, arms, check_number)?;
-            Ok(ExprNumber::Node(Match { scrutinee, arms }))
+            check_match(context, *scrutinee, arms, Type::Number, check_number)
         }
         ast::Expr::If {
             condition,
@@ -188,7 +202,7 @@ pub fn check_number(context: &Context, expr: ast::Expr) -> TResult<ExprNumber> {
 
 /// Checks an expression expecting a Bool type.
 pub fn check_bool(context: &Context, expr: ast::Expr) -> TResult<ExprBool> {
-    use NodeBool::{Binary, Compare, Literal, Match, Unary};
+    use NodeBool::{Binary, Compare, Literal, Unary};
     match expr {
         ast::Expr::LBool(b) => Ok(ExprBool::Node(Literal(b))),
         ast::Expr::Variable(name) => {
@@ -244,9 +258,7 @@ pub fn check_bool(context: &Context, expr: ast::Expr) -> TResult<ExprBool> {
             }))
         }
         ast::Expr::Match { scrutinee, arms } => {
-            let scrutinee = Box::new(check_bool(context, *scrutinee)?);
-            let arms = check_match_arms(context, Type::Bool, arms, check_bool)?;
-            Ok(ExprBool::Node(Match { scrutinee, arms }))
+            check_match(context, *scrutinee, arms, Type::Bool, check_bool)
         }
         ast::Expr::If {
             condition,
@@ -279,9 +291,7 @@ pub fn check_string(context: &Context, expr: ast::Expr) -> TResult<ExprString> {
             })
         }
         ast::Expr::Match { scrutinee, arms } => {
-            let scrutinee = Box::new(check_string(context, *scrutinee)?);
-            let arms = check_match_arms(context, Type::String, arms, check_string)?;
-            Ok(ExprString::Node(NodeString::Match { scrutinee, arms }))
+            check_match(context, *scrutinee, arms, Type::String, check_string)
         }
         ast::Expr::If {
             condition,
@@ -333,9 +343,7 @@ pub fn check_color(context: &Context, expr: ast::Expr) -> TResult<ExprColor> {
             })
         }
         ast::Expr::Match { scrutinee, arms } => {
-            let scrutinee = Box::new(check_color(context, *scrutinee)?);
-            let arms = check_match_arms(context, Type::Color, arms, check_color)?;
-            Ok(ExprColor::Node(NodeColor::Match { scrutinee, arms }))
+            check_match(context, *scrutinee, arms, Type::Color, check_color)
         }
         ast::Expr::If {
             condition,
@@ -468,9 +476,7 @@ pub fn check_graphic(context: &Context, expr: ast::Expr) -> TResult<ExprGraphic>
             })
         }
         ast::Expr::Match { scrutinee, arms } => {
-            let scrutinee = Box::new(check_graphic(context, *scrutinee)?);
-            let arms = check_match_arms(context, Type::Graphic, arms, check_graphic)?;
-            Ok(ExprGraphic::Node(NodeGraphic::Match { scrutinee, arms }))
+            check_match(context, *scrutinee, arms, Type::Graphic, check_graphic)
         }
         ast::Expr::If {
             condition,
@@ -750,7 +756,7 @@ mod tests {
         };
         let res = check_number(&context, expr).unwrap();
         match res {
-            ExprNumber::Node(NodeNumber::Match { arms, .. }) => {
+            Expr::Match { arms, .. } => {
                 assert_eq!(arms.len(), 3);
             }
             _ => panic!("Expected Match node, got {:?}", res),
@@ -807,7 +813,7 @@ mod tests {
             ],
         };
         let res = check_string(&context, expr).unwrap();
-        assert!(matches!(res, ExprString::Node(NodeString::Match { .. })));
+        assert!(matches!(res, Expr::Match { .. }));
     }
 
     #[test]
@@ -830,7 +836,7 @@ mod tests {
             ],
         };
         let res = check_bool(&context, expr).unwrap();
-        assert!(matches!(res, ExprBool::Node(NodeBool::Match { .. })));
+        assert!(matches!(res, Expr::Match { .. }));
     }
 
     #[test]
@@ -991,7 +997,7 @@ mod tests {
             ],
         };
         let res = check_color(&context, expr).unwrap();
-        assert!(matches!(res, ExprColor::Node(NodeColor::Match { .. })));
+        assert!(matches!(res, Expr::Match { .. }));
     }
 
     fn circle_literal() -> ast::Expr {
@@ -1044,7 +1050,7 @@ mod tests {
             }],
         };
         let res = check_graphic(&context, expr).unwrap();
-        assert!(matches!(res, ExprGraphic::Node(NodeGraphic::Match { .. })));
+        assert!(matches!(res, Expr::Match { .. }));
     }
 
     #[test]

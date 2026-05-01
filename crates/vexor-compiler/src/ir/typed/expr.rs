@@ -21,6 +21,10 @@ pub enum Expr<T> {
         then_branch: Box<Expr<T>>,
         else_branch: Box<Expr<T>>,
     },
+    Match {
+        scrutinee: Box<Expr<T>>,
+        arms: Vec<MatchArm<Expr<T>>>,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -73,10 +77,6 @@ pub enum NodeNumber {
         left: Box<ExprNumber>,
         right: Box<ExprNumber>,
     },
-    Match {
-        scrutinee: Box<ExprNumber>,
-        arms: Vec<MatchArm<ExprNumber>>,
-    },
 }
 
 // --- String Type ---
@@ -85,10 +85,6 @@ pub enum NodeNumber {
 #[derive(Debug, Clone, PartialEq)]
 pub enum NodeString {
     Literal(String),
-    Match {
-        scrutinee: Box<ExprString>,
-        arms: Vec<MatchArm<ExprString>>,
-    },
 }
 
 // --- Bool Type ---
@@ -134,10 +130,6 @@ pub enum NodeBool {
         operator: OpUnBool,
         operand: Box<ExprBool>,
     },
-    Match {
-        scrutinee: Box<ExprBool>,
-        arms: Vec<MatchArm<ExprBool>>,
-    },
 }
 
 // --- Color Type ---
@@ -146,10 +138,6 @@ pub enum NodeBool {
 #[derive(Debug, Clone, PartialEq)]
 pub enum NodeColor {
     Literal(Color),
-    Match {
-        scrutinee: Box<ExprColor>,
-        arms: Vec<MatchArm<ExprColor>>,
-    },
 }
 
 // --- Graphic Type ---
@@ -158,8 +146,4 @@ pub enum NodeColor {
 #[derive(Debug, Clone, PartialEq)]
 pub enum NodeGraphic {
     Literal(Graphic),
-    Match {
-        scrutinee: Box<ExprGraphic>,
-        arms: Vec<MatchArm<ExprGraphic>>,
-    },
 }

@@ -45,7 +45,7 @@ pub fn eval_number(context: &Context, expr: ExprNumber) -> EResult<Number> {
             OpBinNumber::Mul => Ok(eval_number(context, *left)? * eval_number(context, *right)?),
             OpBinNumber::Div => Ok(eval_number(context, *left)? / eval_number(context, *right)?),
         },
-        Expr::Node(NodeNumber::Match { scrutinee, arms }) => {
+        Expr::Match { scrutinee, arms } => {
             let s = eval_number(context, *scrutinee)?;
             eval_match(
                 context,
@@ -235,7 +235,7 @@ pub fn eval_bool(context: &Context, expr: ExprBool) -> EResult<bool> {
             OpBinBool::Eq => Ok(eval_bool(context, *left)? == eval_bool(context, *right)?),
             OpBinBool::Neq => Ok(eval_bool(context, *left)? != eval_bool(context, *right)?),
         },
-        Expr::Node(NodeBool::Match { scrutinee, arms }) => {
+        Expr::Match { scrutinee, arms } => {
             let s = eval_bool(context, *scrutinee)?;
             eval_match(
                 context,
@@ -270,7 +270,7 @@ pub fn eval_string(context: &Context, expr: ExprString) -> EResult<String> {
             _ => Err("Expected a string".to_string()),
         },
         Expr::Node(NodeString::Literal(s)) => Ok(s),
-        Expr::Node(NodeString::Match { scrutinee, arms }) => {
+        Expr::Match { scrutinee, arms } => {
             let s = eval_string(context, *scrutinee)?;
             let s_cmp = s.clone();
             eval_match(
@@ -313,7 +313,7 @@ pub fn eval_color(context: &Context, expr: ExprColor) -> EResult<scene::Color> {
                 a: eval_number(context, *a)?,
             })
         }
-        Expr::Node(NodeColor::Match { scrutinee, arms }) => {
+        Expr::Match { scrutinee, arms } => {
             let s = eval_color(context, *scrutinee)?;
             eval_match(
                 context,
@@ -382,7 +382,7 @@ pub fn eval_graphic(context: &Context, expr: ExprGraphic) -> EResult<scene::Grap
             content: eval_string(context, *content)?,
             color: eval_color(context, *color)?,
         }),
-        Expr::Node(NodeGraphic::Match { scrutinee, arms }) => {
+        Expr::Match { scrutinee, arms } => {
             let s = eval_graphic(context, *scrutinee)?;
             let s_cmp = s.clone();
             eval_match(
@@ -670,35 +670,33 @@ mod tests {
     #[test]
     fn test_eval_match() {
         // match x { x if x > 10 => 100, 2 => 99, y => y + 1 }
-        let build = || {
-            Expr::Node(NodeNumber::Match {
-                scrutinee: Box::new(Expr::Variable("x".to_string())),
-                arms: vec![
-                    MatchArm {
-                        pattern: Pattern::Binding("x".to_string()),
-                        guard: Some(Expr::Node(NodeBool::Compare {
-                            operator: OpCompare::Gt,
-                            left: Box::new(Expr::Variable("x".to_string())),
-                            right: Box::new(Expr::Node(NodeNumber::Literal(10.0))),
-                        })),
-                        body: Expr::Node(NodeNumber::Literal(100.0)),
-                    },
-                    MatchArm {
-                        pattern: Pattern::Literal(Expr::Node(NodeNumber::Literal(2.0))),
-                        guard: None,
-                        body: Expr::Node(NodeNumber::Literal(99.0)),
-                    },
-                    MatchArm {
-                        pattern: Pattern::Binding("y".to_string()),
-                        guard: None,
-                        body: Expr::Node(NodeNumber::Binary {
-                            operator: OpBinNumber::Add,
-                            left: Box::new(Expr::Variable("y".to_string())),
-                            right: Box::new(Expr::Node(NodeNumber::Literal(1.0))),
-                        }),
-                    },
-                ],
-            })
+        let build = || Expr::Match {
+            scrutinee: Box::new(Expr::Variable("x".to_string())),
+            arms: vec![
+                MatchArm {
+                    pattern: Pattern::Binding("x".to_string()),
+                    guard: Some(Expr::Node(NodeBool::Compare {
+                        operator: OpCompare::Gt,
+                        left: Box::new(Expr::Variable("x".to_string())),
+                        right: Box::new(Expr::Node(NodeNumber::Literal(10.0))),
+                    })),
+                    body: Expr::Node(NodeNumber::Literal(100.0)),
+                },
+                MatchArm {
+                    pattern: Pattern::Literal(Expr::Node(NodeNumber::Literal(2.0))),
+                    guard: None,
+                    body: Expr::Node(NodeNumber::Literal(99.0)),
+                },
+                MatchArm {
+                    pattern: Pattern::Binding("y".to_string()),
+                    guard: None,
+                    body: Expr::Node(NodeNumber::Binary {
+                        operator: OpBinNumber::Add,
+                        left: Box::new(Expr::Variable("y".to_string())),
+                        right: Box::new(Expr::Node(NodeNumber::Literal(1.0))),
+                    }),
+                },
+            ],
         };
 
         // x=5 → binding arm wins (y=5, y+1=6)
@@ -720,14 +718,14 @@ mod tests {
     #[test]
     fn test_eval_match_no_match() {
         // match 5 { 0 => 1 } — no arm matches.
-        let expr = Expr::Node(NodeNumber::Match {
+        let expr = Expr::Match {
             scrutinee: Box::new(Expr::Node(NodeNumber::Literal(5.0))),
             arms: vec![MatchArm {
                 pattern: Pattern::Literal(Expr::Node(NodeNumber::Literal(0.0))),
                 guard: None,
                 body: Expr::Node(NodeNumber::Literal(1.0)),
             }],
-        });
+        };
         let context = Context::new();
         assert!(eval_number(&context, expr).is_err());
     }
@@ -735,7 +733,7 @@ mod tests {
     #[test]
     fn test_eval_match_guard_sees_binding() {
         // match 5 { n if n == 5 => n * 2 } → 10
-        let expr = Expr::Node(NodeNumber::Match {
+        let expr = Expr::Match {
             scrutinee: Box::new(Expr::Node(NodeNumber::Literal(5.0))),
             arms: vec![MatchArm {
                 pattern: Pattern::Binding("n".to_string()),
@@ -750,7 +748,7 @@ mod tests {
                     right: Box::new(Expr::Node(NodeNumber::Literal(2.0))),
                 }),
             }],
-        });
+        };
         let context = Context::new();
         assert_eq!(eval_number(&context, expr).unwrap(), 10.0);
     }
@@ -918,7 +916,7 @@ mod tests {
     fn test_eval_match_color_literal() {
         let context = Context::new();
         // match red { red => blue, x => x } → blue
-        let expr = Expr::Node(NodeColor::Match {
+        let expr = Expr::Match {
             scrutinee: Box::new(red_expr()),
             arms: vec![
                 MatchArm {
@@ -932,7 +930,7 @@ mod tests {
                     body: Expr::Variable("x".to_string()),
                 },
             ],
-        });
+        };
         assert_eq!(eval_color(&context, expr).unwrap(), blue_scene());
     }
 
@@ -940,7 +938,7 @@ mod tests {
     fn test_eval_match_color_binding() {
         let context = Context::new();
         // match red { blue => red, x => x } → red (binding arm wins)
-        let expr = Expr::Node(NodeColor::Match {
+        let expr = Expr::Match {
             scrutinee: Box::new(red_expr()),
             arms: vec![
                 MatchArm {
@@ -954,7 +952,7 @@ mod tests {
                     body: Expr::Variable("x".to_string()),
                 },
             ],
-        });
+        };
         assert_eq!(eval_color(&context, expr).unwrap(), red_scene());
     }
 
@@ -962,14 +960,14 @@ mod tests {
     fn test_eval_match_color_no_match() {
         let context = Context::new();
         // match red { blue => red } → err
-        let expr = Expr::Node(NodeColor::Match {
+        let expr = Expr::Match {
             scrutinee: Box::new(red_expr()),
             arms: vec![MatchArm {
                 pattern: Pattern::Literal(blue_expr()),
                 guard: None,
                 body: red_expr(),
             }],
-        });
+        };
         assert!(eval_color(&context, expr).is_err());
     }
 
@@ -997,14 +995,14 @@ mod tests {
     fn test_eval_match_graphic() {
         let context = Context::new();
         // match circle { circle => rect } → rect
-        let expr = Expr::Node(NodeGraphic::Match {
+        let expr = Expr::Match {
             scrutinee: Box::new(circle_expr()),
             arms: vec![MatchArm {
                 pattern: Pattern::Literal(circle_expr()),
                 guard: None,
                 body: rect_expr(),
             }],
-        });
+        };
         assert_eq!(
             eval_graphic(&context, expr).unwrap(),
             scene::Graphic::Rect {
