@@ -48,7 +48,7 @@ pub enum OpUn {
 #[derive(Debug, Clone, PartialEq)]
 pub enum Pattern {
     Binding(String),
-    Literal(Expr),
+    Literal(Literal),
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -58,15 +58,20 @@ pub struct MatchArm {
     pub body: Expr,
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub enum Literal {
+    Number(Number),
+    String(String),
+    Bool(bool),
+    Color(Color),
+    Object(Object),
+}
+
 /// Expression
 #[derive(Debug, Clone, PartialEq)]
 pub enum Expr {
     // Literals
-    LNumber(Number),
-    LString(String),
-    LBool(bool),
-    LColor(Color),
-    LObject(Object),
+    Literal(Literal),
     // Variable
     Variable(String),
     // Field access
