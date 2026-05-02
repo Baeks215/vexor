@@ -45,31 +45,31 @@ pub fn eval_program(program: typed::Program) -> EResult<scene::Scene> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::ir::typed::expr::*;
+    use crate::ir::typed::{ColorT, NumberT, expr::*};
 
     #[test]
     fn test_eval_statement() {
         let mut context = Context::new();
         let stmt1 = typed::Assignment {
             identifier: "x".to_string(),
-            value: ExprGeneric::Number(Expr::Node(NodeNumber::Literal(1.0))),
+            value: ExprGeneric::Number(Expr::Literal(1.0)),
         };
         eval_assignment(&mut context, stmt1).unwrap();
 
         let stmt2 = typed::Assignment {
             identifier: "x".to_string(),
-            value: ExprGeneric::Number(Expr::Node(NodeNumber::Literal(2.0))),
+            value: ExprGeneric::Number(Expr::Literal(2.0)),
         };
         assert!(eval_assignment(&mut context, stmt2).is_err());
     }
 
-    fn red_color_expr() -> Box<ExprColor> {
-        Box::new(Expr::Node(NodeColor::Literal(typed::Color::Rgba {
-            r: Box::new(Expr::Node(NodeNumber::Literal(1.0))),
-            g: Box::new(Expr::Node(NodeNumber::Literal(0.0))),
-            b: Box::new(Expr::Node(NodeNumber::Literal(0.0))),
-            a: Box::new(Expr::Node(NodeNumber::Literal(1.0))),
-        })))
+    fn red_color_expr() -> Box<Expr<ColorT>> {
+        Box::new(Expr::Literal(typed::Color::Rgba {
+            r: Box::new(Expr::Literal(1.0)),
+            g: Box::new(Expr::Literal(0.0)),
+            b: Box::new(Expr::Literal(0.0)),
+            a: Box::new(Expr::Literal(1.0)),
+        }))
     }
 
     fn red_scene() -> scene::Color {
@@ -81,8 +81,8 @@ mod tests {
         }
     }
 
-    fn zero() -> Box<ExprNumber> {
-        Box::new(Expr::Node(NodeNumber::Literal(0.0)))
+    fn zero() -> Box<Expr<NumberT>> {
+        Box::new(Expr::Literal(0.0))
     }
 
     #[test]
@@ -91,16 +91,14 @@ mod tests {
             functions: vec![],
             scope: vec![typed::Assignment {
                 identifier: "r".to_string(),
-                value: ExprGeneric::Number(Expr::Node(NodeNumber::Literal(10.0))),
+                value: ExprGeneric::Number(Expr::Literal(10.0)),
             }],
-            exports: vec![Expr::Node(NodeGraphic::Literal(
-                crate::ir::typed::Graphic::Circle {
-                    x: zero(),
-                    y: zero(),
-                    radius: Box::new(Expr::Variable("r".to_string())),
-                    color: red_color_expr(),
-                },
-            ))],
+            exports: vec![Expr::Literal(crate::ir::typed::Graphic::Circle {
+                x: zero(),
+                y: zero(),
+                radius: Box::new(Expr::Variable("r".to_string())),
+                color: red_color_expr(),
+            })],
         };
 
         let scene = eval_program(program).unwrap();
@@ -122,8 +120,8 @@ mod tests {
             name: "double".to_string(),
             params: vec![("x".to_string(), typed::Type::Number)],
             scope: vec![],
-            return_expr: ExprGeneric::Number(Expr::Node(NodeNumber::Binary {
-                operator: OpBinNumber::Add,
+            return_expr: ExprGeneric::Number(Expr::Operator(NumberOps::Arithmetic {
+                op: ArithmeticOp::Add,
                 left: Box::new(Expr::Variable("x".to_string())),
                 right: Box::new(Expr::Variable("x".to_string())),
             })),
@@ -131,15 +129,15 @@ mod tests {
         let program = typed::Program {
             functions: vec![double],
             scope: vec![],
-            exports: vec![Expr::Node(NodeGraphic::Literal(typed::Graphic::Circle {
+            exports: vec![Expr::Literal(typed::Graphic::Circle {
                 x: zero(),
                 y: zero(),
                 radius: Box::new(Expr::Call {
                     function: "double".to_string(),
-                    arguments: vec![ExprGeneric::Number(Expr::Node(NodeNumber::Literal(7.0)))],
+                    arguments: vec![ExprGeneric::Number(Expr::Literal(7.0))],
                 }),
                 color: red_color_expr(),
-            }))],
+            })],
         };
         let scene = eval_program(program).unwrap();
         assert_eq!(scene.exports.len(), 1);

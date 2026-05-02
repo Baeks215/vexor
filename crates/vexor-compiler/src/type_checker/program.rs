@@ -188,7 +188,7 @@ mod tests {
         assert_eq!(res.params, vec![("x".to_string(), Type::Number)]);
         assert!(matches!(
             res.return_expr,
-            typed::expr::ExprGeneric::Number(typed::expr::ExprNumber::Variable(_))
+            typed::expr::ExprGeneric::Number(typed::expr::Expr::Variable(_))
         ));
 
         // Arg-count mismatch: call inc(1, 2)

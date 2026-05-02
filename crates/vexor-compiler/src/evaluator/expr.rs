@@ -4,12 +4,11 @@ use crate::evaluator::program::eval_assignment;
 use crate::evaluator::{Context, EResult, Function, Value};
 use crate::ir::Number;
 use crate::ir::scene;
-use crate::ir::typed;
 use crate::ir::typed::expr::{
-    Expr, ExprBool, ExprColor, ExprGeneric, ExprGraphic, ExprNumber, ExprString, MatchArm,
-    NodeBool, NodeColor, NodeGraphic, NodeNumber, NodeString, OpBinBool, OpBinNumber, OpCompare,
-    OpUnBool, Pattern,
+    ArithmeticOp, BoolOps, CompareOp, Expr, ExprGeneric, LogicOp, MatchArm, NumberOps, Pattern,
+    SemanticType,
 };
+use crate::ir::typed::{self, BoolT, ColorT, GraphicT, NumberT, StringT};
 
 pub fn eval_generic(context: &Context, expr: ExprGeneric) -> EResult<Value> {
     Ok(match expr {
@@ -21,7 +20,7 @@ pub fn eval_generic(context: &Context, expr: ExprGeneric) -> EResult<Value> {
     })
 }
 
-pub fn eval_number(context: &Context, expr: ExprNumber) -> EResult<Number> {
+pub fn eval_number(context: &Context, expr: Expr<NumberT>) -> EResult<Number> {
     match expr {
         Expr::Variable(name) => match context.get_var(&name)? {
             Value::Number(x) => Ok(x),
@@ -34,16 +33,12 @@ pub fn eval_number(context: &Context, expr: ExprNumber) -> EResult<Number> {
             Value::Number(x) => Ok(x),
             _ => Err("Expected a number".to_string()),
         },
-        Expr::Node(NodeNumber::Literal(x)) => Ok(x),
-        Expr::Node(NodeNumber::Binary {
-            operator,
-            left,
-            right,
-        }) => match operator {
-            OpBinNumber::Add => Ok(eval_number(context, *left)? + eval_number(context, *right)?),
-            OpBinNumber::Sub => Ok(eval_number(context, *left)? - eval_number(context, *right)?),
-            OpBinNumber::Mul => Ok(eval_number(context, *left)? * eval_number(context, *right)?),
-            OpBinNumber::Div => Ok(eval_number(context, *left)? / eval_number(context, *right)?),
+        Expr::Literal(x) => Ok(x),
+        Expr::Operator(NumberOps::Arithmetic { op, left, right }) => match op {
+            ArithmeticOp::Add => Ok(eval_number(context, *left)? + eval_number(context, *right)?),
+            ArithmeticOp::Sub => Ok(eval_number(context, *left)? - eval_number(context, *right)?),
+            ArithmeticOp::Mul => Ok(eval_number(context, *left)? * eval_number(context, *right)?),
+            ArithmeticOp::Div => Ok(eval_number(context, *left)? / eval_number(context, *right)?),
         },
         Expr::Match { scrutinee, arms } => {
             let s = eval_number(context, *scrutinee)?;
@@ -67,9 +62,9 @@ pub fn eval_number(context: &Context, expr: ExprNumber) -> EResult<Number> {
 }
 
 /// Generic if-expression evaluation.
-fn eval_if<T, U, F>(
+fn eval_if<T: SemanticType, U, F>(
     context: &Context,
-    condition: ExprBool,
+    condition: Expr<BoolT>,
     then_branch: Expr<T>,
     else_branch: Expr<T>,
     eval_body: F,
@@ -177,7 +172,7 @@ fn eval_field_access(context: &Context, object: String, field: String) -> EResul
     Ok(result)
 }
 
-pub fn eval_bool(context: &Context, expr: ExprBool) -> EResult<bool> {
+pub fn eval_bool(context: &Context, expr: Expr<BoolT>) -> EResult<bool> {
     match expr {
         Expr::Variable(name) => match context.get_var(&name)? {
             Value::Bool(x) => Ok(x),
@@ -190,50 +185,39 @@ pub fn eval_bool(context: &Context, expr: ExprBool) -> EResult<bool> {
             Value::Bool(x) => Ok(x),
             _ => Err("Expected a bool".to_string()),
         },
-        Expr::Node(NodeBool::Literal(b)) => Ok(b),
-        Expr::Node(NodeBool::Compare {
-            operator,
-            left,
-            right,
-        }) => {
-            let l = eval_number(context, *left)?;
-            let r = eval_number(context, *right)?;
-            Ok(match operator {
-                OpCompare::Gt => l > r,
-                OpCompare::Gte => l >= r,
-                OpCompare::Lt => l < r,
-                OpCompare::Lte => l <= r,
-                OpCompare::Eq => l == r,
-                OpCompare::Neq => l != r,
-            })
-        }
-        Expr::Node(NodeBool::Unary {
-            operator: OpUnBool::Not,
-            operand,
-        }) => Ok(!eval_bool(context, *operand)?),
-        Expr::Node(NodeBool::Binary {
-            operator,
-            left,
-            right,
-        }) => match operator {
-            OpBinBool::And => {
-                // Short-circuit evaluation
-                if !eval_bool(context, *left)? {
-                    Ok(false)
-                } else {
-                    eval_bool(context, *right)
-                }
+        Expr::Literal(b) => Ok(b),
+        Expr::Operator(operation) => match operation {
+            BoolOps::Compare { op, left, right } => {
+                let l = eval_number(context, *left)?;
+                let r = eval_number(context, *right)?;
+                Ok(match op {
+                    CompareOp::Gt => l > r,
+                    CompareOp::Gte => l >= r,
+                    CompareOp::Lt => l < r,
+                    CompareOp::Lte => l <= r,
+                    CompareOp::Eq => l == r,
+                    CompareOp::Neq => l != r,
+                })
             }
-            OpBinBool::Or => {
-                // Short-circuit evaluation
-                if eval_bool(context, *left)? {
-                    Ok(true)
-                } else {
-                    eval_bool(context, *right)
+            BoolOps::Not(operand) => Ok(!eval_bool(context, *operand)?),
+            BoolOps::Logic { op, left, right } => match op {
+                LogicOp::And => {
+                    // Short-circuit evaluation
+                    if !eval_bool(context, *left)? {
+                        Ok(false)
+                    } else {
+                        eval_bool(context, *right)
+                    }
                 }
-            }
-            OpBinBool::Eq => Ok(eval_bool(context, *left)? == eval_bool(context, *right)?),
-            OpBinBool::Neq => Ok(eval_bool(context, *left)? != eval_bool(context, *right)?),
+                LogicOp::Or => {
+                    // Short-circuit evaluation
+                    if eval_bool(context, *left)? {
+                        Ok(true)
+                    } else {
+                        eval_bool(context, *right)
+                    }
+                }
+            },
         },
         Expr::Match { scrutinee, arms } => {
             let s = eval_bool(context, *scrutinee)?;
@@ -256,7 +240,7 @@ pub fn eval_bool(context: &Context, expr: ExprBool) -> EResult<bool> {
     }
 }
 
-pub fn eval_string(context: &Context, expr: ExprString) -> EResult<String> {
+pub fn eval_string(context: &Context, expr: Expr<StringT>) -> EResult<String> {
     match expr {
         Expr::Variable(name) => match context.get_var(&name)? {
             Value::String(x) => Ok(x),
@@ -269,7 +253,8 @@ pub fn eval_string(context: &Context, expr: ExprString) -> EResult<String> {
             Value::String(x) => Ok(x),
             _ => Err("Expected a string".to_string()),
         },
-        Expr::Node(NodeString::Literal(s)) => Ok(s),
+        Expr::Literal(s) => Ok(s),
+        Expr::Operator(()) => Err("Operator not supported".to_string()),
         Expr::Match { scrutinee, arms } => {
             let s = eval_string(context, *scrutinee)?;
             let s_cmp = s.clone();
@@ -292,7 +277,7 @@ pub fn eval_string(context: &Context, expr: ExprString) -> EResult<String> {
     }
 }
 
-pub fn eval_color(context: &Context, expr: ExprColor) -> EResult<scene::Color> {
+pub fn eval_color(context: &Context, expr: Expr<ColorT>) -> EResult<scene::Color> {
     match expr {
         Expr::Variable(name) => match context.get_var(&name)? {
             Value::Color(x) => Ok(x),
@@ -305,14 +290,13 @@ pub fn eval_color(context: &Context, expr: ExprColor) -> EResult<scene::Color> {
             Value::Color(x) => Ok(x),
             _ => Err("Expected a color".to_string()),
         },
-        Expr::Node(NodeColor::Literal(typed::Color::Rgba { r, g, b, a })) => {
-            Ok(scene::Color::Rgba {
-                r: eval_number(context, *r)?,
-                g: eval_number(context, *g)?,
-                b: eval_number(context, *b)?,
-                a: eval_number(context, *a)?,
-            })
-        }
+        Expr::Literal(typed::Color::Rgba { r, g, b, a }) => Ok(scene::Color::Rgba {
+            r: eval_number(context, *r)?,
+            g: eval_number(context, *g)?,
+            b: eval_number(context, *b)?,
+            a: eval_number(context, *a)?,
+        }),
+        Expr::Operator(()) => Err("Operator not supported".to_string()),
         Expr::Match { scrutinee, arms } => {
             let s = eval_color(context, *scrutinee)?;
             eval_match(
@@ -334,7 +318,7 @@ pub fn eval_color(context: &Context, expr: ExprColor) -> EResult<scene::Color> {
     }
 }
 
-pub fn eval_graphic(context: &Context, expr: ExprGraphic) -> EResult<scene::Graphic> {
+pub fn eval_graphic(context: &Context, expr: Expr<GraphicT>) -> EResult<scene::Graphic> {
     match expr {
         Expr::Variable(name) => match context.get_var(&name)? {
             Value::Graphic(x) => Ok(x),
@@ -347,41 +331,44 @@ pub fn eval_graphic(context: &Context, expr: ExprGraphic) -> EResult<scene::Grap
             Value::Graphic(x) => Ok(x),
             _ => Err("Expected a graphic".to_string()),
         },
-        Expr::Node(NodeGraphic::Literal(typed::Graphic::Circle {
-            x,
-            y,
-            radius,
-            color,
-        })) => Ok(scene::Graphic::Circle {
-            x: eval_number(context, *x)?,
-            y: eval_number(context, *y)?,
-            radius: eval_number(context, *radius)?,
-            color: eval_color(context, *color)?,
-        }),
-        Expr::Node(NodeGraphic::Literal(typed::Graphic::Rect {
-            x,
-            y,
-            width,
-            height,
-            color,
-        })) => Ok(scene::Graphic::Rect {
-            x: eval_number(context, *x)?,
-            y: eval_number(context, *y)?,
-            width: eval_number(context, *width)?,
-            height: eval_number(context, *height)?,
-            color: eval_color(context, *color)?,
-        }),
-        Expr::Node(NodeGraphic::Literal(typed::Graphic::Text {
-            x,
-            y,
-            content,
-            color,
-        })) => Ok(scene::Graphic::Text {
-            x: eval_number(context, *x)?,
-            y: eval_number(context, *y)?,
-            content: eval_string(context, *content)?,
-            color: eval_color(context, *color)?,
-        }),
+        Expr::Literal(l) => match l {
+            typed::Graphic::Circle {
+                x,
+                y,
+                radius,
+                color,
+            } => Ok(scene::Graphic::Circle {
+                x: eval_number(context, *x)?,
+                y: eval_number(context, *y)?,
+                radius: eval_number(context, *radius)?,
+                color: eval_color(context, *color)?,
+            }),
+            typed::Graphic::Rect {
+                x,
+                y,
+                width,
+                height,
+                color,
+            } => Ok(scene::Graphic::Rect {
+                x: eval_number(context, *x)?,
+                y: eval_number(context, *y)?,
+                width: eval_number(context, *width)?,
+                height: eval_number(context, *height)?,
+                color: eval_color(context, *color)?,
+            }),
+            typed::Graphic::Text {
+                x,
+                y,
+                content,
+                color,
+            } => Ok(scene::Graphic::Text {
+                x: eval_number(context, *x)?,
+                y: eval_number(context, *y)?,
+                content: eval_string(context, *content)?,
+                color: eval_color(context, *color)?,
+            }),
+        },
+        Expr::Operator(()) => Err("Operator not supported".to_string()),
         Expr::Match { scrutinee, arms } => {
             let s = eval_graphic(context, *scrutinee)?;
             let s_cmp = s.clone();
@@ -433,13 +420,35 @@ fn eval_call(context: &Context, func: String, args: Vec<ExprGeneric>) -> EResult
 mod tests {
     use super::*;
 
+    fn arith_expr(op: ArithmeticOp, left: Expr<NumberT>, right: Expr<NumberT>) -> Expr<NumberT> {
+        Expr::Operator(NumberOps::Arithmetic {
+            op,
+            left: Box::new(left),
+            right: Box::new(right),
+        })
+    }
+    fn logic_expr(op: LogicOp, left: Expr<BoolT>, right: Expr<BoolT>) -> Expr<BoolT> {
+        Expr::Operator(BoolOps::Logic {
+            op,
+            left: Box::new(left),
+            right: Box::new(right),
+        })
+    }
+    fn compare_expr(op: CompareOp, left: Expr<NumberT>, right: Expr<NumberT>) -> Expr<BoolT> {
+        Expr::Operator(BoolOps::Compare {
+            op,
+            left: Box::new(left),
+            right: Box::new(right),
+        })
+    }
+
     #[test]
     fn test_eval_number() {
         let mut context = Context::new();
         context.set_var("x".to_string(), Value::Number(10.0));
 
         // Literal
-        let expr = Expr::Node(NodeNumber::Literal(42.0));
+        let expr = Expr::Literal(42.0);
         assert_eq!(eval_number(&context, expr).unwrap(), 42.0);
 
         // Variable
@@ -447,15 +456,15 @@ mod tests {
         assert_eq!(eval_number(&context, expr).unwrap(), 10.0);
 
         // Binary: (x + 2) * 3  => (10 + 2) * 3 = 36
-        let expr = Expr::Node(NodeNumber::Binary {
-            operator: OpBinNumber::Mul,
-            left: Box::new(Expr::Node(NodeNumber::Binary {
-                operator: OpBinNumber::Add,
-                left: Box::new(Expr::Variable("x".to_string())),
-                right: Box::new(Expr::Node(NodeNumber::Literal(2.0))),
-            })),
-            right: Box::new(Expr::Node(NodeNumber::Literal(3.0))),
-        });
+        let expr = arith_expr(
+            ArithmeticOp::Mul,
+            arith_expr(
+                ArithmeticOp::Add,
+                Expr::Variable("x".to_string()),
+                Expr::Literal(2.0),
+            ),
+            Expr::Literal(3.0),
+        );
         assert_eq!(eval_number(&context, expr).unwrap(), 36.0);
     }
 
@@ -464,7 +473,7 @@ mod tests {
         let mut context = Context::new();
         context.set_var("name".to_string(), Value::String("vexor".to_string()));
 
-        let expr = Expr::Node(NodeString::Literal("hello".to_string()));
+        let expr = Expr::Literal("hello".to_string());
         assert_eq!(eval_string(&context, expr).unwrap(), "hello");
 
         let expr = Expr::Variable("name".to_string());
@@ -474,12 +483,12 @@ mod tests {
     #[test]
     fn test_eval_color() {
         let context = Context::new();
-        let expr = Expr::Node(NodeColor::Literal(typed::Color::Rgba {
-            r: Box::new(Expr::Node(NodeNumber::Literal(1.0))),
-            g: Box::new(Expr::Node(NodeNumber::Literal(0.5))),
-            b: Box::new(Expr::Node(NodeNumber::Literal(0.0))),
-            a: Box::new(Expr::Node(NodeNumber::Literal(1.0))),
-        }));
+        let expr = Expr::Literal(typed::Color::Rgba {
+            r: Box::new(Expr::Literal(1.0)),
+            g: Box::new(Expr::Literal(0.5)),
+            b: Box::new(Expr::Literal(0.0)),
+            a: Box::new(Expr::Literal(1.0)),
+        });
 
         let res = eval_color(&context, expr).unwrap();
         assert_eq!(
@@ -493,23 +502,23 @@ mod tests {
         );
     }
 
-    fn circle_expr() -> ExprGraphic {
-        Expr::Node(NodeGraphic::Literal(typed::Graphic::Circle {
-            x: Box::new(Expr::Node(NodeNumber::Literal(0.0))),
-            y: Box::new(Expr::Node(NodeNumber::Literal(0.0))),
-            radius: Box::new(Expr::Node(NodeNumber::Literal(15.0))),
+    fn circle_expr() -> Expr<GraphicT> {
+        Expr::Literal(typed::Graphic::Circle {
+            x: Box::new(Expr::Literal(0.0)),
+            y: Box::new(Expr::Literal(0.0)),
+            radius: Box::new(Expr::Literal(15.0)),
             color: Box::new(red_expr()),
-        }))
+        })
     }
 
-    fn rect_expr() -> ExprGraphic {
-        Expr::Node(NodeGraphic::Literal(typed::Graphic::Rect {
-            x: Box::new(Expr::Node(NodeNumber::Literal(0.0))),
-            y: Box::new(Expr::Node(NodeNumber::Literal(0.0))),
-            width: Box::new(Expr::Node(NodeNumber::Literal(5.0))),
-            height: Box::new(Expr::Node(NodeNumber::Literal(5.0))),
+    fn rect_expr() -> Expr<GraphicT> {
+        Expr::Literal(typed::Graphic::Rect {
+            x: Box::new(Expr::Literal(0.0)),
+            y: Box::new(Expr::Literal(0.0)),
+            width: Box::new(Expr::Literal(5.0)),
+            height: Box::new(Expr::Literal(5.0)),
             color: Box::new(blue_expr()),
-        }))
+        })
     }
 
     #[test]
@@ -527,12 +536,12 @@ mod tests {
             }
         );
 
-        let text_expr = Expr::Node(NodeGraphic::Literal(typed::Graphic::Text {
-            x: Box::new(Expr::Node(NodeNumber::Literal(10.0))),
-            y: Box::new(Expr::Node(NodeNumber::Literal(20.0))),
-            content: Box::new(Expr::Node(NodeString::Literal("hi".to_string()))),
+        let text_expr = Expr::Literal(typed::Graphic::Text {
+            x: Box::new(Expr::Literal(10.0)),
+            y: Box::new(Expr::Literal(20.0)),
+            content: Box::new(Expr::Literal("hi".to_string())),
             color: Box::new(red_expr()),
-        }));
+        });
         let res = eval_graphic(&context, text_expr).unwrap();
         assert_eq!(
             res,
@@ -548,7 +557,7 @@ mod tests {
     #[test]
     fn test_eval_generic() {
         let context = Context::new();
-        let expr = ExprGeneric::Number(Expr::Node(NodeNumber::Literal(1.0)));
+        let expr = ExprGeneric::Number(Expr::Literal(1.0));
         let res = eval_generic(&context, expr).unwrap();
         if let Value::Number(n) = res {
             assert_eq!(n, 1.0);
@@ -556,7 +565,7 @@ mod tests {
             panic!("Expected Number");
         }
 
-        let expr = ExprGeneric::Bool(Expr::Node(NodeBool::Literal(true)));
+        let expr = ExprGeneric::Bool(Expr::Literal(true));
         let res = eval_generic(&context, expr).unwrap();
         if let Value::Bool(b) = res {
             assert_eq!(b, true);
@@ -570,7 +579,7 @@ mod tests {
         let mut context = Context::new();
         context.set_var("flag".to_string(), Value::Bool(true));
 
-        let expr = Expr::Node(NodeBool::Literal(false));
+        let expr = Expr::Literal(false);
         assert_eq!(eval_bool(&context, expr).unwrap(), false);
 
         let expr = Expr::Variable("flag".to_string());
@@ -580,29 +589,25 @@ mod tests {
     #[test]
     fn test_eval_bool_compare() {
         let context = Context::new();
-        let lit = |n: f64| Box::new(Expr::Node(NodeNumber::Literal(n)));
+        let lit = |n: f64| Expr::Literal(n);
 
         let cases = [
-            (OpCompare::Gt, 2.0, -1.0, true),
-            (OpCompare::Gt, -1.0, -1.0, false),
-            (OpCompare::Gte, -1.0, -1.0, true),
-            (OpCompare::Gte, -2.0, -1.0, false),
-            (OpCompare::Lt, -2.0, -1.0, true),
-            (OpCompare::Lt, -1.0, -1.0, false),
-            (OpCompare::Lte, -1.0, -1.0, true),
-            (OpCompare::Lte, 2.0, -1.0, false),
-            (OpCompare::Eq, -1.5, -1.5, true),
-            (OpCompare::Eq, -1.0, 1.0, false),
-            (OpCompare::Neq, -1.0, 1.0, true),
-            (OpCompare::Neq, -1.0, -1.0, false),
+            (CompareOp::Gt, 2.0, -1.0, true),
+            (CompareOp::Gt, -1.0, -1.0, false),
+            (CompareOp::Gte, -1.0, -1.0, true),
+            (CompareOp::Gte, -2.0, -1.0, false),
+            (CompareOp::Lt, -2.0, -1.0, true),
+            (CompareOp::Lt, -1.0, -1.0, false),
+            (CompareOp::Lte, -1.0, -1.0, true),
+            (CompareOp::Lte, 2.0, -1.0, false),
+            (CompareOp::Eq, -1.5, -1.5, true),
+            (CompareOp::Eq, -1.0, 1.0, false),
+            (CompareOp::Neq, -1.0, 1.0, true),
+            (CompareOp::Neq, -1.0, -1.0, false),
         ];
 
         for (op, l, r, expected) in cases {
-            let expr = Expr::Node(NodeBool::Compare {
-                operator: op,
-                left: lit(l),
-                right: lit(r),
-            });
+            let expr = compare_expr(op.clone(), lit(l), lit(r));
             assert_eq!(
                 eval_bool(&context, expr).unwrap(),
                 expected,
@@ -617,29 +622,21 @@ mod tests {
     #[test]
     fn test_eval_bool_logical() {
         let context = Context::new();
-        let blit = |b: bool| Box::new(Expr::Node(NodeBool::Literal(b)));
+        let lit = |b: bool| Expr::Literal(b);
 
         let cases = [
-            (OpBinBool::And, true, true, true),
-            (OpBinBool::And, true, false, false),
-            (OpBinBool::And, false, true, false),
-            (OpBinBool::And, false, false, false),
-            (OpBinBool::Or, true, true, true),
-            (OpBinBool::Or, true, false, true),
-            (OpBinBool::Or, false, true, true),
-            (OpBinBool::Or, false, false, false),
-            (OpBinBool::Eq, true, true, true),
-            (OpBinBool::Eq, true, false, false),
-            (OpBinBool::Neq, true, false, true),
-            (OpBinBool::Neq, true, true, false),
+            (LogicOp::And, true, true, true),
+            (LogicOp::And, true, false, false),
+            (LogicOp::And, false, true, false),
+            (LogicOp::And, false, false, false),
+            (LogicOp::Or, true, true, true),
+            (LogicOp::Or, true, false, true),
+            (LogicOp::Or, false, true, true),
+            (LogicOp::Or, false, false, false),
         ];
 
         for (op, l, r, expected) in cases {
-            let expr = Expr::Node(NodeBool::Binary {
-                operator: op,
-                left: blit(l),
-                right: blit(r),
-            });
+            let expr = logic_expr(op.clone(), lit(l), lit(r));
             assert_eq!(
                 eval_bool(&context, expr).unwrap(),
                 expected,
@@ -654,16 +651,10 @@ mod tests {
     #[test]
     fn test_eval_bool_not() {
         let context = Context::new();
-        let expr = Expr::Node(NodeBool::Unary {
-            operator: OpUnBool::Not,
-            operand: Box::new(Expr::Node(NodeBool::Literal(true))),
-        });
+        let expr = Expr::Operator(BoolOps::Not(Box::new(Expr::Literal(true))));
         assert_eq!(eval_bool(&context, expr).unwrap(), false);
 
-        let expr = Expr::Node(NodeBool::Unary {
-            operator: OpUnBool::Not,
-            operand: Box::new(Expr::Node(NodeBool::Literal(false))),
-        });
+        let expr = Expr::Operator(BoolOps::Not(Box::new(Expr::Literal(false))));
         assert_eq!(eval_bool(&context, expr).unwrap(), true);
     }
 
@@ -675,26 +666,26 @@ mod tests {
             arms: vec![
                 MatchArm {
                     pattern: Pattern::Binding("x".to_string()),
-                    guard: Some(Expr::Node(NodeBool::Compare {
-                        operator: OpCompare::Gt,
+                    guard: Some(Expr::Operator(BoolOps::Compare {
+                        op: CompareOp::Gt,
                         left: Box::new(Expr::Variable("x".to_string())),
-                        right: Box::new(Expr::Node(NodeNumber::Literal(10.0))),
+                        right: Box::new(Expr::Literal(10.0)),
                     })),
-                    body: Expr::Node(NodeNumber::Literal(100.0)),
+                    body: Expr::Literal(100.0),
                 },
                 MatchArm {
-                    pattern: Pattern::Literal(Expr::Node(NodeNumber::Literal(2.0))),
+                    pattern: Pattern::Literal(Expr::Literal(2.0)),
                     guard: None,
-                    body: Expr::Node(NodeNumber::Literal(99.0)),
+                    body: Expr::Literal(99.0),
                 },
                 MatchArm {
                     pattern: Pattern::Binding("y".to_string()),
                     guard: None,
-                    body: Expr::Node(NodeNumber::Binary {
-                        operator: OpBinNumber::Add,
-                        left: Box::new(Expr::Variable("y".to_string())),
-                        right: Box::new(Expr::Node(NodeNumber::Literal(1.0))),
-                    }),
+                    body: arith_expr(
+                        ArithmeticOp::Add,
+                        Expr::Variable("y".to_string()),
+                        Expr::Literal(1.0),
+                    ),
                 },
             ],
         };
@@ -719,11 +710,11 @@ mod tests {
     fn test_eval_match_no_match() {
         // match 5 { 0 => 1 } — no arm matches.
         let expr = Expr::Match {
-            scrutinee: Box::new(Expr::Node(NodeNumber::Literal(5.0))),
+            scrutinee: Box::new(Expr::Literal(5.0)),
             arms: vec![MatchArm {
-                pattern: Pattern::Literal(Expr::Node(NodeNumber::Literal(0.0))),
+                pattern: Pattern::Literal(Expr::Literal(0.0)),
                 guard: None,
-                body: Expr::Node(NodeNumber::Literal(1.0)),
+                body: Expr::Literal(1.0),
             }],
         };
         let context = Context::new();
@@ -734,19 +725,19 @@ mod tests {
     fn test_eval_match_guard_sees_binding() {
         // match 5 { n if n == 5 => n * 2 } → 10
         let expr = Expr::Match {
-            scrutinee: Box::new(Expr::Node(NodeNumber::Literal(5.0))),
+            scrutinee: Box::new(Expr::Literal(5.0)),
             arms: vec![MatchArm {
                 pattern: Pattern::Binding("n".to_string()),
-                guard: Some(Expr::Node(NodeBool::Compare {
-                    operator: OpCompare::Eq,
+                guard: Some(Expr::Operator(BoolOps::Compare {
+                    op: CompareOp::Eq,
                     left: Box::new(Expr::Variable("n".to_string())),
-                    right: Box::new(Expr::Node(NodeNumber::Literal(5.0))),
+                    right: Box::new(Expr::Literal(5.0)),
                 })),
-                body: Expr::Node(NodeNumber::Binary {
-                    operator: OpBinNumber::Mul,
-                    left: Box::new(Expr::Variable("n".to_string())),
-                    right: Box::new(Expr::Node(NodeNumber::Literal(2.0))),
-                }),
+                body: arith_expr(
+                    ArithmeticOp::Mul,
+                    Expr::Variable("n".to_string()),
+                    Expr::Literal(2.0),
+                ),
             }],
         };
         let context = Context::new();
@@ -758,9 +749,9 @@ mod tests {
         // if true { 100 } else { 200 } → 100
         let context = Context::new();
         let expr = Expr::If {
-            condition: Box::new(Expr::Node(NodeBool::Literal(true))),
-            then_branch: Box::new(Expr::Node(NodeNumber::Literal(100.0))),
-            else_branch: Box::new(Expr::Node(NodeNumber::Literal(200.0))),
+            condition: Box::new(Expr::Literal(true)),
+            then_branch: Box::new(Expr::Literal(100.0)),
+            else_branch: Box::new(Expr::Literal(200.0)),
         };
         assert_eq!(eval_number(&context, expr).unwrap(), 100.0);
     }
@@ -770,9 +761,9 @@ mod tests {
         // if false { 100 } else { 200 } → 200
         let context = Context::new();
         let expr = Expr::If {
-            condition: Box::new(Expr::Node(NodeBool::Literal(false))),
-            then_branch: Box::new(Expr::Node(NodeNumber::Literal(100.0))),
-            else_branch: Box::new(Expr::Node(NodeNumber::Literal(200.0))),
+            condition: Box::new(Expr::Literal(false)),
+            then_branch: Box::new(Expr::Literal(100.0)),
+            else_branch: Box::new(Expr::Literal(200.0)),
         };
         assert_eq!(eval_number(&context, expr).unwrap(), 200.0);
     }
@@ -787,8 +778,8 @@ mod tests {
         });
         // if true { 1 } else { <bad> } → 1
         let expr = Expr::If {
-            condition: Box::new(Expr::Node(NodeBool::Literal(true))),
-            then_branch: Box::new(Expr::Node(NodeNumber::Literal(1.0))),
+            condition: Box::new(Expr::Literal(true)),
+            then_branch: Box::new(Expr::Literal(1.0)),
             else_branch: bad,
         };
         assert_eq!(eval_number(&context, expr).unwrap(), 1.0);
@@ -799,9 +790,9 @@ mod tests {
         });
         // if false { <bad> } else { 2 } → 2
         let expr = Expr::If {
-            condition: Box::new(Expr::Node(NodeBool::Literal(false))),
+            condition: Box::new(Expr::Literal(false)),
             then_branch: bad,
-            else_branch: Box::new(Expr::Node(NodeNumber::Literal(2.0))),
+            else_branch: Box::new(Expr::Literal(2.0)),
         };
         assert_eq!(eval_number(&context, expr).unwrap(), 2.0);
     }
@@ -811,17 +802,17 @@ mod tests {
         let context = Context::new();
         // string
         let expr = Expr::If {
-            condition: Box::new(Expr::Node(NodeBool::Literal(true))),
-            then_branch: Box::new(Expr::Node(NodeString::Literal("yes".to_string()))),
-            else_branch: Box::new(Expr::Node(NodeString::Literal("no".to_string()))),
+            condition: Box::new(Expr::Literal(true)),
+            then_branch: Box::new(Expr::Literal("yes".to_string())),
+            else_branch: Box::new(Expr::Literal("no".to_string())),
         };
         assert_eq!(eval_string(&context, expr).unwrap(), "yes");
 
         // bool
         let expr = Expr::If {
-            condition: Box::new(Expr::Node(NodeBool::Literal(false))),
-            then_branch: Box::new(Expr::Node(NodeBool::Literal(true))),
-            else_branch: Box::new(Expr::Node(NodeBool::Literal(false))),
+            condition: Box::new(Expr::Literal(false)),
+            then_branch: Box::new(Expr::Literal(true)),
+            else_branch: Box::new(Expr::Literal(false)),
         };
         assert_eq!(eval_bool(&context, expr).unwrap(), false);
     }
@@ -834,11 +825,7 @@ mod tests {
             function: "nonexistent".to_string(),
             arguments: vec![],
         });
-        let expr = Expr::Node(NodeBool::Binary {
-            operator: OpBinBool::And,
-            left: Box::new(Expr::Node(NodeBool::Literal(false))),
-            right: bad,
-        });
+        let expr = logic_expr(LogicOp::And, Expr::Literal(false), *bad.clone());
         assert_eq!(eval_bool(&context, expr).unwrap(), false);
 
         // true || <bad call> — RHS must not run
@@ -846,32 +833,28 @@ mod tests {
             function: "nonexistent".to_string(),
             arguments: vec![],
         });
-        let expr = Expr::Node(NodeBool::Binary {
-            operator: OpBinBool::Or,
-            left: Box::new(Expr::Node(NodeBool::Literal(true))),
-            right: bad,
-        });
+        let expr = logic_expr(LogicOp::Or, Expr::Literal(true), *bad.clone());
         assert_eq!(eval_bool(&context, expr).unwrap(), true);
     }
 
     // --- if/match for Color / Graphic ---
 
-    fn red_expr() -> ExprColor {
-        Expr::Node(NodeColor::Literal(typed::Color::Rgba {
-            r: Box::new(Expr::Node(NodeNumber::Literal(1.0))),
-            g: Box::new(Expr::Node(NodeNumber::Literal(0.0))),
-            b: Box::new(Expr::Node(NodeNumber::Literal(0.0))),
-            a: Box::new(Expr::Node(NodeNumber::Literal(1.0))),
-        }))
+    fn red_expr() -> Expr<ColorT> {
+        Expr::Literal(typed::Color::Rgba {
+            r: Box::new(Expr::Literal(1.0)),
+            g: Box::new(Expr::Literal(0.0)),
+            b: Box::new(Expr::Literal(0.0)),
+            a: Box::new(Expr::Literal(1.0)),
+        })
     }
 
-    fn blue_expr() -> ExprColor {
-        Expr::Node(NodeColor::Literal(typed::Color::Rgba {
-            r: Box::new(Expr::Node(NodeNumber::Literal(0.0))),
-            g: Box::new(Expr::Node(NodeNumber::Literal(0.0))),
-            b: Box::new(Expr::Node(NodeNumber::Literal(1.0))),
-            a: Box::new(Expr::Node(NodeNumber::Literal(1.0))),
-        }))
+    fn blue_expr() -> Expr<ColorT> {
+        Expr::Literal(typed::Color::Rgba {
+            r: Box::new(Expr::Literal(0.0)),
+            g: Box::new(Expr::Literal(0.0)),
+            b: Box::new(Expr::Literal(1.0)),
+            a: Box::new(Expr::Literal(1.0)),
+        })
     }
 
     fn red_scene() -> scene::Color {
@@ -897,7 +880,7 @@ mod tests {
         let context = Context::new();
         // if true { red } else { blue } → red
         let expr = Expr::If {
-            condition: Box::new(Expr::Node(NodeBool::Literal(true))),
+            condition: Box::new(Expr::Literal(true)),
             then_branch: Box::new(red_expr()),
             else_branch: Box::new(blue_expr()),
         };
@@ -905,7 +888,7 @@ mod tests {
 
         // if false { red } else { blue } → blue
         let expr = Expr::If {
-            condition: Box::new(Expr::Node(NodeBool::Literal(false))),
+            condition: Box::new(Expr::Literal(false)),
             then_branch: Box::new(red_expr()),
             else_branch: Box::new(blue_expr()),
         };
@@ -975,7 +958,7 @@ mod tests {
     fn test_eval_if_graphic() {
         let context = Context::new();
         let expr = Expr::If {
-            condition: Box::new(Expr::Node(NodeBool::Literal(false))),
+            condition: Box::new(Expr::Literal(false)),
             then_branch: Box::new(circle_expr()),
             else_branch: Box::new(rect_expr()),
         };

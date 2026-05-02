@@ -1,23 +1,108 @@
 //! Typed IR nodes for expressions
 
+use std::fmt::Debug;
+
 use crate::ir::Number;
-use crate::ir::typed::{Color, Graphic};
+use crate::ir::typed::{BoolT, Color, ColorT, Graphic, GraphicT, NumberT, StringT};
+
+pub trait SemanticType: Debug + Clone {
+    /// Type used in Rust compiler
+    type NativeType: Debug + Clone;
+    /// Defines available operators
+    type OperatorNode: Debug + Clone;
+}
+
+impl SemanticType for NumberT {
+    type NativeType = Number;
+    type OperatorNode = NumberOps;
+}
+
+impl SemanticType for StringT {
+    type NativeType = String;
+    type OperatorNode = ();
+}
+
+impl SemanticType for BoolT {
+    type NativeType = bool;
+    type OperatorNode = BoolOps;
+}
+
+impl SemanticType for ColorT {
+    type NativeType = Color;
+    type OperatorNode = ();
+}
+
+impl SemanticType for GraphicT {
+    type NativeType = Graphic;
+    type OperatorNode = ();
+}
+
+// Operators
+
+#[derive(Debug, Clone)]
+pub enum NumberOps {
+    Arithmetic {
+        op: ArithmeticOp,
+        left: Box<Expr<NumberT>>,
+        right: Box<Expr<NumberT>>,
+    },
+}
+
+#[derive(Debug, Clone)]
+pub enum BoolOps {
+    Compare {
+        op: CompareOp,
+        left: Box<Expr<NumberT>>,
+        right: Box<Expr<NumberT>>,
+    },
+    Logic {
+        op: LogicOp,
+        left: Box<Expr<BoolT>>,
+        right: Box<Expr<BoolT>>,
+    },
+    Not(Box<Expr<BoolT>>),
+}
+
+#[derive(Debug, Clone)]
+pub enum ArithmeticOp {
+    Add,
+    Sub,
+    Mul,
+    Div,
+}
+
+#[derive(Debug, Clone)]
+pub enum LogicOp {
+    And,
+    Or,
+}
+
+#[derive(Debug, Clone)]
+pub enum CompareOp {
+    Gt,
+    Gte,
+    Lt,
+    Lte,
+    Eq,
+    Neq,
+}
 
 /// Common Expression node.
-#[derive(Debug, Clone, PartialEq)]
-pub enum Expr<T> {
+#[derive(Debug, Clone)]
+pub enum Expr<T: SemanticType> {
+    Literal(T::NativeType),
     Variable(String),
+    Operator(T::OperatorNode),
     Field {
         object: String,
         field: String,
     },
-    Node(T),
     Call {
         function: String,
         arguments: Vec<ExprGeneric>,
     },
     If {
-        condition: Box<ExprBool>,
+        condition: Box<Expr<BoolT>>,
         then_branch: Box<Expr<T>>,
         else_branch: Box<Expr<T>>,
     },
@@ -27,123 +112,26 @@ pub enum Expr<T> {
     },
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 pub enum ExprGeneric {
-    Number(ExprNumber),
-    String(ExprString),
-    Bool(ExprBool),
-    Color(ExprColor),
-    Graphic(ExprGraphic),
+    Number(Expr<NumberT>),
+    String(Expr<StringT>),
+    Bool(Expr<BoolT>),
+    Color(Expr<ColorT>),
+    Graphic(Expr<GraphicT>),
 }
-
-pub type ExprNumber = Expr<NodeNumber>;
-pub type ExprString = Expr<NodeString>;
-pub type ExprBool = Expr<NodeBool>;
-pub type ExprColor = Expr<NodeColor>;
-pub type ExprGraphic = Expr<NodeGraphic>;
 
 // --- Match ---
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 pub enum Pattern<E> {
     Binding(String),
     Literal(E),
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 pub struct MatchArm<E> {
     pub pattern: Pattern<E>,
-    pub guard: Option<ExprBool>,
+    pub guard: Option<Expr<BoolT>>,
     pub body: E,
-}
-
-// --- Number Type ---
-
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub enum OpBinNumber {
-    Add,
-    Sub,
-    Mul,
-    Div,
-}
-
-/// Number Node
-#[derive(Debug, Clone, PartialEq)]
-pub enum NodeNumber {
-    Literal(Number),
-    // Expressions with operators
-    Binary {
-        operator: OpBinNumber,
-        left: Box<ExprNumber>,
-        right: Box<ExprNumber>,
-    },
-}
-
-// --- String Type ---
-
-/// String Node
-#[derive(Debug, Clone, PartialEq)]
-pub enum NodeString {
-    Literal(String),
-}
-
-// --- Bool Type ---
-
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub enum OpCompare {
-    Gt,
-    Gte,
-    Lt,
-    Lte,
-    Eq,
-    Neq,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub enum OpBinBool {
-    And,
-    Or,
-    Eq,
-    Neq,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub enum OpUnBool {
-    Not,
-}
-
-/// Bool Node
-#[derive(Debug, Clone, PartialEq)]
-pub enum NodeBool {
-    Literal(bool),
-    Compare {
-        operator: OpCompare,
-        left: Box<ExprNumber>,
-        right: Box<ExprNumber>,
-    },
-    Binary {
-        operator: OpBinBool,
-        left: Box<ExprBool>,
-        right: Box<ExprBool>,
-    },
-    Unary {
-        operator: OpUnBool,
-        operand: Box<ExprBool>,
-    },
-}
-
-// --- Color Type ---
-
-/// Color Node
-#[derive(Debug, Clone, PartialEq)]
-pub enum NodeColor {
-    Literal(Color),
-}
-
-// --- Graphic Type ---
-
-/// Graphic Node
-#[derive(Debug, Clone, PartialEq)]
-pub enum NodeGraphic {
-    Literal(Graphic),
 }

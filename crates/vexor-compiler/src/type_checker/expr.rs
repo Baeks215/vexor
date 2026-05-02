@@ -2,11 +2,10 @@
 
 use crate::ir::ast;
 use crate::ir::typed::expr::{
-    Expr, ExprBool, ExprColor, ExprGeneric, ExprGraphic, ExprNumber, ExprString, MatchArm,
-    NodeBool, NodeColor, NodeGraphic, NodeNumber, NodeString, OpBinBool, OpBinNumber, OpCompare,
-    OpUnBool, Pattern,
+    ArithmeticOp, BoolOps, CompareOp, Expr, ExprGeneric, LogicOp, MatchArm, NumberOps, Pattern,
+    SemanticType,
 };
-use crate::ir::typed::{self, Type};
+use crate::ir::typed::{self, BoolT, ColorT, GraphicT, NumberT, StringT, Type};
 use crate::type_checker::{Constraint, Context, TResult};
 use Constraint::*;
 
@@ -38,7 +37,7 @@ fn check_func_args(
 }
 
 /// Type-checks the condition (bool) and both branches (of type E) of an if expression.
-fn check_if<F, E>(
+fn check_if<F, E: SemanticType>(
     context: &Context,
     condition: ast::Expr,
     then_branch: ast::Expr,
@@ -95,7 +94,7 @@ where
 }
 
 /// Checks a match expression.
-fn check_match<F, E>(
+fn check_match<F, E: SemanticType>(
     context: &Context,
     scrutinee: ast::Expr,
     arms: Vec<ast::MatchArm>,
@@ -111,52 +110,49 @@ where
 }
 
 /// Maps general binary operators to number binary operations.
-fn map_op_num(op: ast::OpBin) -> Option<OpBinNumber> {
+fn map_op_arithmetic(op: ast::OpBin) -> Option<ArithmeticOp> {
     match op {
-        ast::OpBin::Add => Some(OpBinNumber::Add),
-        ast::OpBin::Sub => Some(OpBinNumber::Sub),
-        ast::OpBin::Mul => Some(OpBinNumber::Mul),
-        ast::OpBin::Div => Some(OpBinNumber::Div),
+        ast::OpBin::Add => Some(ArithmeticOp::Add),
+        ast::OpBin::Sub => Some(ArithmeticOp::Sub),
+        ast::OpBin::Mul => Some(ArithmeticOp::Mul),
+        ast::OpBin::Div => Some(ArithmeticOp::Div),
         _ => None,
     }
 }
 
 /// Maps general binary operators to comparison operations.
-fn map_op_compare(op: ast::OpBin) -> Option<OpCompare> {
+fn map_op_compare(op: ast::OpBin) -> Option<CompareOp> {
     match op {
-        ast::OpBin::Gt => Some(OpCompare::Gt),
-        ast::OpBin::Gte => Some(OpCompare::Gte),
-        ast::OpBin::Lt => Some(OpCompare::Lt),
-        ast::OpBin::Lte => Some(OpCompare::Lte),
-        ast::OpBin::Eq => Some(OpCompare::Eq),
-        ast::OpBin::Neq => Some(OpCompare::Neq),
+        ast::OpBin::Gt => Some(CompareOp::Gt),
+        ast::OpBin::Gte => Some(CompareOp::Gte),
+        ast::OpBin::Lt => Some(CompareOp::Lt),
+        ast::OpBin::Lte => Some(CompareOp::Lte),
+        ast::OpBin::Eq => Some(CompareOp::Eq),
+        ast::OpBin::Neq => Some(CompareOp::Neq),
         _ => None,
     }
 }
 
 /// Maps general binary operators to bool binary operations.
-fn map_op_bool(op: ast::OpBin) -> Option<OpBinBool> {
+fn map_op_logic(op: ast::OpBin) -> Option<LogicOp> {
     match op {
-        ast::OpBin::And => Some(OpBinBool::And),
-        ast::OpBin::Or => Some(OpBinBool::Or),
-        ast::OpBin::Eq => Some(OpBinBool::Eq),
-        ast::OpBin::Neq => Some(OpBinBool::Neq),
+        ast::OpBin::And => Some(LogicOp::And),
+        ast::OpBin::Or => Some(LogicOp::Or),
         _ => None,
     }
 }
 
 /// Checks an expression expecting a Number type.
-pub fn check_number(context: &Context, expr: ast::Expr) -> TResult<ExprNumber> {
-    use NodeNumber::{Binary, Literal};
+pub fn check_number(context: &Context, expr: ast::Expr) -> TResult<Expr<NumberT>> {
     match expr {
-        ast::Expr::LNumber(num) => Ok(ExprNumber::Node(Literal(num))),
+        ast::Expr::LNumber(num) => Ok(Expr::Literal(num)),
         ast::Expr::Variable(name) => {
             context.check_var(&name, Is(Type::Number))?;
-            Ok(ExprNumber::Variable(name))
+            Ok(Expr::Variable(name))
         }
         ast::Expr::Call { function, args } => {
             let typed_args = check_func_args(context, &function, args, Is(Type::Number))?;
-            Ok(ExprNumber::Call {
+            Ok(Expr::Call {
                 function,
                 arguments: typed_args,
             })
@@ -166,11 +162,11 @@ pub fn check_number(context: &Context, expr: ast::Expr) -> TResult<ExprNumber> {
             left,
             right,
         } => {
-            let op = map_op_num(operator).ok_or("Invalid operator for number")?;
+            let op = map_op_arithmetic(operator).ok_or("Invalid operator for number")?;
             let left = check_number(context, *left)?;
             let right = check_number(context, *right)?;
-            Ok(ExprNumber::Node(Binary {
-                operator: op,
+            Ok(Expr::Operator(NumberOps::Arithmetic {
+                op,
                 left: Box::new(left),
                 right: Box::new(right),
             }))
@@ -201,17 +197,16 @@ pub fn check_number(context: &Context, expr: ast::Expr) -> TResult<ExprNumber> {
 }
 
 /// Checks an expression expecting a Bool type.
-pub fn check_bool(context: &Context, expr: ast::Expr) -> TResult<ExprBool> {
-    use NodeBool::{Binary, Compare, Literal, Unary};
+pub fn check_bool(context: &Context, expr: ast::Expr) -> TResult<Expr<BoolT>> {
     match expr {
-        ast::Expr::LBool(b) => Ok(ExprBool::Node(Literal(b))),
+        ast::Expr::LBool(b) => Ok(Expr::Literal(b)),
         ast::Expr::Variable(name) => {
             context.check_var(&name, Is(Type::Bool))?;
-            Ok(ExprBool::Variable(name))
+            Ok(Expr::Variable(name))
         }
         ast::Expr::Call { function, args } => {
             let typed_args = check_func_args(context, &function, args, Is(Type::Bool))?;
-            Ok(ExprBool::Call {
+            Ok(Expr::Call {
                 function,
                 arguments: typed_args,
             })
@@ -221,38 +216,29 @@ pub fn check_bool(context: &Context, expr: ast::Expr) -> TResult<ExprBool> {
             operand,
         } => {
             let operand = check_bool(context, *operand)?;
-            Ok(ExprBool::Node(Unary {
-                operator: OpUnBool::Not,
-                operand: Box::new(operand),
-            }))
+            Ok(Expr::Operator(BoolOps::Not(Box::new(operand))))
         }
         ast::Expr::Binary {
             operator,
             left,
             right,
         } => {
-            // Try bool-binary first (Fall back if Eq/Neq to number compare).
-            if let Some(op) = map_op_bool(operator) {
+            if let Some(op) = map_op_logic(operator) {
                 let l_bool = check_bool(context, (*left).clone());
                 let r_bool = check_bool(context, (*right).clone());
                 if let (Ok(l), Ok(r)) = (l_bool, r_bool) {
-                    return Ok(ExprBool::Node(Binary {
-                        operator: op,
+                    return Ok(Expr::Operator(BoolOps::Logic {
+                        op,
                         left: Box::new(l),
                         right: Box::new(r),
                     }));
-                }
-                // Reject if cannot fallback to number compare
-                // only Eq/Neq can fallback to number compare
-                if !matches!(op, OpBinBool::Eq | OpBinBool::Neq) {
-                    return Err("Logical operator requires bool operands".to_string());
                 }
             }
             let op = map_op_compare(operator).ok_or("Invalid operator for bool")?;
             let left = check_number(context, *left)?;
             let right = check_number(context, *right)?;
-            Ok(ExprBool::Node(Compare {
-                operator: op,
+            Ok(Expr::Operator(BoolOps::Compare {
+                op,
                 left: Box::new(left),
                 right: Box::new(right),
             }))
@@ -276,16 +262,16 @@ pub fn check_bool(context: &Context, expr: ast::Expr) -> TResult<ExprBool> {
 }
 
 /// Checks an expression expecting a String type.
-pub fn check_string(context: &Context, expr: ast::Expr) -> TResult<ExprString> {
+pub fn check_string(context: &Context, expr: ast::Expr) -> TResult<Expr<StringT>> {
     match expr {
-        ast::Expr::LString(s) => Ok(ExprString::Node(NodeString::Literal(s))),
+        ast::Expr::LString(s) => Ok(Expr::Literal(s)),
         ast::Expr::Variable(name) => {
             context.check_var(&name, Is(Type::String))?;
-            Ok(ExprString::Variable(name))
+            Ok(Expr::Variable(name))
         }
         ast::Expr::Call { function, args } => {
             let typed_args = check_func_args(context, &function, args, Is(Type::String))?;
-            Ok(ExprString::Call {
+            Ok(Expr::Call {
                 function,
                 arguments: typed_args,
             })
@@ -317,27 +303,22 @@ pub fn check_string(context: &Context, expr: ast::Expr) -> TResult<ExprString> {
 }
 
 /// Checks an expression expecting a Color type.
-pub fn check_color(context: &Context, expr: ast::Expr) -> TResult<ExprColor> {
+pub fn check_color(context: &Context, expr: ast::Expr) -> TResult<Expr<ColorT>> {
     match expr {
         ast::Expr::LColor(ast::Color::Rgba { r, g, b, a }) => {
             let r = Box::new(check_number(context, *r)?);
             let g = Box::new(check_number(context, *g)?);
             let b = Box::new(check_number(context, *b)?);
             let a = Box::new(check_number(context, *a)?);
-            Ok(ExprColor::Node(NodeColor::Literal(typed::Color::Rgba {
-                r,
-                g,
-                b,
-                a,
-            })))
+            Ok(Expr::Literal(typed::Color::Rgba { r, g, b, a }))
         }
         ast::Expr::Variable(name) => {
             context.check_var(&name, Is(Type::Color))?;
-            Ok(ExprColor::Variable(name))
+            Ok(Expr::Variable(name))
         }
         ast::Expr::Call { function, args } => {
             let typed_args = check_func_args(context, &function, args, Is(Type::Color))?;
-            Ok(ExprColor::Call {
+            Ok(Expr::Call {
                 function,
                 arguments: typed_args,
             })
@@ -388,7 +369,7 @@ macro_rules! extract_fields {
 }
 
 /// Checks a field access type
-fn check_field_access<T>(
+fn check_field_access<T: SemanticType>(
     context: &Context,
     object: String,
     field: String,
@@ -423,54 +404,48 @@ fn check_field_access<T>(
 }
 
 /// Checks an expression expecting a Graphic type.
-pub fn check_graphic(context: &Context, expr: ast::Expr) -> TResult<ExprGraphic> {
+pub fn check_graphic(context: &Context, expr: ast::Expr) -> TResult<Expr<GraphicT>> {
     match expr {
         ast::Expr::LObject(ast::Object { name, fields }) => match name.as_str() {
             "Circle" => {
                 let (x, y, radius, color) = extract_fields!(fields, [x, y, radius, color]);
-                Ok(ExprGraphic::Node(NodeGraphic::Literal(
-                    typed::Graphic::Circle {
-                        x: Box::new(check_number(context, x)?),
-                        y: Box::new(check_number(context, y)?),
-                        radius: Box::new(check_number(context, radius)?),
-                        color: Box::new(check_color(context, color)?),
-                    },
-                )))
+                Ok(Expr::Literal(typed::Graphic::Circle {
+                    x: Box::new(check_number(context, x)?),
+                    y: Box::new(check_number(context, y)?),
+                    radius: Box::new(check_number(context, radius)?),
+                    color: Box::new(check_color(context, color)?),
+                }))
             }
             "Rect" => {
                 let (x, y, width, height, color) =
                     extract_fields!(fields, [x, y, width, height, color]);
-                Ok(ExprGraphic::Node(NodeGraphic::Literal(
-                    typed::Graphic::Rect {
-                        x: Box::new(check_number(context, x)?),
-                        y: Box::new(check_number(context, y)?),
-                        width: Box::new(check_number(context, width)?),
-                        height: Box::new(check_number(context, height)?),
-                        color: Box::new(check_color(context, color)?),
-                    },
-                )))
+                Ok(Expr::Literal(typed::Graphic::Rect {
+                    x: Box::new(check_number(context, x)?),
+                    y: Box::new(check_number(context, y)?),
+                    width: Box::new(check_number(context, width)?),
+                    height: Box::new(check_number(context, height)?),
+                    color: Box::new(check_color(context, color)?),
+                }))
             }
             "Text" => {
                 let (x, y, content, color) = extract_fields!(fields, [x, y, content, color]);
-                Ok(ExprGraphic::Node(NodeGraphic::Literal(
-                    typed::Graphic::Text {
-                        x: Box::new(check_number(context, x)?),
-                        y: Box::new(check_number(context, y)?),
-                        content: Box::new(check_string(context, content)?),
-                        color: Box::new(check_color(context, color)?),
-                    },
-                )))
+                Ok(Expr::Literal(typed::Graphic::Text {
+                    x: Box::new(check_number(context, x)?),
+                    y: Box::new(check_number(context, y)?),
+                    content: Box::new(check_string(context, content)?),
+                    color: Box::new(check_color(context, color)?),
+                }))
             }
 
             _ => Err("Unexpected object name".to_string()),
         },
         ast::Expr::Variable(name) => {
             context.check_var(&name, Is(Type::Graphic))?;
-            Ok(ExprGraphic::Variable(name))
+            Ok(Expr::Variable(name))
         }
         ast::Expr::Call { function, args } => {
             let typed_args = check_func_args(context, &function, args, Is(Type::Graphic))?;
-            Ok(ExprGraphic::Call {
+            Ok(Expr::Call {
                 function,
                 arguments: typed_args,
             })
@@ -504,6 +479,7 @@ pub fn check_graphic(context: &Context, expr: ast::Expr) -> TResult<ExprGraphic>
 #[cfg(test)]
 mod tests {
     use super::*;
+    use assert_matches::assert_matches;
     use ast::OpBin;
 
     #[test]
@@ -513,7 +489,7 @@ mod tests {
         // Test LNumber
         let expr = ast::Expr::LNumber(10.0);
         let res = check_number(&context, expr).unwrap();
-        assert_eq!(res, ExprNumber::Node(NodeNumber::Literal(10.0)));
+        assert_matches!(res, Expr::Literal(10.0));
 
         // Test check_number on a string (failure)
         let expr = ast::Expr::LString("foo".to_string());
@@ -527,7 +503,7 @@ mod tests {
 
         let expr = ast::Expr::Variable("x".to_string());
         let res = check_number(&context, expr.clone()).unwrap();
-        assert_eq!(res, ExprNumber::Variable("x".to_string()));
+        assert_matches!(res, Expr::Variable(a) if a == "x");
         // check_string should fail for a number variable
         assert!(check_string(&context, expr).is_err());
 
@@ -548,9 +524,10 @@ mod tests {
         };
         let res = check_number(&context, expr).unwrap();
         match res {
-            ExprNumber::Node(NodeNumber::Binary { operator, .. }) => {
-                assert_eq!(operator, OpBinNumber::Add);
-            }
+            Expr::Operator(NumberOps::Arithmetic {
+                op: ArithmeticOp::Add,
+                ..
+            }) => {}
             _ => panic!("Expected binary node, got {:?}", res),
         }
 
@@ -591,11 +568,11 @@ mod tests {
 
         let expr = ast::Expr::LBool(false);
         let res = check_bool(&context, expr).unwrap();
-        assert_eq!(res, ExprBool::Node(NodeBool::Literal(false)));
+        assert_matches!(res, Expr::Literal(false));
 
         let expr = ast::Expr::Variable("b".to_string());
         let res = check_bool(&context, expr).unwrap();
-        assert_eq!(res, ExprBool::Variable("b".to_string()));
+        assert_matches!(res, Expr::Variable(a) if a == "b");
 
         // Wrong-typed variable
         let expr = ast::Expr::Variable("missing".to_string());
@@ -614,9 +591,9 @@ mod tests {
         };
         let res = check_bool(&context, expr).unwrap();
         match res {
-            ExprBool::Node(NodeBool::Compare { operator, .. }) => {
-                assert_eq!(operator, OpCompare::Gt);
-            }
+            Expr::Operator(BoolOps::Compare {
+                op: CompareOp::Gt, ..
+            }) => {}
             _ => panic!("Expected compare, got {:?}", res),
         }
 
@@ -664,9 +641,9 @@ mod tests {
         };
         let res = check_bool(&context, expr).unwrap();
         match res {
-            ExprBool::Node(NodeBool::Binary { operator, .. }) => {
-                assert_eq!(operator, OpBinBool::And);
-            }
+            Expr::Operator(BoolOps::Logic {
+                op: LogicOp::And, ..
+            }) => {}
             _ => panic!("Expected Binary And, got {:?}", res),
         }
 
@@ -678,9 +655,9 @@ mod tests {
         };
         let res = check_bool(&context, expr).unwrap();
         match res {
-            ExprBool::Node(NodeBool::Binary { operator, .. }) => {
-                assert_eq!(operator, OpBinBool::Or);
-            }
+            Expr::Operator(BoolOps::Logic {
+                op: LogicOp::Or, ..
+            }) => {}
             _ => panic!("Expected Binary Or, got {:?}", res),
         }
     }
@@ -694,9 +671,7 @@ mod tests {
         };
         let res = check_bool(&context, expr).unwrap();
         match res {
-            ExprBool::Node(NodeBool::Unary { operator, .. }) => {
-                assert_eq!(operator, OpUnBool::Not);
-            }
+            Expr::Operator(BoolOps::Not(_)) => {}
             _ => panic!("Expected Unary Not, got {:?}", res),
         }
 
@@ -904,20 +879,6 @@ mod tests {
     fn test_check_bool_eq_dispatch() {
         let context = Context::new();
 
-        // bool == bool → Binary Eq
-        let expr = ast::Expr::Binary {
-            operator: OpBin::Eq,
-            left: Box::new(ast::Expr::LBool(true)),
-            right: Box::new(ast::Expr::LBool(false)),
-        };
-        let res = check_bool(&context, expr).unwrap();
-        match res {
-            ExprBool::Node(NodeBool::Binary { operator, .. }) => {
-                assert_eq!(operator, OpBinBool::Eq);
-            }
-            _ => panic!("Expected Binary Eq for bool operands, got {:?}", res),
-        }
-
         // number == number still → Compare Eq
         let expr = ast::Expr::Binary {
             operator: OpBin::Eq,
@@ -926,9 +887,9 @@ mod tests {
         };
         let res = check_bool(&context, expr).unwrap();
         match res {
-            ExprBool::Node(NodeBool::Compare { operator, .. }) => {
-                assert_eq!(operator, OpCompare::Eq);
-            }
+            Expr::Operator(BoolOps::Compare {
+                op: CompareOp::Eq, ..
+            }) => {}
             _ => panic!("Expected Compare Eq for number operands, got {:?}", res),
         }
     }
@@ -1062,14 +1023,14 @@ mod tests {
             field: "color".to_string(),
         };
         let res = check_color(&context, expr).unwrap();
-        assert!(matches!(res, ExprColor::Field { .. }));
+        assert!(matches!(res, Expr::Field { .. }));
 
         let expr = ast::Expr::Field {
             object: "box".to_string(),
             field: "width".to_string(),
         };
         let res = check_number(&context, expr).unwrap();
-        assert!(matches!(res, ExprNumber::Field { .. }));
+        assert!(matches!(res, Expr::Field { .. }));
 
         let expr = ast::Expr::Field {
             object: "box".to_string(),

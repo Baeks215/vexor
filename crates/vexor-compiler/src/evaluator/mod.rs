@@ -57,7 +57,7 @@ impl Value {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 pub struct Function {
     pub params: Vec<String>,
     pub scope: Vec<typed::Assignment>,
