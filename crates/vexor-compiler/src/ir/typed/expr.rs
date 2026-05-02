@@ -3,37 +3,44 @@
 use std::fmt::Debug;
 
 use crate::ir::Number;
-use crate::ir::typed::{BoolT, Color, ColorT, Graphic, GraphicT, NumberT, StringT};
+use crate::ir::typed::{BoolT, Color, ColorT, Graphic, GraphicT, NumberT, StringT, Type};
 
 pub trait SemanticType: Debug + Clone {
     /// Type used in Rust compiler
     type NativeType: Debug + Clone;
+    /// Type enum marker
+    const TYPE_ENUM: Type;
     /// Defines available operators
     type OperatorNode: Debug + Clone;
 }
 
 impl SemanticType for NumberT {
     type NativeType = Number;
+    const TYPE_ENUM: Type = Type::Number;
     type OperatorNode = NumberOps;
 }
 
 impl SemanticType for StringT {
     type NativeType = String;
+    const TYPE_ENUM: Type = Type::String;
     type OperatorNode = ();
 }
 
 impl SemanticType for BoolT {
     type NativeType = bool;
+    const TYPE_ENUM: Type = Type::Bool;
     type OperatorNode = BoolOps;
 }
 
 impl SemanticType for ColorT {
     type NativeType = Color;
+    const TYPE_ENUM: Type = Type::Color;
     type OperatorNode = ();
 }
 
 impl SemanticType for GraphicT {
     type NativeType = Graphic;
+    const TYPE_ENUM: Type = Type::Graphic;
     type OperatorNode = ();
 }
 

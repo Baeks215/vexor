@@ -29,7 +29,7 @@ impl Type {
             (ty @ Type::GType(_), Constraint::Is(Type::Graphic)) => Ok(ty),
             (_, Constraint::Is(ty)) => (self == ty)
                 .then_some(ty)
-                .ok_or("Type mismatch".to_string()),
+                .ok_or(format!("Expected type {:?}, got {:?}", ty, self)),
         }
     }
 }

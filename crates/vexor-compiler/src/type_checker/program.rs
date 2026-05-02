@@ -80,7 +80,7 @@ pub fn check_program(program: ast::Program) -> TResult<typed::Program> {
 
     let exports = exports
         .into_iter()
-        .map(|expr| expr::check_graphic(&context, expr))
+        .map(|expr| expr::check(&context, expr))
         .collect::<Result<Vec<_>, _>>()?;
 
     Ok(typed::Program {
