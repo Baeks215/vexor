@@ -5,7 +5,7 @@ use crate::ir::{Number, typed::Type};
 // --- Primitives ---
 
 /// Color symbol: in various representations
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 pub enum Color {
     Rgba {
         r: Box<Expr>,
@@ -16,7 +16,7 @@ pub enum Color {
 }
 
 /// Object with fields
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 pub struct Object {
     pub name: String,
     pub fields: Vec<(String, Expr)>,
@@ -24,7 +24,7 @@ pub struct Object {
 
 // --- Expressions ---
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy)]
 pub enum OpBin {
     Add,
     Sub,
@@ -40,33 +40,38 @@ pub enum OpBin {
     Or,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy)]
 pub enum OpUn {
     Not,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 pub enum Pattern {
     Binding(String),
-    Literal(Expr),
+    Literal(Literal),
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 pub struct MatchArm {
     pub pattern: Pattern,
     pub guard: Option<Expr>,
     pub body: Expr,
 }
 
+#[derive(Debug, Clone)]
+pub enum Literal {
+    Number(Number),
+    String(String),
+    Bool(bool),
+    Color(Color),
+    Object(Object),
+}
+
 /// Expression
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 pub enum Expr {
     // Literals
-    LNumber(Number),
-    LString(String),
-    LBool(bool),
-    LColor(Color),
-    LObject(Object),
+    Literal(Literal),
     // Variable
     Variable(String),
     // Field access
@@ -104,14 +109,14 @@ pub enum Expr {
 
 // --- Program ---
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 pub struct Assignment {
     pub ty: Type,
     pub identifier: String,
     pub value: Expr,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 pub struct Function {
     pub name: String,
     pub params: Vec<(String, Type)>,

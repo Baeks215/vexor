@@ -10,3 +10,6 @@ license.workspace = true
 winnow.workspace = true
 svg.workspace = true
 itertools.workspace = true
+
+[dev-dependencies]
+assert_matches.workspace = true

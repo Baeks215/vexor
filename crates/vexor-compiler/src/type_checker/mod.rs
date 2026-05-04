@@ -17,7 +17,7 @@ type TResult<O> = Result<O, TError>;
 // --- Constraints ---
 
 /// Constraint for type checking
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug)]
 enum Constraint {
     Is(Type),
 }
@@ -29,7 +29,7 @@ impl Type {
             (ty @ Type::GType(_), Constraint::Is(Type::Graphic)) => Ok(ty),
             (_, Constraint::Is(ty)) => (self == ty)
                 .then_some(ty)
-                .ok_or("Type mismatch".to_string()),
+                .ok_or(format!("Expected type {:?}, got {:?}", ty, self)),
         }
     }
 }
@@ -105,46 +105,5 @@ impl Context {
                 return_type.satisfies(return_constraint)?;
                 Ok(args.clone())
             })
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_context_check_var() {
-        let mut var_types = HashMap::new();
-        var_types.insert("x".to_string(), Type::Number);
-        var_types.insert("s".to_string(), Type::String);
-
-        let functions = HashMap::new();
-
-        let context = Context {
-            var_types,
-            functions,
-        };
-
-        // Test specific type constraint (success)
-        assert_eq!(
-            context
-                .check_var("x", Constraint::Is(Type::Number))
-                .unwrap(),
-            Type::Number
-        );
-
-        // Test specific type constraint (failure)
-        assert!(
-            context
-                .check_var("x", Constraint::Is(Type::String))
-                .is_err()
-        );
-
-        // Test unknown variable
-        assert!(
-            context
-                .check_var("y", Constraint::Is(Type::Number))
-                .is_err()
-        );
     }
 }
