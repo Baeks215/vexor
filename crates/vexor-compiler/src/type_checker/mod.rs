@@ -17,7 +17,7 @@ type TResult<O> = Result<O, TError>;
 // --- Constraints ---
 
 /// Constraint for type checking
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug)]
 enum Constraint {
     Is(Type),
 }

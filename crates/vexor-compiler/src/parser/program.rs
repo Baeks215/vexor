@@ -14,7 +14,7 @@ use winnow::combinator::{alt, delimited, opt, preceded, separated, separated_pai
 use winnow::error::{ContextError, ParseError};
 use winnow::{ModalResult, Parser, Result};
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 enum ProgramUnit {
     Assignment(ast::Assignment),
     Function(ast::Function),
