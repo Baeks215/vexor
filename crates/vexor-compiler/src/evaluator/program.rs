@@ -36,7 +36,7 @@ pub fn eval_program(program: typed::Program) -> EResult<scene::Scene> {
         eval_assignment(&mut context, assignment)?;
     }
     for export in exports {
-        let evaluated = expr::eval_graphic(&context, export)?;
+        let evaluated = expr::eval(&context, export)?;
         exported.push(evaluated);
     }
     Ok(scene::Scene { exports: exported })

@@ -76,7 +76,7 @@ fn check_if<T: Checkable>(
 fn check_match_arms<T: Checkable>(
     context: &Context,
     arms: Vec<ast::MatchArm>,
-) -> TResult<Vec<MatchArm<Expr<T>>>> {
+) -> TResult<Vec<MatchArm<T>>> {
     arms.into_iter()
         .map(|arm| {
             let ast::MatchArm {
@@ -89,10 +89,7 @@ fn check_match_arms<T: Checkable>(
                     let scope = context.with_var(name.clone(), T::TYPE_ENUM);
                     (Pattern::Binding(name), Some(scope))
                 }
-                ast::Pattern::Literal(e) => (
-                    Pattern::Literal(check::<T>(context, ast::Expr::Literal(e))?),
-                    None,
-                ),
+                ast::Pattern::Literal(e) => (Pattern::Literal(T::check_literal(context, e)?), None),
             };
             let arm_ctx = scope.as_ref().unwrap_or(context);
             let guard = guard.map(|g| check::<BoolT>(arm_ctx, g)).transpose()?;

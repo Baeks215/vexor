@@ -1,6 +1,7 @@
 //! Evaluator: Typed AST -> Scene
 
-use crate::ir::{Number, scene, typed};
+use crate::evaluator::expr::Evaluable;
+use crate::ir::typed::{self, BoolT, ColorT, GraphicT, NumberT, StringT};
 use std::collections::HashMap;
 
 mod expr;
@@ -17,44 +18,11 @@ type EResult<O> = Result<O, EError>;
 /// Literal value types
 #[derive(Debug, Clone)]
 enum Value {
-    Number(Number),
-    String(String),
-    Bool(bool),
-    Color(scene::Color),
-    Graphic(scene::Graphic),
-}
-
-impl Value {
-    fn as_number(self) -> EResult<Number> {
-        match self {
-            Value::Number(n) => Ok(n),
-            _ => Err("Expected a number".to_string()),
-        }
-    }
-    fn as_string(self) -> EResult<String> {
-        match self {
-            Value::String(s) => Ok(s),
-            _ => Err("Expected a string".to_string()),
-        }
-    }
-    fn as_bool(self) -> EResult<bool> {
-        match self {
-            Value::Bool(b) => Ok(b),
-            _ => Err("Expected a boolean".to_string()),
-        }
-    }
-    fn as_color(self) -> EResult<scene::Color> {
-        match self {
-            Value::Color(c) => Ok(c),
-            _ => Err("Expected a color".to_string()),
-        }
-    }
-    fn as_graphic(self) -> EResult<scene::Graphic> {
-        match self {
-            Value::Graphic(g) => Ok(g),
-            _ => Err("Expected a graphic".to_string()),
-        }
-    }
+    Number(<NumberT as Evaluable>::Output),
+    String(<StringT as Evaluable>::Output),
+    Bool(<BoolT as Evaluable>::Output),
+    Color(<ColorT as Evaluable>::Output),
+    Graphic(<GraphicT as Evaluable>::Output),
 }
 
 #[derive(Debug, Clone)]
