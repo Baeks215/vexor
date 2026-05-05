@@ -46,19 +46,6 @@ pub enum OpUn {
 }
 
 #[derive(Debug, Clone)]
-pub enum Pattern {
-    Binding(String),
-    Literal(Literal),
-}
-
-#[derive(Debug, Clone)]
-pub struct MatchArm {
-    pub pattern: Pattern,
-    pub guard: Option<Expr>,
-    pub body: Expr,
-}
-
-#[derive(Debug, Clone)]
 pub enum Literal {
     Number(Number),
     String(String),
@@ -105,6 +92,15 @@ pub enum Expr {
         then_branch: Box<Expr>,
         else_branch: Box<Expr>,
     },
+}
+
+// --- Match ---
+
+#[derive(Debug, Clone)]
+pub struct MatchArm {
+    pub pattern: Expr,
+    pub guard: Option<Expr>,
+    pub body: Expr,
 }
 
 // --- Program ---

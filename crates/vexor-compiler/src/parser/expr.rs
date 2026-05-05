@@ -7,7 +7,7 @@ use crate::parser::keyword::{pk_else, pk_false, pk_if, pk_match, pk_true};
 use crate::parser::object::p_object;
 use crate::parser::p_identifier_no_ws;
 use crate::parser::p_raw_identifier_no_ws;
-use crate::parser::{Input, WhiteSpaceParser, braced, bracketed, p_identifier};
+use crate::parser::{Input, WhiteSpaceParser, braced, bracketed};
 use winnow::ascii::float;
 use winnow::combinator::{
     Infix, Prefix, alt, delimited, dispatch, expression, fail, opt, preceded, separated,
@@ -83,19 +83,10 @@ pub fn p_literal<'a>(input: &mut Input<'a>) -> ModalResult<ast::Literal> {
     .parse_next(input)
 }
 
-/// Parses a pattern: a literal or a binding identifier.
-pub fn p_pattern<'a>(input: &mut Input<'a>) -> ModalResult<ast::Pattern> {
-    alt((
-        p_literal.map(ast::Pattern::Literal),
-        p_identifier.map(|s| ast::Pattern::Binding(s.to_string())),
-    ))
-    .parse_next(input)
-}
-
 /// Parses a match arm: `<pattern> [if <guard>] => <body>`.
 pub fn p_match_arm<'a>(input: &mut Input<'a>) -> ModalResult<ast::MatchArm> {
     (
-        p_pattern,
+        p_expr,
         opt(preceded(pk_if.ws(), p_expr)),
         preceded("=>".ws(), p_expr),
     )

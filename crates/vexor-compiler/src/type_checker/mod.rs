@@ -20,6 +20,7 @@ type TResult<O> = Result<O, TError>;
 #[derive(Debug)]
 enum Constraint {
     Is(Type),
+    Any,
 }
 
 impl Type {
@@ -30,6 +31,7 @@ impl Type {
             (_, Constraint::Is(ty)) => (self == ty)
                 .then_some(ty)
                 .ok_or(format!("Expected type {:?}, got {:?}", ty, self)),
+            (_, Constraint::Any) => Ok(self),
         }
     }
 }
@@ -96,14 +98,18 @@ impl Context {
     }
 
     /// Check a function's type against a constraint.
-    fn check_function(&self, name: &str, return_constraint: Constraint) -> TResult<Vec<Type>> {
+    fn check_function(
+        &self,
+        name: &str,
+        return_constraint: Constraint,
+    ) -> TResult<(Vec<Type>, Type)> {
         self.functions
             .get(name)
             .ok_or("Unknown function".to_string())
             // Check against constraint
             .and_then(|FunctionType { args, return_type }| {
                 return_type.satisfies(return_constraint)?;
-                Ok(args.clone())
+                Ok((args.clone(), *return_type))
             })
     }
 }

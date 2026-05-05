@@ -114,7 +114,7 @@ pub enum Expr<T: SemanticType> {
         else_branch: Box<Expr<T>>,
     },
     Match {
-        scrutinee: Box<Expr<T>>,
+        scrutinee: Box<ExprGeneric>,
         arms: Vec<MatchArm<T>>,
     },
 }
@@ -131,14 +131,8 @@ pub enum ExprGeneric {
 // --- Match ---
 
 #[derive(Debug, Clone)]
-pub enum Pattern<T: SemanticType> {
-    Binding(String),
-    Literal(T::NativeType),
-}
-
-#[derive(Debug, Clone)]
 pub struct MatchArm<T: SemanticType> {
-    pub pattern: Pattern<T>,
+    pub pattern: ExprGeneric,
     pub guard: Option<Expr<BoolT>>,
     pub body: Expr<T>,
 }

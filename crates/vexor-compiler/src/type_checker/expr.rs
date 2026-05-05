@@ -2,8 +2,7 @@
 
 use crate::ir::ast::{self, OpBin, OpUn};
 use crate::ir::typed::expr::{
-    ArithmeticOp, BoolOps, CompareOp, Expr, ExprGeneric, LogicOp, MatchArm, NumberOps, Pattern,
-    SemanticType,
+    ArithmeticOp, BoolOps, CompareOp, Expr, ExprGeneric, LogicOp, MatchArm, NumberOps, SemanticType,
 };
 use crate::ir::typed::{self, BoolT, ColorT, GraphicT, NumberT, StringT, Type};
 use crate::type_checker::{Constraint, Context, TResult};
@@ -45,7 +44,7 @@ fn check_func_args(
     args: Vec<ast::Expr>,
     return_constraint: Constraint,
 ) -> TResult<Vec<ExprGeneric>> {
-    let arg_types = context.check_function(&function, return_constraint)?;
+    let (arg_types, _) = context.check_function(&function, return_constraint)?;
     if arg_types.len() != args.len() {
         return Err("Invalid number of arguments".to_string());
     }
@@ -72,9 +71,24 @@ fn check_if<T: Checkable>(
     })
 }
 
-/// Type-checks match arms for a match whose scrutinee and body are of type E.
+fn check_pattern(
+    context: &Context,
+    expected: Type,
+    pattern: ast::Expr,
+) -> TResult<(ExprGeneric, Option<Context>)> {
+    let new_context = match pattern.clone() {
+        ast::Expr::Variable(name) => Some(context.with_var(name.clone(), expected)),
+        ast::Expr::Literal(_) => None,
+        _ => return Err("Unexpected pattern".to_string()),
+    };
+    let arm_context = new_context.as_ref().unwrap_or(context);
+    let expr = check_generic(arm_context, expected, pattern)?;
+    Ok((expr, new_context))
+}
+
 fn check_match_arms<T: Checkable>(
     context: &Context,
+    expected: Type,
     arms: Vec<ast::MatchArm>,
 ) -> TResult<Vec<MatchArm<T>>> {
     arms.into_iter()
@@ -84,14 +98,8 @@ fn check_match_arms<T: Checkable>(
                 guard,
                 body,
             } = arm;
-            let (pattern, scope) = match pattern {
-                ast::Pattern::Binding(name) => {
-                    let scope = context.with_var(name.clone(), T::TYPE_ENUM);
-                    (Pattern::Binding(name), Some(scope))
-                }
-                ast::Pattern::Literal(e) => (Pattern::Literal(T::check_literal(context, e)?), None),
-            };
-            let arm_ctx = scope.as_ref().unwrap_or(context);
+            let (pattern, new_context) = check_pattern(context, expected, pattern)?;
+            let arm_ctx = new_context.as_ref().unwrap_or(context);
             let guard = guard.map(|g| check::<BoolT>(arm_ctx, g)).transpose()?;
             let body = check::<T>(arm_ctx, body)?;
             Ok(MatchArm {
@@ -109,9 +117,58 @@ fn check_match<T: Checkable>(
     scrutinee: ast::Expr,
     arms: Vec<ast::MatchArm>,
 ) -> TResult<Expr<T>> {
-    let scrutinee = Box::new(check::<T>(context, scrutinee)?);
-    let arms = check_match_arms::<T>(context, arms)?;
+    let scrutinee_type = infer(context, scrutinee.clone())?;
+    let scrutinee = Box::new(check_generic(context, scrutinee_type, scrutinee)?);
+    let arms = check_match_arms(context, scrutinee_type, arms)?;
     Ok(Expr::Match { scrutinee, arms })
+}
+
+pub fn infer(context: &Context, expr: ast::Expr) -> TResult<Type> {
+    match expr {
+        ast::Expr::Literal(lit) => Ok(match lit {
+            ast::Literal::Number(_) => Type::Number,
+            ast::Literal::String(_) => Type::String,
+            ast::Literal::Bool(_) => Type::Bool,
+            ast::Literal::Color(_) => Type::Color,
+            ast::Literal::Object(_) => Type::Graphic,
+        }),
+        ast::Expr::Variable(name) => context.check_var(&name, Constraint::Any),
+        ast::Expr::Call { function, args: _ } => {
+            let (_, return_type) = context.check_function(&function, Constraint::Any)?;
+            Ok(return_type)
+        }
+        ast::Expr::Binary {
+            operator,
+            left,
+            right: _,
+        } => match operator {
+            // Homogeneous binary operations
+            OpBin::Add | OpBin::Mul | OpBin::Sub | OpBin::Div | OpBin::And | OpBin::Or => {
+                infer(context, *left)
+            }
+            // Comparisons return bool
+            OpBin::Gt | OpBin::Gte | OpBin::Lt | OpBin::Lte | OpBin::Eq | OpBin::Neq => {
+                Ok(Type::Bool)
+            }
+        },
+        ast::Expr::Unary {
+            operator,
+            operand: _,
+        } => match operator {
+            OpUn::Not => Ok(Type::Bool),
+        },
+        ast::Expr::Match { scrutinee, arms: _ } => infer(context, *scrutinee),
+        ast::Expr::If {
+            condition: _,
+            then_branch,
+            else_branch: _,
+        } => infer(context, *then_branch),
+        ast::Expr::Field { object: _, field } => match field.as_str() {
+            "x" | "y" | "width" | "height" => Ok(Type::Number),
+            "color" => Ok(Type::Color),
+            _ => Err("Unknown field".to_string()),
+        },
+    }
 }
 
 /// Checks an expression using generics.

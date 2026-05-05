@@ -7,8 +7,7 @@ use crate::evaluator::{Context, EResult, Function, Value};
 use crate::ir::Number;
 use crate::ir::scene;
 use crate::ir::typed::expr::{
-    ArithmeticOp, BoolOps, CompareOp, Expr, ExprGeneric, LogicOp, MatchArm, NumberOps, Pattern,
-    SemanticType,
+    ArithmeticOp, BoolOps, CompareOp, Expr, ExprGeneric, LogicOp, MatchArm, NumberOps, SemanticType,
 };
 use crate::ir::typed::{self, BoolT, ColorT, GraphicT, NumberT, StringT};
 
@@ -50,7 +49,7 @@ pub fn eval<T: Evaluable>(context: &Context, expr: Expr<T>) -> EResult<T::Output
         } => eval_call::<T>(context, function, arguments),
         Expr::Operator(op) => T::eval_operator(context, op),
         Expr::Match { scrutinee, arms } => {
-            let s = eval(context, *scrutinee)?;
+            let s = eval_generic(context, *scrutinee)?;
             eval_match(context, arms, s)
         }
         Expr::If {
@@ -87,11 +86,29 @@ fn eval_call<T: Evaluable>(
     T::from_value(value)
 }
 
+fn match_pattern<T: Evaluable>(
+    context: &Context,
+    scrutinee: T::Output,
+    pattern: Expr<T>,
+) -> EResult<(bool, Option<Context>)> {
+    match pattern {
+        Expr::Variable(name) => {
+            let new_context = context.with_var(name, T::to_value(scrutinee.clone()));
+            Ok((true, Some(new_context)))
+        }
+        Expr::Literal(expected) => {
+            let matched = T::match_literal(scrutinee.clone(), expected).is_ok();
+            Ok((matched, None))
+        }
+        _ => Err("Pattern not supported".to_string()),
+    }
+}
+
 /// Generic match-arm evaluation.
 fn eval_match<T: Evaluable>(
     context: &Context,
     arms: Vec<MatchArm<T>>,
-    scrutinee: T::Output,
+    scrutinee: Value,
 ) -> EResult<T::Output> {
     for MatchArm {
         pattern,
@@ -99,25 +116,25 @@ fn eval_match<T: Evaluable>(
         body,
     } in arms
     {
-        let scope;
-        let arm_ctx: &Context = match pattern {
-            Pattern::Binding(name) => {
-                scope = context.with_var(name, T::to_value(scrutinee.clone()));
-                &scope
-            }
-            Pattern::Literal(expected) => {
-                if let Err(_) = T::match_literal(scrutinee.clone(), expected) {
-                    continue;
-                }
-                context
-            }
+        let current_ctx: &Context;
+        let (matched, arm_ctx) = match (scrutinee.clone(), pattern) {
+            (Value::Number(v), ExprGeneric::Number(e)) => match_pattern(context, v, e)?,
+            (Value::String(v), ExprGeneric::String(e)) => match_pattern(context, v, e)?,
+            (Value::Bool(v), ExprGeneric::Bool(e)) => match_pattern(context, v, e)?,
+            (Value::Color(v), ExprGeneric::Color(e)) => match_pattern(context, v, e)?,
+            (Value::Graphic(v), ExprGeneric::Graphic(e)) => match_pattern(context, v, e)?,
+            _ => unreachable!("Type mismatch in match pattern"),
         };
+        if !matched {
+            continue;
+        }
+        current_ctx = arm_ctx.as_ref().unwrap_or(context);
         if let Some(condition) = guard {
-            if !eval::<BoolT>(arm_ctx, condition)? {
+            if !eval::<BoolT>(current_ctx, condition)? {
                 continue;
             }
         }
-        return eval(arm_ctx, body);
+        return eval(current_ctx, body);
     }
     Err("No match arm matched".to_string())
 }
