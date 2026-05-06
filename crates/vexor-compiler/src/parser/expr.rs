@@ -4,7 +4,7 @@ use crate::ir::Number;
 use crate::ir::ast;
 use crate::parser::keyword::pk_rgb;
 use crate::parser::keyword::{pk_else, pk_false, pk_if, pk_match, pk_true};
-use crate::parser::object::p_object;
+use crate::parser::object::p_graphic;
 use crate::parser::p_identifier_no_ws;
 use crate::parser::p_raw_identifier_no_ws;
 use crate::parser::{Input, WhiteSpaceParser, braced, bracketed};
@@ -78,7 +78,7 @@ pub fn p_literal<'a>(input: &mut Input<'a>) -> ModalResult<ast::Literal> {
         p_string.map(|s| ast::Literal::String(s.to_string())),
         p_bool.map(ast::Literal::Bool),
         p_color.map(ast::Literal::Color),
-        p_object.map(ast::Literal::Object),
+        p_graphic.map(ast::Literal::Graphic),
     ))
     .parse_next(input)
 }

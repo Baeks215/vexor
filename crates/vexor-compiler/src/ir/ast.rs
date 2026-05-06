@@ -1,6 +1,6 @@
 //! Abstract Syntax Tree nodes
 
-use crate::ir::{Number, typed::Type};
+use crate::ir::{Number, Type};
 
 // --- Primitives ---
 
@@ -15,11 +15,28 @@ pub enum Color {
     },
 }
 
-/// Object with fields
+/// Graphic Object
 #[derive(Debug, Clone)]
-pub struct Object {
-    pub name: String,
-    pub fields: Vec<(String, Expr)>,
+pub enum Graphic {
+    Circle {
+        x: Box<Expr>,
+        y: Box<Expr>,
+        radius: Box<Expr>,
+        color: Box<Expr>,
+    },
+    Rect {
+        x: Box<Expr>,
+        y: Box<Expr>,
+        width: Box<Expr>,
+        height: Box<Expr>,
+        color: Box<Expr>,
+    },
+    Text {
+        x: Box<Expr>,
+        y: Box<Expr>,
+        content: Box<Expr>,
+        color: Box<Expr>,
+    },
 }
 
 // --- Expressions ---
@@ -51,7 +68,7 @@ pub enum Literal {
     String(String),
     Bool(bool),
     Color(Color),
-    Object(Object),
+    Graphic(Graphic),
 }
 
 /// Expression
@@ -107,7 +124,6 @@ pub struct MatchArm {
 
 #[derive(Debug, Clone)]
 pub struct Assignment {
-    pub ty: Type,
     pub identifier: String,
     pub value: Expr,
 }
@@ -117,7 +133,7 @@ pub struct Function {
     pub name: String,
     pub params: Vec<(String, Type)>,
     pub scope: Vec<Assignment>,
-    pub return_expr: (Expr, Type),
+    pub return_expr: Expr,
 }
 
 #[derive(Debug, Clone)]

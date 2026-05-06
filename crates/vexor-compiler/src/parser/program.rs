@@ -1,16 +1,16 @@
 //! Parser: Text -> AST
 
 use crate::ir::ast;
-use crate::ir::typed::{GraphicType, Type};
+use crate::ir::{GraphicType, Type};
 use crate::parser::expr::p_expr;
 use crate::parser::keyword::{
     pk_bool, pk_circle, pk_color, pk_export, pk_fn, pk_graphic, pk_let, pk_number, pk_rect,
     pk_string, pk_text, pk_where,
 };
-use crate::parser::{Input, WhiteSpaceParser, braced, bracketed, p_identifier};
+use crate::parser::{Input, WhiteSpaceParser, braced, bracketed, p_identifier, p_identifier_no_ws};
 use itertools::{Either, Itertools};
-use winnow::ascii::{line_ending, multispace0};
-use winnow::combinator::{alt, delimited, opt, preceded, separated, separated_pair};
+use winnow::ascii::{multispace0, multispace1};
+use winnow::combinator::{alt, delimited, opt, preceded, separated, separated_pair, terminated};
 use winnow::error::{ContextError, ParseError};
 use winnow::{ModalResult, Parser, Result};
 
@@ -37,15 +37,10 @@ fn p_type<'a>(input: &mut Input<'a>) -> ModalResult<Type> {
 
 fn p_assignment<'a>(input: &mut Input<'a>) -> ModalResult<ast::Assignment> {
     (
-        pk_let.ws(),
-        p_identifier,
-        ":".ws(),
-        p_type,
-        "=".ws(),
-        p_expr,
+        preceded(pk_let.ws(), p_identifier),
+        preceded("=".ws(), p_expr),
     )
-        .map(|(_, i, _, t, _, e)| ast::Assignment {
-            ty: t,
+        .map(|(i, e)| ast::Assignment {
             identifier: i.to_string(),
             value: e,
         })
@@ -54,30 +49,28 @@ fn p_assignment<'a>(input: &mut Input<'a>) -> ModalResult<ast::Assignment> {
 
 fn p_function<'a>(input: &mut Input<'a>) -> ModalResult<ast::Function> {
     (
-        preceded(pk_fn.ws(), p_identifier), // function name
+        preceded(pk_fn.ws(), p_identifier_no_ws), // function name
         bracketed(separated(
             0..,
             separated_pair(p_identifier, ":".ws(), p_type),
             ",".ws(),
-        )), // parameters
-        preceded(":".ws(), p_type),         // return type
-        preceded("=".mws(), p_expr),        // return expression
+        )) // parameters
+        .ws(),
+        preceded("=".mws(), p_expr), // return expression
         opt(preceded(
             pk_where.ws(),
-            braced(separated(0.., p_assignment, multispace0)).mws(),
+            braced(separated(0.., p_assignment, multispace0)).ws(),
         )), // where scope
     )
         .map(
-            |(name, params, return_type, return_expr, scope): (_, Vec<(&str, Type)>, _, _, _)| {
-                ast::Function {
-                    name: name.to_string(),
-                    params: params
-                        .into_iter()
-                        .map(|(n, t)| (n.to_string(), t))
-                        .collect(),
-                    scope: scope.unwrap_or_default(),
-                    return_expr: (return_expr, return_type),
-                }
+            |(name, params, return_expr, scope): (_, Vec<(&str, Type)>, _, _)| ast::Function {
+                name: name.to_string(),
+                params: params
+                    .into_iter()
+                    .map(|(n, t)| (n.to_string(), t))
+                    .collect(),
+                scope: scope.unwrap_or_default(),
+                return_expr: return_expr,
             },
         )
         .parse_next(input)
@@ -103,22 +96,25 @@ pub fn parse_program<'a>(
     let input = Input::new(input);
     delimited(
         multispace0,
-        separated_pair(
-            separated(0.., p_program_unit, line_ending.ws()),
-            multispace0,
-            separated(0.., p_export, line_ending.ws()),
+        (
+            opt(terminated(
+                separated(0.., p_program_unit, multispace1),
+                multispace1,
+            ))
+            .map(|u| u.unwrap_or_default()),
+            separated(0.., p_export, multispace1),
         )
-        .map(|(units, exports): (Vec<ProgramUnit>, Vec<ast::Expr>)| {
-            let (functions, statements) = units.into_iter().partition_map(|u| match u {
-                ProgramUnit::Function(f) => Either::Left(f),
-                ProgramUnit::Assignment(s) => Either::Right(s),
-            });
-            ast::Program {
-                functions,
-                scope: statements,
-                exports,
-            }
-        }),
+            .map(|(units, exports): (Vec<_>, Vec<_>)| {
+                let (functions, statements) = units.into_iter().partition_map(|u| match u {
+                    ProgramUnit::Function(f) => Either::Left(f),
+                    ProgramUnit::Assignment(s) => Either::Right(s),
+                });
+                ast::Program {
+                    functions,
+                    scope: statements,
+                    exports,
+                }
+            }),
         multispace0,
     )
     .parse(input)

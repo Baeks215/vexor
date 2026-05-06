@@ -44,20 +44,17 @@ fn ok(input: &str) -> Scene {
 }
 
 fn assert_number(expr: &str, expected: f64) {
-    let input =
-        format!("let r: Number = {expr}\nexport Circle {{ x: 0, y: 0, radius: r, color: {RED} }}");
+    let input = format!("let r = {expr}\nexport Circle {{ x: 0, y: 0, radius: r, color: {RED} }}");
     assert_eq!(ok(&input).exports[0], circle(0.0, 0.0, expected));
 }
 
 fn assert_string(expr: &str, expected: &str) {
-    let input =
-        format!("let s: String = {expr}\nexport Text {{ x: 0, y: 0, content: s, color: {RED} }}");
+    let input = format!("let s = {expr}\nexport Text {{ x: 0, y: 0, content: s, color: {RED} }}");
     assert_eq!(ok(&input).exports[0], text(0.0, 0.0, expected));
 }
 
 fn assert_bool_compiles(expr: &str) {
-    let input =
-        format!("let b: Bool = {expr}\nexport Circle {{ x: 0, y: 0, radius: 1, color: {RED} }}");
+    let input = format!("let b = {expr}\nexport Circle {{ x: 0, y: 0, radius: 1, color: {RED} }}");
     ok(&input);
 }
 
@@ -70,8 +67,7 @@ fn test_compile_basics() {
     let single = format!("export Circle {{ x: 0, y: 0, radius: 10, color: {RED} }}");
     assert_eq!(ok(&single).exports, vec![circle(0.0, 0.0, 10.0)]);
 
-    let with_let =
-        format!("let r: Number = 5\nexport Circle {{ x: 0, y: 0, radius: r, color: {RED} }}");
+    let with_let = format!("let r = 5\nexport Circle {{ x: 0, y: 0, radius: r, color: {RED} }}");
     assert_eq!(ok(&with_let).exports, vec![circle(0.0, 0.0, 5.0)]);
 
     let multi = format!(
@@ -120,23 +116,9 @@ fn test_compile_bool_exprs() {
     }
 
     let with_fn = format!(
-        "fn cmp(a: Number, b: Number): Bool = a > b\nlet flag: Bool = cmp(5, 3)\nexport Circle {{ x: 0, y: 0, radius: 1, color: {RED} }}"
+        "fn cmp(a: Number, b: Number) = a > b\nlet flag = cmp(5, 3)\nexport Circle {{ x: 0, y: 0, radius: 1, color: {RED} }}"
     );
     ok(&with_fn);
-}
-
-#[test]
-fn test_compile_rejects_invalid_typing() {
-    let cases = [
-        format!("let x: Number = 1 > 2\nexport Circle {{ x: 0, y: 0, radius: 1, color: {RED} }}"),
-        format!("let x: Bool = 1 && 2\nexport Circle {{ x: 0, y: 0, radius: 1, color: {RED} }}"),
-        format!(
-            "let x: Number = if 1 {{ 1 }} else {{ 2 }}\nexport Circle {{ x: 0, y: 0, radius: 1, color: {RED} }}"
-        ),
-    ];
-    for input in cases {
-        assert_rejects(&input);
-    }
 }
 
 #[test]
@@ -155,9 +137,45 @@ fn test_compile_match() {
     assert_bool_compiles("match \"yes\" { \"yes\" => true, x => false }");
 
     let num_to_graphic = format!(
-        "let g: Graphic = match 1 {{ 1 => Circle {{ x: 0, y: 0, radius: 7, color: {RED} }}, x => Rect {{ x: 0, y: 0, width: 1, height: 1, color: {RED} }} }}\nexport g"
+        "let g = match 1 {{ 1 => Circle {{ x: 0, y: 0, radius: 7, color: {RED} }}, x => Rect {{ x: 0, y: 0, width: 1, height: 1, color: {RED} }} }}\nexport g"
     );
     assert_eq!(ok(&num_to_graphic).exports[0], circle(0.0, 0.0, 7.0));
+
+    // Destructure Circle fields, use captured radius in body (7 * 2 = 14)
+    let prog = format!(
+        "let g = Circle {{ x: 0, y: 0, radius: 7, color: {RED} }}\nlet r = match g {{ Circle {{ x: cx, y: cy, radius: rad, color: c }} => rad * 2, y => 0 }}\nexport Circle {{ x: 0, y: 0, radius: r, color: {RED} }}"
+    );
+    assert_eq!(ok(&prog).exports[0], circle(0.0, 0.0, 14.0));
+
+    // Destructure Rect fields, use width * height (4 * 5 = 20)
+    let prog = format!(
+        "let b = Rect {{ x: 0, y: 0, width: 4, height: 5, color: {RED} }}\nlet r = match b {{ Rect {{ x: rx, y: ry, width: w, height: h, color: c }} => w * h, y => 0 }}\nexport Circle {{ x: 0, y: 0, radius: r, color: {RED} }}"
+    );
+    assert_eq!(ok(&prog).exports[0], circle(0.0, 0.0, 20.0));
+
+    // Guard on destructured field: radius 15 > 10 => "big"
+    let prog = format!(
+        "let g = Circle {{ x: 0, y: 0, radius: 15, color: {RED} }}\nlet s = match g {{ Circle {{ x: cx, y: cy, radius: r, color: c }} if r > 10 => \"big\", x => \"small\" }}\nexport Text {{ x: 0, y: 0, content: s, color: {RED} }}"
+    );
+    assert_eq!(ok(&prog).exports[0], text(0.0, 0.0, "big"));
+
+    // Literal field in graphic pattern: radius must equal 5 exactly
+    let prog = format!(
+        "let g = Circle {{ x: 0, y: 0, radius: 5, color: {RED} }}\nlet s = match g {{ Circle {{ x: cx, y: cy, radius: 5, color: c }} => \"exact\", x => \"other\" }}\nexport Text {{ x: 0, y: 0, content: s, color: {RED} }}"
+    );
+    assert_eq!(ok(&prog).exports[0], text(0.0, 0.0, "exact"));
+
+    // Multi-variant: extract x coord from whichever graphic variant matches
+    let prog = format!(
+        "let g = Rect {{ x: 3, y: 0, width: 1, height: 1, color: {RED} }}\nlet r = match g {{ Circle {{ x: gx, y: gy, radius: rad, color: c }} => gx, Rect {{ x: gx, y: gy, width: w, height: h, color: c }} => gx, y => 0 }}\nexport Circle {{ x: 0, y: 0, radius: r, color: {RED} }}"
+    );
+    assert_eq!(ok(&prog).exports[0], circle(0.0, 0.0, 3.0));
+
+    // Variant mismatch: Rect does not match Circle pattern, falls to catch-all
+    let prog = format!(
+        "let g = Rect {{ x: 0, y: 0, width: 2, height: 2, color: {RED} }}\nlet r = match g {{ Circle {{ x: cx, y: cy, radius: rad, color: c }} => rad, y => 99 }}\nexport Circle {{ x: 0, y: 0, radius: r, color: {RED} }}"
+    );
+    assert_eq!(ok(&prog).exports[0], circle(0.0, 0.0, 99.0));
 }
 
 #[test]
@@ -171,7 +189,7 @@ fn test_compile_if() {
     assert_bool_compiles("if false { true } else { false }");
 
     let if_color = format!(
-        "let c: Color = if true {{ rgb(1, 0, 0, 1) }} else {{ rgb(0, 0, 1, 1) }}\nexport Circle {{ x: 0, y: 0, radius: 1, color: {RED} }}"
+        "let c = if true {{ rgb(1, 0, 0, 1) }} else {{ rgb(0, 0, 1, 1) }}\nexport Circle {{ x: 0, y: 0, radius: 1, color: {RED} }}"
     );
     ok(&if_color);
 }
@@ -189,7 +207,7 @@ fn test_compile_export_conditional() {
     assert_eq!(ok(&if_false).exports[0], rect(0.0, 0.0, 5.0, 5.0));
 
     let match_g = format!(
-        "let g: Graphic = Circle {{ x: 0, y: 0, radius: 10, color: {RED} }}\nexport match g {{ x if true => Rect {{ x: 0, y: 0, width: 1, height: 2, color: {RED} }}, y => y }}"
+        "let g = Circle {{ x: 0, y: 0, radius: 10, color: {RED} }}\nexport match g {{ x if true => Rect {{ x: 0, y: 0, width: 1, height: 2, color: {RED} }}, y => y }}"
     );
     assert_eq!(ok(&match_g).exports[0], rect(0.0, 0.0, 1.0, 2.0));
 }
@@ -197,7 +215,7 @@ fn test_compile_export_conditional() {
 #[test]
 fn test_compile_field_access() {
     let input = format!(
-        "let box: Rect = Rect {{ x: 2, y: 8, width: 10, height: 5, color: {RED} }}\nlet c: Circle = Circle {{ x: box.x, y: box.y, radius: 5, color: {RED} }}\nexport c"
+        "let box = Rect {{ x: 2, y: 8, width: 10, height: 5, color: {RED} }}\nlet c = Circle {{ x: box.x, y: box.y, radius: 5, color: {RED} }}\nexport c"
     );
     assert_eq!(ok(&input).exports[0], circle(2.0, 8.0, 5.0));
 }
@@ -205,12 +223,12 @@ fn test_compile_field_access() {
 #[test]
 fn test_compile_function() {
     let double = format!(
-        "fn double(x: Number): Number = x + x\nexport Circle {{ x: 0, y: 0, radius: double(5), color: {RED} }}"
+        "fn double(x: Number) = x + x\nexport Circle {{ x: 0, y: 0, radius: double(5), color: {RED} }}"
     );
     assert_eq!(ok(&double).exports[0], circle(0.0, 0.0, 10.0));
 
     let area = format!(
-        "fn area(w: Number, h: Number): Number = w * h\nexport Rect {{ x: 0, y: 0, width: area(2, 3), height: 4, color: {RED} }}"
+        "fn area(w: Number, h: Number) = w * h\nexport Rect {{ x: 0, y: 0, width: area(2, 3), height: 4, color: {RED} }}"
     );
     assert_eq!(ok(&area).exports[0], rect(0.0, 0.0, 6.0, 4.0));
 }

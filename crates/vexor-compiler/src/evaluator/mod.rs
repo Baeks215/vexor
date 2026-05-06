@@ -1,7 +1,9 @@
 //! Evaluator: Typed AST -> Scene
 
 use crate::evaluator::expr::Evaluable;
-use crate::ir::typed::{self, BoolT, ColorT, GraphicT, NumberT, StringT};
+use crate::ir::Type;
+use crate::ir::ast;
+use crate::ir::scene::marker;
 use std::collections::HashMap;
 
 mod expr;
@@ -17,25 +19,26 @@ type EResult<O> = Result<O, EError>;
 
 /// Literal value types
 #[derive(Debug, Clone)]
-enum Value {
-    Number(<NumberT as Evaluable>::Output),
-    String(<StringT as Evaluable>::Output),
-    Bool(<BoolT as Evaluable>::Output),
-    Color(<ColorT as Evaluable>::Output),
-    Graphic(<GraphicT as Evaluable>::Output),
+pub enum Value {
+    Number(<marker::Number as Evaluable>::Output),
+    String(<marker::String as Evaluable>::Output),
+    Bool(<marker::Bool as Evaluable>::Output),
+    Color(<marker::Color as Evaluable>::Output),
+    Graphic(<marker::Graphic as Evaluable>::Output),
 }
 
 #[derive(Debug, Clone)]
 pub struct Function {
-    pub params: Vec<String>,
-    pub scope: Vec<typed::Assignment>,
-    pub return_expr: typed::expr::ExprGeneric,
+    pub params: Vec<(String, Type)>,
+    pub scope: Vec<ast::Assignment>,
+    pub return_expr: ast::Expr,
 }
 
 /// Context for evaluation
-struct Context {
-    functions: HashMap<String, Function>,
-    vars: HashMap<String, Value>,
+#[derive(Debug, Clone)]
+pub struct Context {
+    pub functions: HashMap<String, Function>,
+    pub vars: HashMap<String, Value>,
 }
 impl Context {
     fn new() -> Self {
@@ -60,44 +63,28 @@ impl Context {
 
     /// Create a new scope with the given variables
     ///   Adds the arguments to the variables scope
-    fn new_scope_function(&self, names: &[String], args: Vec<Value>) -> Self {
-        let mut this = Self {
-            functions: self.functions.clone(),
-            vars: self.vars.clone(),
-        };
-        debug_assert_eq!(names.len(), args.len());
-        for (name, arg) in names.iter().zip(args) {
+    fn new_scope_function(&self, args: Vec<(String, Value)>) -> Self {
+        let mut this = self.clone();
+        for (name, arg) in args {
             this.vars.insert(name.clone(), arg);
         }
         this
     }
 
-    /// Clone context with one extra variable bound.
-    fn with_var(&self, name: String, value: Value) -> Self {
-        let mut vars = self.vars.clone();
-        vars.insert(name, value);
-        Self {
-            functions: self.functions.clone(),
-            vars,
-        }
-    }
-
     /// Add a function to the context
-    fn add_function(&mut self, func: typed::Function) {
-        let typed::Function {
+    fn add_function(&mut self, func: ast::Function) {
+        let ast::Function {
             name,
-            scope,
             params,
+            scope,
             return_expr,
         } = func;
-        self.functions.insert(
-            name,
-            Function {
-                params: params.into_iter().map(|(n, _)| n).collect(),
-                scope,
-                return_expr,
-            },
-        );
+        let func = Function {
+            params,
+            scope,
+            return_expr,
+        };
+        self.functions.insert(name, func);
     }
 
     /// Get a function

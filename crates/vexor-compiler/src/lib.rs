@@ -2,16 +2,14 @@ mod evaluator;
 mod exporter;
 mod ir;
 mod parser;
-mod type_checker;
 
 pub use exporter::*;
 pub use ir::scene::{Color, Graphic, Scene};
 
 /// Compiles the given input string into [`Scene`] IR.
 pub fn compile(input: &str) -> Option<Scene> {
-    let parsed = parser::parse_program(input).ok()?;
-    let typed = type_checker::check_program(parsed).ok()?;
-    let scene = evaluator::eval_program(typed).ok()?;
+    let ast = parser::parse_program(input).ok()?;
+    let scene = evaluator::eval_program(ast).ok()?;
     Some(scene)
 }
 

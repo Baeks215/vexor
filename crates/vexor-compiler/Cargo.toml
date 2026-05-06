@@ -12,4 +12,5 @@ svg.workspace = true
 itertools.workspace = true
 
 [dev-dependencies]
+# winnow = {workspace = true, features = ["debug"]}
 assert_matches.workspace = true

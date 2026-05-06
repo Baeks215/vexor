@@ -4,102 +4,113 @@ use std::fmt::Debug;
 
 use crate::evaluator::program::eval_assignment;
 use crate::evaluator::{Context, EResult, Function, Value};
-use crate::ir::Number;
-use crate::ir::scene;
-use crate::ir::typed::expr::{
-    ArithmeticOp, BoolOps, CompareOp, Expr, ExprGeneric, LogicOp, MatchArm, NumberOps, SemanticType,
-};
-use crate::ir::typed::{self, BoolT, ColorT, GraphicT, NumberT, StringT};
+use crate::ir::ast::{self, Expr, Literal, MatchArm, OpBin, OpUn};
+use crate::ir::scene::marker;
+use crate::ir::{Number, Type, scene};
 
-pub trait Evaluable: SemanticType {
+pub trait Evaluable {
     type Output: Debug + Clone;
     /// Converts an evaluated output to a [`Value`]
     fn to_value(value: Self::Output) -> Value;
     /// Converts a [`Value`] to an evaluated output
     fn from_value(value: Value) -> EResult<Self::Output>;
     /// Evaluates a literal expression
-    fn eval_literal(context: &Context, literal: Self::NativeType) -> EResult<Self::Output>;
-    /// Evaluates an operator node
-    fn eval_operator(context: &Context, op_node: Self::OperatorNode) -> EResult<Self::Output>;
-    /// Matches an evaluated value to a literal typed node
-    ///   Return error if not matched
-    fn match_literal(scrutinee: Self::Output, expected: Self::NativeType) -> EResult<()>;
+    fn eval_literal(context: &Context, literal: Literal) -> EResult<Self::Output>;
+    /// Evaluates a binary operator expression
+    fn eval_op_bin(
+        context: &Context,
+        operator: OpBin,
+        left: Expr,
+        right: Expr,
+    ) -> EResult<Self::Output>;
+    /// Evaluates a unary operator expression
+    fn eval_op_un(context: &Context, operator: OpUn, expr: Expr) -> EResult<Self::Output>;
+    /// Matches an evaluated value to a literal ast value
+    fn match_literal(
+        context: &mut Context,
+        scrutinee: Self::Output,
+        literal_pattern: Literal,
+    ) -> EResult<bool>;
 }
 
-pub fn eval_generic(context: &Context, expr: ExprGeneric) -> EResult<Value> {
-    Ok(match expr {
-        ExprGeneric::Number(expr) => Value::Number(eval(context, expr)?),
-        ExprGeneric::String(expr) => Value::String(eval(context, expr)?),
-        ExprGeneric::Bool(expr) => Value::Bool(eval(context, expr)?),
-        ExprGeneric::Color(expr) => Value::Color(eval(context, expr)?),
-        ExprGeneric::Graphic(expr) => Value::Graphic(eval(context, expr)?),
-    })
-}
-
-pub fn eval<T: Evaluable>(context: &Context, expr: Expr<T>) -> EResult<T::Output> {
+pub fn eval<T: Evaluable>(context: &Context, expr: ast::Expr) -> EResult<T::Output> {
     match expr {
         Expr::Literal(literal) => T::eval_literal(context, literal),
         Expr::Variable(name) => {
             let value = context.get_var(&name)?;
             T::from_value(value)
         }
-        Expr::Call {
-            function,
-            arguments,
-        } => eval_call::<T>(context, function, arguments),
-        Expr::Operator(op) => T::eval_operator(context, op),
+        Expr::Call { function, args } => eval_call::<T>(context, function, args),
+        Expr::Binary {
+            operator,
+            left,
+            right,
+        } => T::eval_op_bin(context, operator, *left, *right),
+        Expr::Unary { operator, operand } => T::eval_op_un(context, operator, *operand),
         Expr::Match { scrutinee, arms } => {
-            let s = eval_generic(context, *scrutinee)?;
-            eval_match(context, arms, s)
+            let s = eval::<marker::Any>(context, *scrutinee)?;
+            eval_match::<T>(context, arms, s)
         }
         Expr::If {
             condition,
             then_branch,
             else_branch,
-        } => eval_if(context, *condition, *then_branch, *else_branch),
+        } => eval_if::<T>(context, *condition, *then_branch, *else_branch),
         Expr::Field { object, field } => eval_field_access::<T>(context, object, field),
     }
 }
 
 /// Generic function call evaluation.
-fn eval_call<T: Evaluable>(
-    context: &Context,
-    func: String,
-    args: Vec<ExprGeneric>,
-) -> EResult<T::Output> {
+fn eval_call<T: Evaluable>(context: &Context, func: String, args: Vec<Expr>) -> EResult<T::Output> {
     let Function {
         params,
         scope,
         return_expr,
     } = context.get_function(&func)?;
-    let mut context = context.new_scope_function(
-        &params,
-        args.into_iter()
-            .map(|a| eval_generic(context, a))
-            .collect::<Result<Vec<Value>, _>>()?,
-    );
+    // Ensure arguments have correct type
+    if params.len() != args.len() {
+        return Err("Incorrect number of arguments".to_string());
+    }
+    let args: Vec<(String, Value)> = params
+        .iter()
+        .zip(args)
+        .map(|(p, arg_expr)| {
+            let (name, ty) = p;
+            let arg = match ty {
+                Type::Number => eval::<marker::Number>(context, arg_expr).map(Value::Number),
+                Type::String => eval::<marker::String>(context, arg_expr).map(Value::String),
+                Type::Bool => eval::<marker::Bool>(context, arg_expr).map(Value::Bool),
+                Type::Color => eval::<marker::Color>(context, arg_expr).map(Value::Color),
+                Type::Graphic => eval::<marker::Graphic>(context, arg_expr).map(Value::Graphic),
+                Type::GType(_) => eval::<marker::Graphic>(context, arg_expr).map(Value::Graphic),
+            };
+            arg.map(|arg| (name.clone(), arg))
+        })
+        .collect::<Result<Vec<_>, _>>()?;
 
+    // Add arguments to context as variables
+    let mut context = context.new_scope_function(args);
+
+    // Evaluate "where" scope of variables
     for assignment in scope {
         eval_assignment(&mut context, assignment.clone())?;
     }
-    let value = eval_generic(&context, return_expr.clone())?;
+    // Evaluate return expression
+    let value = eval::<marker::Any>(&context, return_expr.clone())?;
     T::from_value(value)
 }
 
 fn match_pattern<T: Evaluable>(
-    context: &Context,
+    context: &mut Context,
     scrutinee: T::Output,
-    pattern: Expr<T>,
-) -> EResult<(bool, Option<Context>)> {
+    pattern: Expr,
+) -> EResult<bool> {
     match pattern {
         Expr::Variable(name) => {
-            let new_context = context.with_var(name, T::to_value(scrutinee.clone()));
-            Ok((true, Some(new_context)))
+            context.set_var(name, T::to_value(scrutinee));
+            Ok(true)
         }
-        Expr::Literal(expected) => {
-            let matched = T::match_literal(scrutinee.clone(), expected).is_ok();
-            Ok((matched, None))
-        }
+        Expr::Literal(lit_pattern) => T::match_literal(context, scrutinee, lit_pattern),
         _ => Err("Pattern not supported".to_string()),
     }
 }
@@ -107,7 +118,7 @@ fn match_pattern<T: Evaluable>(
 /// Generic match-arm evaluation.
 fn eval_match<T: Evaluable>(
     context: &Context,
-    arms: Vec<MatchArm<T>>,
+    arms: Vec<MatchArm>,
     scrutinee: Value,
 ) -> EResult<T::Output> {
     for MatchArm {
@@ -116,25 +127,18 @@ fn eval_match<T: Evaluable>(
         body,
     } in arms
     {
-        let current_ctx: &Context;
-        let (matched, arm_ctx) = match (scrutinee.clone(), pattern) {
-            (Value::Number(v), ExprGeneric::Number(e)) => match_pattern(context, v, e)?,
-            (Value::String(v), ExprGeneric::String(e)) => match_pattern(context, v, e)?,
-            (Value::Bool(v), ExprGeneric::Bool(e)) => match_pattern(context, v, e)?,
-            (Value::Color(v), ExprGeneric::Color(e)) => match_pattern(context, v, e)?,
-            (Value::Graphic(v), ExprGeneric::Graphic(e)) => match_pattern(context, v, e)?,
-            _ => unreachable!("Type mismatch in match pattern"),
-        };
+        let mut arm_ctx = context.clone();
+        let matched = match_pattern::<marker::Any>(&mut arm_ctx, scrutinee.clone(), pattern)?;
         if !matched {
             continue;
         }
-        current_ctx = arm_ctx.as_ref().unwrap_or(context);
+
         if let Some(condition) = guard {
-            if !eval::<BoolT>(current_ctx, condition)? {
+            if !eval::<marker::Bool>(&arm_ctx, condition)? {
                 continue;
             }
         }
-        return eval(current_ctx, body);
+        return eval::<T>(&arm_ctx, body);
     }
     Err("No match arm matched".to_string())
 }
@@ -142,14 +146,14 @@ fn eval_match<T: Evaluable>(
 /// Generic if-expression evaluation.
 fn eval_if<T: Evaluable>(
     context: &Context,
-    condition: Expr<BoolT>,
-    then_branch: Expr<T>,
-    else_branch: Expr<T>,
+    condition: Expr,
+    then_branch: Expr,
+    else_branch: Expr,
 ) -> EResult<T::Output> {
-    if eval::<BoolT>(context, condition)? {
-        eval(context, then_branch)
+    if eval::<marker::Bool>(context, condition)? {
+        eval::<T>(context, then_branch)
     } else {
-        eval(context, else_branch)
+        eval::<T>(context, else_branch)
     }
 }
 
@@ -206,15 +210,66 @@ fn eval_field_access<T: Evaluable>(
     T::from_value(result)
 }
 
-/// Extracts literal from an expr and matches to an evaluated value.
-fn match_literal_expr<T: Evaluable>(scrutinee: T::Output, expected: Expr<T>) -> EResult<()> {
-    match expected {
-        Expr::Literal(literal) => T::match_literal(scrutinee, literal),
-        _ => Err("Expected a literal".to_string()),
+impl Evaluable for marker::Any {
+    type Output = Value;
+    fn to_value(value: Self::Output) -> Value {
+        value
+    }
+    fn from_value(value: Value) -> EResult<Self::Output> {
+        Ok(value)
+    }
+    fn eval_literal(context: &Context, literal: Literal) -> EResult<Self::Output> {
+        Ok(match literal {
+            Literal::Number(n) => Value::Number(n),
+            Literal::String(s) => Value::String(s),
+            Literal::Bool(b) => Value::Bool(b),
+            Literal::Color(_) => Value::Color(marker::Color::eval_literal(context, literal)?),
+            Literal::Graphic(_) => Value::Graphic(marker::Graphic::eval_literal(context, literal)?),
+        })
+    }
+    fn eval_op_bin(
+        context: &Context,
+        operator: OpBin,
+        left: Expr,
+        right: Expr,
+    ) -> EResult<Self::Output> {
+        match operator {
+            OpBin::Add | OpBin::Sub | OpBin::Mul | OpBin::Div => {
+                marker::Number::eval_op_bin(context, operator, left, right).map(Value::Number)
+            }
+            OpBin::Gt
+            | OpBin::Gte
+            | OpBin::Lt
+            | OpBin::Lte
+            | OpBin::Eq
+            | OpBin::Neq
+            | OpBin::And
+            | OpBin::Or => {
+                marker::Bool::eval_op_bin(context, operator, left, right).map(Value::Bool)
+            }
+        }
+    }
+    fn eval_op_un(context: &Context, operator: OpUn, expr: Expr) -> EResult<Self::Output> {
+        match operator {
+            OpUn::Not => marker::Bool::eval_op_un(context, operator, expr).map(Value::Bool),
+        }
+    }
+    fn match_literal(
+        context: &mut Context,
+        scrutinee: Self::Output,
+        literal_pattern: Literal,
+    ) -> EResult<bool> {
+        match scrutinee {
+            Value::Number(s) => marker::Number::match_literal(context, s, literal_pattern),
+            Value::String(s) => marker::String::match_literal(context, s, literal_pattern),
+            Value::Bool(s) => marker::Bool::match_literal(context, s, literal_pattern),
+            Value::Color(s) => marker::Color::match_literal(context, s, literal_pattern),
+            Value::Graphic(s) => marker::Graphic::match_literal(context, s, literal_pattern),
+        }
     }
 }
 
-impl Evaluable for NumberT {
+impl Evaluable for marker::Number {
     type Output = Number;
     fn to_value(value: Self::Output) -> Value {
         Value::Number(value)
@@ -225,33 +280,44 @@ impl Evaluable for NumberT {
             _ => Err("Expected a number".to_string()),
         }
     }
-    fn eval_literal(_: &Context, literal: Self::NativeType) -> EResult<Self::Output> {
-        Ok(literal)
-    }
-    fn eval_operator(context: &Context, op_node: Self::OperatorNode) -> EResult<Self::Output> {
-        match op_node {
-            NumberOps::Arithmetic { op, left, right } => {
-                let left = eval(context, *left)?;
-                let right = eval(context, *right)?;
-                Ok(match op {
-                    ArithmeticOp::Add => left + right,
-                    ArithmeticOp::Sub => left - right,
-                    ArithmeticOp::Mul => left * right,
-                    ArithmeticOp::Div => left / right,
-                })
-            }
+    fn eval_literal(_: &Context, literal: Literal) -> EResult<Self::Output> {
+        match literal {
+            Literal::Number(n) => Ok(n),
+            _ => Err("Expected a number".to_string()),
         }
     }
-    fn match_literal(scrutinee: Self::Output, expected: Self::NativeType) -> EResult<()> {
-        if scrutinee == expected {
-            Ok(())
-        } else {
-            Err("Literal mismatch".to_string())
+    fn eval_op_bin(
+        context: &Context,
+        operator: OpBin,
+        left: Expr,
+        right: Expr,
+    ) -> EResult<Self::Output> {
+        let left = eval::<marker::Number>(context, left)?;
+        let right = eval::<marker::Number>(context, right)?;
+        match operator {
+            OpBin::Add => Ok(left + right),
+            OpBin::Sub => Ok(left - right),
+            OpBin::Mul => Ok(left * right),
+            OpBin::Div => Ok(left / right),
+            _ => Err("Unsupported operator for number".to_string()),
+        }
+    }
+    fn eval_op_un(_: &Context, _: OpUn, _: Expr) -> EResult<Self::Output> {
+        Err("Unsupported operator".to_string())
+    }
+    fn match_literal(
+        _: &mut Context,
+        scrutinee: Self::Output,
+        literal_pattern: Literal,
+    ) -> EResult<bool> {
+        match literal_pattern {
+            Literal::Number(n) => Ok(scrutinee == n),
+            _ => Err("Expected a number literal".to_string()),
         }
     }
 }
 
-impl Evaluable for StringT {
+impl Evaluable for marker::String {
     type Output = String;
     fn to_value(value: Self::Output) -> Value {
         Value::String(value)
@@ -262,24 +328,31 @@ impl Evaluable for StringT {
             _ => Err("Expected a string".to_string()),
         }
     }
-    fn eval_literal(_: &Context, literal: Self::NativeType) -> EResult<Self::Output> {
-        Ok(literal)
-    }
-    fn eval_operator(_: &Context, op_node: Self::OperatorNode) -> EResult<Self::Output> {
-        match op_node {
-            () => Err("Operator not supported".to_string()),
+    fn eval_literal(_: &Context, literal: Literal) -> EResult<Self::Output> {
+        match literal {
+            Literal::String(s) => Ok(s),
+            _ => Err("Expected a string".to_string()),
         }
     }
-    fn match_literal(scrutinee: Self::Output, expected: Self::NativeType) -> EResult<()> {
-        if scrutinee == expected {
-            Ok(())
-        } else {
-            Err("Literal mismatch".to_string())
+    fn eval_op_bin(_: &Context, _: OpBin, _: Expr, _: Expr) -> EResult<Self::Output> {
+        Err("Unsupported operator".to_string())
+    }
+    fn eval_op_un(_: &Context, _: OpUn, _: Expr) -> EResult<Self::Output> {
+        Err("Unsupported operator".to_string())
+    }
+    fn match_literal(
+        _: &mut Context,
+        scrutinee: Self::Output,
+        literal_pattern: Literal,
+    ) -> EResult<bool> {
+        match literal_pattern {
+            Literal::String(s) => Ok(scrutinee == s),
+            _ => Err("Expected a string literal".to_string()),
         }
     }
 }
 
-impl Evaluable for BoolT {
+impl Evaluable for marker::Bool {
     type Output = bool;
     fn to_value(value: Self::Output) -> Value {
         Value::Bool(value)
@@ -290,54 +363,65 @@ impl Evaluable for BoolT {
             _ => Err("Expected a bool".to_string()),
         }
     }
-    fn eval_literal(_: &Context, literal: Self::NativeType) -> EResult<Self::Output> {
-        Ok(literal)
-    }
-    fn eval_operator(context: &Context, op_node: Self::OperatorNode) -> EResult<Self::Output> {
-        match op_node {
-            BoolOps::Compare { op, left, right } => {
-                let l = eval(context, *left)?;
-                let r = eval(context, *right)?;
-                Ok(match op {
-                    CompareOp::Gt => l > r,
-                    CompareOp::Gte => l >= r,
-                    CompareOp::Lt => l < r,
-                    CompareOp::Lte => l <= r,
-                    CompareOp::Eq => l == r,
-                    CompareOp::Neq => l != r,
-                })
-            }
-            BoolOps::Not(operand) => Ok(!eval(context, *operand)?),
-            BoolOps::Logic { op, left, right } => match op {
-                LogicOp::And => {
-                    // Short-circuit evaluation
-                    if !eval(context, *left)? {
-                        Ok(false)
-                    } else {
-                        eval(context, *right)
-                    }
-                }
-                LogicOp::Or => {
-                    // Short-circuit evaluation
-                    if eval(context, *left)? {
-                        Ok(true)
-                    } else {
-                        eval(context, *right)
-                    }
-                }
-            },
+    fn eval_literal(_: &Context, literal: Literal) -> EResult<Self::Output> {
+        match literal {
+            Literal::Bool(b) => Ok(b),
+            _ => Err("Expected a bool".to_string()),
         }
     }
-    fn match_literal(scrutinee: Self::Output, expected: Self::NativeType) -> EResult<()> {
-        if scrutinee == expected {
-            Ok(())
-        } else {
-            Err("Literal mismatch".to_string())
+    fn eval_op_bin(
+        context: &Context,
+        operator: OpBin,
+        left: Expr,
+        right: Expr,
+    ) -> EResult<Self::Output> {
+        match operator {
+            OpBin::And | OpBin::Or => {
+                let l = eval::<marker::Bool>(context, left)?;
+                let r = eval::<marker::Bool>(context, right)?;
+                Ok(match operator {
+                    OpBin::And => l && r,
+                    OpBin::Or => l || r,
+                    _ => unreachable!(),
+                })
+            }
+            OpBin::Gt | OpBin::Gte | OpBin::Lt | OpBin::Lte | OpBin::Eq | OpBin::Neq => {
+                let l = eval::<marker::Number>(context, left)?;
+                let r = eval::<marker::Number>(context, right)?;
+                Ok(match operator {
+                    OpBin::Gt => l > r,
+                    OpBin::Gte => l >= r,
+                    OpBin::Lt => l < r,
+                    OpBin::Lte => l <= r,
+                    OpBin::Eq => l == r,
+                    OpBin::Neq => l != r,
+                    _ => unreachable!(),
+                })
+            }
+            _ => Err("Unsupported operator".to_string()),
+        }
+    }
+    fn eval_op_un(context: &Context, operator: OpUn, expr: Expr) -> EResult<Self::Output> {
+        match operator {
+            OpUn::Not => {
+                let value = eval::<marker::Bool>(context, expr)?;
+                Ok(!value)
+            }
+        }
+    }
+    fn match_literal(
+        _: &mut Context,
+        scrutinee: Self::Output,
+        literal_pattern: Literal,
+    ) -> EResult<bool> {
+        match literal_pattern {
+            Literal::Bool(b) => Ok(scrutinee == b),
+            _ => Err("Expected a bool literal".to_string()),
         }
     }
 }
 
-impl Evaluable for ColorT {
+impl Evaluable for marker::Color {
     type Output = scene::Color;
     fn to_value(value: Self::Output) -> Value {
         Value::Color(value)
@@ -348,37 +432,48 @@ impl Evaluable for ColorT {
             _ => Err("Expected a color".to_string()),
         }
     }
-    fn eval_literal(context: &Context, literal: Self::NativeType) -> EResult<Self::Output> {
-        let typed::Color::Rgba { r, g, b, a } = literal;
+    fn eval_literal(context: &Context, literal: Literal) -> EResult<Self::Output> {
+        let Literal::Color(ast::Color::Rgba { r, g, b, a }) = literal else {
+            return Err("Expected a color".to_string());
+        };
         Ok(scene::Color::Rgba {
-            r: eval(context, *r)?,
-            g: eval(context, *g)?,
-            b: eval(context, *b)?,
-            a: eval(context, *a)?,
+            r: eval::<marker::Number>(context, *r)?,
+            g: eval::<marker::Number>(context, *g)?,
+            b: eval::<marker::Number>(context, *b)?,
+            a: eval::<marker::Number>(context, *a)?,
         })
     }
-    fn eval_operator(_: &Context, op_node: Self::OperatorNode) -> EResult<Self::Output> {
-        match op_node {
-            () => Err("Operator not supported".to_string()),
-        }
+    fn eval_op_bin(_: &Context, _: OpBin, _: Expr, _: Expr) -> EResult<Self::Output> {
+        Err("Unsupported operator".to_string())
     }
-    fn match_literal(scrutinee: Self::Output, expected: Self::NativeType) -> EResult<()> {
-        let scene::Color::Rgba { r, g, b, a } = scrutinee;
-        let typed::Color::Rgba {
-            r: r_e,
-            g: g_e,
-            b: b_e,
-            a: a_e,
-        } = expected;
-        // All fields must be literals
-        match_literal_expr(r, *r_e)?;
-        match_literal_expr(g, *g_e)?;
-        match_literal_expr(b, *b_e)?;
-        match_literal_expr(a, *a_e)
+    fn eval_op_un(_: &Context, _: OpUn, _: Expr) -> EResult<Self::Output> {
+        Err("Unsupported operator".to_string())
+    }
+    fn match_literal(
+        context: &mut Context,
+        scrutinee: Self::Output,
+        literal_pattern: Literal,
+    ) -> EResult<bool> {
+        match literal_pattern {
+            Literal::Color(c) => {
+                let scene::Color::Rgba { r, g, b, a } = scrutinee;
+                let ast::Color::Rgba {
+                    r: r_expr,
+                    g: g_expr,
+                    b: b_expr,
+                    a: a_expr,
+                } = c;
+                Ok(match_pattern::<marker::Number>(context, r, *r_expr)?
+                    && match_pattern::<marker::Number>(context, g, *g_expr)?
+                    && match_pattern::<marker::Number>(context, b, *b_expr)?
+                    && match_pattern::<marker::Number>(context, a, *a_expr)?)
+            }
+            _ => Err("Expected a color literal".to_string()),
+        }
     }
 }
 
-impl Evaluable for GraphicT {
+impl Evaluable for marker::Graphic {
     type Output = scene::Graphic;
     fn to_value(value: Self::Output) -> Value {
         Value::Graphic(value)
@@ -389,113 +484,118 @@ impl Evaluable for GraphicT {
             _ => Err("Expected a graphic".to_string()),
         }
     }
-    fn eval_literal(context: &Context, literal: Self::NativeType) -> EResult<Self::Output> {
-        match literal {
-            typed::Graphic::Circle {
+    fn eval_literal(context: &Context, literal: Literal) -> EResult<Self::Output> {
+        let Literal::Graphic(node) = literal else {
+            return Err("Expected a graphic object".to_string());
+        };
+        match node {
+            ast::Graphic::Circle {
                 x,
                 y,
                 radius,
                 color,
             } => Ok(scene::Graphic::Circle {
-                x: eval(context, *x)?,
-                y: eval(context, *y)?,
-                radius: eval(context, *radius)?,
-                color: eval(context, *color)?,
+                x: eval::<marker::Number>(context, *x)?,
+                y: eval::<marker::Number>(context, *y)?,
+                radius: eval::<marker::Number>(context, *radius)?,
+                color: eval::<marker::Color>(context, *color)?,
             }),
-            typed::Graphic::Rect {
+            ast::Graphic::Rect {
                 x,
                 y,
                 width,
                 height,
                 color,
             } => Ok(scene::Graphic::Rect {
-                x: eval(context, *x)?,
-                y: eval(context, *y)?,
-                width: eval(context, *width)?,
-                height: eval(context, *height)?,
-                color: eval(context, *color)?,
+                x: eval::<marker::Number>(context, *x)?,
+                y: eval::<marker::Number>(context, *y)?,
+                width: eval::<marker::Number>(context, *width)?,
+                height: eval::<marker::Number>(context, *height)?,
+                color: eval::<marker::Color>(context, *color)?,
             }),
-            typed::Graphic::Text {
+            ast::Graphic::Text {
                 x,
                 y,
                 content,
                 color,
             } => Ok(scene::Graphic::Text {
-                x: eval(context, *x)?,
-                y: eval(context, *y)?,
-                content: eval(context, *content)?,
-                color: eval(context, *color)?,
+                x: eval::<marker::Number>(context, *x)?,
+                y: eval::<marker::Number>(context, *y)?,
+                content: eval::<marker::String>(context, *content)?,
+                color: eval::<marker::Color>(context, *color)?,
             }),
         }
     }
-    fn eval_operator(_: &Context, op_node: Self::OperatorNode) -> EResult<Self::Output> {
-        match op_node {
-            () => Err("Operator not supported".to_string()),
-        }
+    fn eval_op_bin(_: &Context, _: OpBin, _: Expr, _: Expr) -> EResult<Self::Output> {
+        Err("Unsupported operator".to_string())
     }
-    fn match_literal(scrutinee: Self::Output, expected: Self::NativeType) -> EResult<()> {
-        match (scrutinee, expected) {
-            (
-                scene::Graphic::Circle {
-                    x,
-                    y,
-                    radius,
-                    color,
-                },
-                typed::Graphic::Circle {
-                    x: x_e,
-                    y: y_e,
-                    radius: radius_e,
-                    color: color_e,
-                },
-            ) => {
-                match_literal_expr(x, *x_e)?;
-                match_literal_expr(y, *y_e)?;
-                match_literal_expr(radius, *radius_e)?;
-                match_literal_expr(color, *color_e)
-            }
-            (
-                scene::Graphic::Rect {
-                    x,
-                    y,
-                    width,
-                    height,
-                    color,
-                },
-                typed::Graphic::Rect {
-                    x: x_e,
-                    y: y_e,
-                    width: width_e,
-                    height: height_e,
-                    color: color_e,
-                },
-            ) => {
-                match_literal_expr(x, *x_e)?;
-                match_literal_expr(y, *y_e)?;
-                match_literal_expr(width, *width_e)?;
-                match_literal_expr(height, *height_e)?;
-                match_literal_expr(color, *color_e)
-            }
-            (
-                scene::Graphic::Text {
-                    x,
-                    y,
-                    content,
-                    color,
-                },
-                typed::Graphic::Text {
-                    x: x_e,
-                    y: y_e,
-                    content: content_e,
-                    color: color_e,
-                },
-            ) => {
-                match_literal_expr(x, *x_e)?;
-                match_literal_expr(y, *y_e)?;
-                match_literal_expr(content, *content_e)?;
-                match_literal_expr(color, *color_e)
-            }
-            _ => Err("Not a literal pattern".to_string()),
+    fn eval_op_un(_: &Context, _: OpUn, _: Expr) -> EResult<Self::Output> {
+        Err("Unsupported operator".to_string())
+    }
+    fn match_literal(
+        context: &mut Context,
+        scrutinee: Self::Output,
+        literal_pattern: Literal,
+    ) -> EResult<bool> {
+        match literal_pattern {
+            Literal::Graphic(pattern) => match (scrutinee, pattern) {
+                (
+                    scene::Graphic::Circle {
+                        x,
+                        y,
+                        radius,
+                        color,
+                    },
+                    ast::Graphic::Circle {
+                        x: x_e,
+                        y: y_e,
+                        radius: radius_e,
+                        color: color_e,
+                    },
+                ) => Ok(match_pattern::<marker::Number>(context, x, *x_e)?
+                    && match_pattern::<marker::Number>(context, y, *y_e)?
+                    && match_pattern::<marker::Number>(context, radius, *radius_e)?
+                    && match_pattern::<marker::Color>(context, color, *color_e)?),
+                (
+                    scene::Graphic::Rect {
+                        x,
+                        y,
+                        width,
+                        height,
+                        color,
+                    },
+                    ast::Graphic::Rect {
+                        x: x_e,
+                        y: y_e,
+                        width: width_e,
+                        height: height_e,
+                        color: color_e,
+                    },
+                ) => Ok(match_pattern::<marker::Number>(context, x, *x_e)?
+                    && match_pattern::<marker::Number>(context, y, *y_e)?
+                    && match_pattern::<marker::Number>(context, width, *width_e)?
+                    && match_pattern::<marker::Number>(context, height, *height_e)?
+                    && match_pattern::<marker::Color>(context, color, *color_e)?),
+                (
+                    scene::Graphic::Text {
+                        x,
+                        y,
+                        content,
+                        color,
+                    },
+                    ast::Graphic::Text {
+                        x: x_e,
+                        y: y_e,
+                        content: content_e,
+                        color: color_e,
+                    },
+                ) => Ok(match_pattern::<marker::Number>(context, x, *x_e)?
+                    && match_pattern::<marker::Number>(context, y, *y_e)?
+                    && match_pattern::<marker::String>(context, content, *content_e)?
+                    && match_pattern::<marker::Color>(context, color, *color_e)?),
+                _ => Ok(false),
+            },
+            _ => Err("Expected a graphic literal".to_string()),
         }
     }
 }
