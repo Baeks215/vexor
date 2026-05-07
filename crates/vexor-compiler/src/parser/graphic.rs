@@ -2,7 +2,7 @@
 
 use crate::ir::ast;
 use crate::parser::expr::p_expr;
-use crate::parser::keyword::{pk_circle, pk_rect, pk_text};
+use crate::parser::keyword::{self as k, pk_circle, pk_rect, pk_text};
 use crate::parser::{Input, WhiteSpaceParser, braced};
 use winnow::combinator::{alt, separated, separated_pair};
 use winnow::error::{ContextError, ErrMode};
@@ -54,9 +54,9 @@ pub fn p_graphic<'a>(input: &mut Input<'a>) -> ModalResult<ast::Graphic> {
     build_graphic(name, fields)
 }
 
-fn build_graphic(name: &str, fields: Vec<(&str, ast::Expr)>) -> ModalResult<ast::Graphic> {
+fn build_graphic(name: k::Graphic, fields: Vec<(&str, ast::Expr)>) -> ModalResult<ast::Graphic> {
     match name {
-        "Circle" => {
+        k::Graphic::Circle => {
             let (x, y, radius, color) = extract_fields!(fields, [x, y, radius, color]);
             Ok(ast::Graphic::Circle {
                 x: Box::new(x),
@@ -65,7 +65,7 @@ fn build_graphic(name: &str, fields: Vec<(&str, ast::Expr)>) -> ModalResult<ast:
                 color: Box::new(color),
             })
         }
-        "Rect" => {
+        k::Graphic::Rect => {
             let (x, y, width, height, color) =
                 extract_fields!(fields, [x, y, width, height, color]);
             Ok(ast::Graphic::Rect {
@@ -76,7 +76,7 @@ fn build_graphic(name: &str, fields: Vec<(&str, ast::Expr)>) -> ModalResult<ast:
                 color: Box::new(color),
             })
         }
-        "Text" => {
+        k::Graphic::Text => {
             let (x, y, content, color) = extract_fields!(fields, [x, y, content, color]);
             Ok(ast::Graphic::Text {
                 x: Box::new(x),
@@ -85,6 +85,5 @@ fn build_graphic(name: &str, fields: Vec<(&str, ast::Expr)>) -> ModalResult<ast:
                 color: Box::new(color),
             })
         }
-        _ => unreachable!(),
     }
 }

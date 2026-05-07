@@ -143,7 +143,7 @@ fn test_compile_match() {
 
     // Destructure Circle fields, use captured radius in body (7 * 2 = 14)
     let prog = format!(
-        "let g = Circle {{ x: 0, y: 0, radius: 7, color: {RED} }}\nlet r = match g {{ Circle {{ x: cx, y: cy, radius: rad, color: c }} => rad * 2, y => 0 }}\nexport Circle {{ x: 0, y: 0, radius: r, color: {RED} }}"
+        "let g = Circle {{ x: 0, y: 0, radius: 7, color: {RED} }}\nlet r = match g {{ Circle {{ x: cx, y: cy, radius: radius, color: c }} => radius * 2, y => 0 }}\nexport Circle {{ x: 0, y: 0, radius: r, color: {RED} }}"
     );
     assert_eq!(ok(&prog).exports[0], circle(0.0, 0.0, 14.0));
 
@@ -167,13 +167,13 @@ fn test_compile_match() {
 
     // Multi-variant: extract x coord from whichever graphic variant matches
     let prog = format!(
-        "let g = Rect {{ x: 3, y: 0, width: 1, height: 1, color: {RED} }}\nlet r = match g {{ Circle {{ x: gx, y: gy, radius: rad, color: c }} => gx, Rect {{ x: gx, y: gy, width: w, height: h, color: c }} => gx, y => 0 }}\nexport Circle {{ x: 0, y: 0, radius: r, color: {RED} }}"
+        "let g = Rect {{ x: 3, y: 0, width: 1, height: 1, color: {RED} }}\nlet r = match g {{ Circle {{ x: gx, y: gy, radius: radius, color: c }} => gx, Rect {{ x: gx, y: gy, width: w, height: h, color: c }} => gx, y => 0 }}\nexport Circle {{ x: 0, y: 0, radius: r, color: {RED} }}"
     );
     assert_eq!(ok(&prog).exports[0], circle(0.0, 0.0, 3.0));
 
     // Variant mismatch: Rect does not match Circle pattern, falls to catch-all
     let prog = format!(
-        "let g = Rect {{ x: 0, y: 0, width: 2, height: 2, color: {RED} }}\nlet r = match g {{ Circle {{ x: cx, y: cy, radius: rad, color: c }} => rad, y => 99 }}\nexport Circle {{ x: 0, y: 0, radius: r, color: {RED} }}"
+        "let g = Rect {{ x: 0, y: 0, width: 2, height: 2, color: {RED} }}\nlet r = match g {{ Circle {{ x: cx, y: cy, radius: radius, color: c }} => radius, y => 99 }}\nexport Circle {{ x: 0, y: 0, radius: r, color: {RED} }}"
     );
     assert_eq!(ok(&prog).exports[0], circle(0.0, 0.0, 99.0));
 }
@@ -264,4 +264,50 @@ fn test_compile_list() {
 
     // length mismatch falls through to catch-all
     assert_number("match [1, 2] { [a, b, c] => 99, y => 0 }", 0.0);
+}
+
+#[test]
+fn test_compile_std() {
+    use std::f64::consts::PI;
+
+    // pi constant
+    assert_number("pi", PI);
+
+    // exact-result trig at 0
+    assert_number("rad(0)", 0.0);
+    assert_number("sin(0)", 0.0);
+    assert_number("cos(0)", 1.0);
+    assert_number("tan(0)", 0.0);
+
+    // rad on full turn
+    assert_number("rad(180)", 180.0_f64.to_radians());
+    assert_number("rad(360)", 360.0_f64.to_radians());
+
+    // expression args
+    assert_number("sin(1 + 2 - 3)", 0.0);
+    assert_number("cos(2 * 0)", 1.0);
+
+    // composition
+    assert_number("sin(rad(0))", 0.0);
+    assert_number("cos(rad(0))", 1.0);
+
+    // pi inside expression
+    assert_number("pi * 0", 0.0);
+    assert_number("pi - pi", 0.0);
+
+    // std calls inside let bindings + functions
+    let with_let =
+        format!("let z = sin(0)\nexport Circle {{ x: 0, y: 0, radius: z + 5, color: {RED} }}");
+    assert_eq!(ok(&with_let).exports[0], circle(0.0, 0.0, 5.0));
+
+    let with_fn = format!(
+        "fn deg_sin(d) = sin(rad(d))\nexport Circle {{ x: 0, y: 0, radius: deg_sin(0) + 3, color: {RED} }}"
+    );
+    assert_eq!(ok(&with_fn).exports[0], circle(0.0, 0.0, 3.0));
+
+    // pi as function arg
+    let pi_arg = format!(
+        "fn id(x) = x\nexport Circle {{ x: 0, y: 0, radius: id(pi) - id(pi), color: {RED} }}"
+    );
+    assert_eq!(ok(&pi_arg).exports[0], circle(0.0, 0.0, 0.0));
 }

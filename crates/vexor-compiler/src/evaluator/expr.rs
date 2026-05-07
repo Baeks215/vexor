@@ -1,10 +1,11 @@
 //! Evaluator for expressions
 
+use std::f64::consts::PI;
 use std::fmt::Debug;
 
 use crate::evaluator::program::eval_assignment;
 use crate::evaluator::{Context, EResult, Function, Value};
-use crate::ir::ast::{self, Expr, Literal, MatchArm, OpBin, OpUn};
+use crate::ir::ast::{self, Expr, Literal, MatchArm, OpBin, OpUn, Std};
 use crate::ir::scene::marker;
 use crate::ir::{ListNode, Number, scene};
 
@@ -48,7 +49,9 @@ pub fn eval<T: Evaluable>(context: &Context, expr: ast::Expr) -> EResult<T::Outp
             let value = context.get_var(&name)?;
             T::from_value(value)
         }
+        Expr::Const(c) => eval_const::<T>(c),
         Expr::Call { function, args } => eval_call::<T>(context, function, args),
+        Expr::Std(std) => eval_std::<T>(context, std),
         Expr::Binary {
             operator,
             left,
@@ -66,6 +69,36 @@ pub fn eval<T: Evaluable>(context: &Context, expr: ast::Expr) -> EResult<T::Outp
         } => eval_if::<T>(context, *condition, *then_branch, *else_branch),
         Expr::Field { object, field } => eval_field_access::<T>(context, object, field),
     }
+}
+
+/// Evaluates a constant value.
+fn eval_const<T: Evaluable>(c: ast::Const) -> Result<<T as Evaluable>::Output, String> {
+    T::from_value(match c {
+        ast::Const::Pi => Value::Number(PI),
+    })
+}
+
+/// Evaluates a standard function call.
+fn eval_std<T: Evaluable>(context: &Context, std: Std) -> Result<<T as Evaluable>::Output, String> {
+    let result = match std {
+        Std::Rad(expr) => {
+            let x = eval::<marker::Number>(context, *expr)?;
+            Value::Number(x.to_radians())
+        }
+        Std::Sin(expr) => {
+            let x = eval::<marker::Number>(context, *expr)?;
+            Value::Number(x.sin())
+        }
+        Std::Cos(expr) => {
+            let x = eval::<marker::Number>(context, *expr)?;
+            Value::Number(x.cos())
+        }
+        Std::Tan(expr) => {
+            let x = eval::<marker::Number>(context, *expr)?;
+            Value::Number(x.tan())
+        }
+    };
+    T::from_value(result)
 }
 
 /// Generic function call evaluation.
