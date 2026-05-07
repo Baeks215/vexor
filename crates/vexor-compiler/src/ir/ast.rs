@@ -55,6 +55,7 @@ pub enum OpBin {
     Neq,
     And,
     Or,
+    Cons,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -69,6 +70,7 @@ pub enum Literal {
     Bool(bool),
     Color(Color),
     Graphic(Graphic),
+    List(Vec<Expr>),
 }
 
 /// Expression

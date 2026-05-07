@@ -18,6 +18,8 @@ pub mod marker {
     pub struct Color;
     #[derive(Debug, Clone, Copy)]
     pub struct Graphic;
+    #[derive(Debug, Clone, Copy)]
+    pub struct List;
 }
 
 /// Color Literal, typed

@@ -6,7 +6,7 @@ use crate::evaluator::program::eval_assignment;
 use crate::evaluator::{Context, EResult, Function, Value};
 use crate::ir::ast::{self, Expr, Literal, MatchArm, OpBin, OpUn};
 use crate::ir::scene::marker;
-use crate::ir::{Number, scene};
+use crate::ir::{ListNode, Number, scene};
 
 pub trait Evaluable {
     type Output: Debug + Clone;
@@ -216,6 +216,7 @@ impl Evaluable for marker::Any {
             Literal::Bool(b) => Value::Bool(b),
             Literal::Color(_) => Value::Color(marker::Color::eval_literal(context, literal)?),
             Literal::Graphic(_) => Value::Graphic(marker::Graphic::eval_literal(context, literal)?),
+            Literal::List(_) => Value::List(marker::List::eval_literal(context, literal)?),
         })
     }
     fn eval_op_bin(
@@ -238,6 +239,9 @@ impl Evaluable for marker::Any {
             | OpBin::Or => {
                 marker::Bool::eval_op_bin(context, operator, left, right).map(Value::Bool)
             }
+            OpBin::Cons => {
+                marker::List::eval_op_bin(context, operator, left, right).map(Value::List)
+            }
         }
     }
     fn eval_op_un(context: &Context, operator: OpUn, expr: Expr) -> EResult<Self::Output> {
@@ -256,6 +260,7 @@ impl Evaluable for marker::Any {
             Value::Bool(s) => marker::Bool::match_literal(context, s, literal_pattern),
             Value::Color(s) => marker::Color::match_literal(context, s, literal_pattern),
             Value::Graphic(s) => marker::Graphic::match_literal(context, s, literal_pattern),
+            Value::List(s) => marker::List::match_literal(context, s, literal_pattern),
         }
     }
 }
@@ -587,6 +592,79 @@ impl Evaluable for marker::Graphic {
                 _ => Ok(false),
             },
             _ => Err("Expected a graphic literal".to_string()),
+        }
+    }
+}
+
+impl Evaluable for marker::List {
+    type Output = Box<ListNode<Value>>;
+    fn to_value(value: Self::Output) -> Value {
+        Value::List(value)
+    }
+    fn from_value(value: Value) -> EResult<Self::Output> {
+        match value {
+            Value::List(l) => Ok(l),
+            _ => Err("Expected a list".to_string()),
+        }
+    }
+    fn eval_literal(context: &Context, literal: Literal) -> EResult<Self::Output> {
+        match literal {
+            Literal::List(exprs) => {
+                // Build Linked List from vector literal
+                let mut acc = Box::new(ListNode::Nil);
+                for e in exprs.into_iter().rev() {
+                    let e = eval::<marker::Any>(context, e)?;
+                    acc = Box::new(ListNode::Cons(e, acc));
+                }
+                Ok(acc)
+            }
+            _ => Err("Expected a list".to_string()),
+        }
+    }
+    fn eval_op_bin(
+        context: &Context,
+        operator: OpBin,
+        left: Expr,
+        right: Expr,
+    ) -> EResult<Self::Output> {
+        match operator {
+            OpBin::Cons => {
+                let head = eval::<marker::Any>(context, left)?;
+                let tail = eval::<marker::List>(context, right)?;
+                Ok(Box::new(ListNode::Cons(head, tail)))
+            }
+            _ => Err("Unsupported operator".to_string()),
+        }
+    }
+    fn eval_op_un(_: &Context, _: OpUn, _: Expr) -> EResult<Self::Output> {
+        Err("Unsupported operator".to_string())
+    }
+    fn match_literal(
+        context: &mut Context,
+        scrutinee: Self::Output,
+        literal_pattern: Literal,
+    ) -> EResult<bool> {
+        match literal_pattern {
+            Literal::List(ps) => {
+                let mut node = scrutinee;
+                for item_pattern in ps.into_iter() {
+                    let ListNode::Cons(head, tail) = *node else {
+                        // Scrutinee is Nil, pattern is too long
+                        return Ok(false);
+                    };
+                    let matched = match_pattern::<marker::Any>(context, head, item_pattern)?;
+                    if !matched {
+                        return Ok(false);
+                    }
+                    node = tail;
+                }
+                match *node {
+                    ListNode::Nil => Ok(true),
+                    // Scrutinee still has items left, pattern is too short
+                    ListNode::Cons(_, _) => Ok(false),
+                }
+            }
+            _ => Err("Expected a list literal".to_string()),
         }
     }
 }

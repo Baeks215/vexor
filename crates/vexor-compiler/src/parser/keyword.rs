@@ -43,6 +43,8 @@ define_keywords! {
     // Bool literals
     pk_true => "true",
     pk_false => "false",
+    // List literals
+    pk_nil => "Nil",
     // Standard functions
     pk_rgb => "rgb",
 }

@@ -232,3 +232,30 @@ fn test_compile_function() {
     );
     assert_eq!(ok(&area).exports[0], rect(0.0, 0.0, 6.0, 4.0));
 }
+
+#[test]
+fn test_compile_list() {
+    // single-element extraction
+    assert_number("match [42] { [x] => x, y => 0 }", 42.0);
+
+    // multi-element, capture second
+    assert_number("match [10, 20] { [a, b] => b, y => 0 }", 20.0);
+
+    // literal prefix + capture
+    assert_number("match [1, 2, 3] { [1, 2, x] => x, y => 0 }", 3.0);
+
+    // string list with literal prefix
+    assert_string(
+        "match [\"hello\", \"world\"] { [\"hello\", x] => x, y => \"no\" }",
+        "world",
+    );
+
+    // bool list compiles
+    assert_bool_compiles("match [true, false] { [a, b] => a, y => false }");
+
+    // cons operator builds list
+    assert_number("match 1 : 2 : Nil { [a, b] => a, y => 0 }", 1.0);
+
+    // length mismatch falls through to catch-all
+    assert_number("match [1, 2] { [a, b, c] => 99, y => 0 }", 0.0);
+}

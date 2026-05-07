@@ -2,11 +2,13 @@
 
 use crate::ir::Number;
 use crate::ir::ast;
+use crate::parser::keyword::pk_nil;
 use crate::parser::keyword::pk_rgb;
 use crate::parser::keyword::{pk_else, pk_false, pk_if, pk_match, pk_true};
 use crate::parser::object::p_graphic;
 use crate::parser::p_identifier_no_ws;
 use crate::parser::p_raw_identifier_no_ws;
+use crate::parser::square_braced;
 use crate::parser::{Input, WhiteSpaceParser, braced, bracketed};
 use winnow::ascii::float;
 use winnow::combinator::{
@@ -57,6 +59,16 @@ pub fn p_color<'a>(input: &mut Input<'a>) -> ModalResult<ast::Color> {
     .parse_next(input)
 }
 
+/// Parses a list literal.
+pub fn p_list<'a>(input: &mut Input<'a>) -> ModalResult<Vec<ast::Expr>> {
+    alt((
+        pk_nil.map(|_| vec![]),
+        square_braced(separated(0.., p_expr, ','.mws())),
+    ))
+    .ws()
+    .parse_next(input)
+}
+
 /// Parses a function call.
 pub fn p_call<'a>(input: &mut Input<'a>) -> ModalResult<ast::Expr> {
     (
@@ -79,6 +91,7 @@ pub fn p_literal<'a>(input: &mut Input<'a>) -> ModalResult<ast::Literal> {
         p_bool.map(ast::Literal::Bool),
         p_color.map(ast::Literal::Color),
         p_graphic.map(ast::Literal::Graphic),
+        p_list.map(ast::Literal::List),
     ))
     .parse_next(input)
 }
@@ -165,16 +178,20 @@ pub fn p_expr<'a>(input: &mut Input<'a>) -> ModalResult<ast::Expr> {
     expression(p_atom).infix(dispatch! {alt((
         alt(("&&", "||")),
         alt(("==", "!=", ">=", "<=")),
-        alt(("+", "-", "*", "/", ">", "<")),
+        alt(("+", "-", "*", "/", ">", "<", ":")),
     )).ws();
         "||" => Infix::Left(1, |_, a, b| Ok(ast::Expr::Binary { operator: ast::OpBin::Or, left: Box::new(a), right: Box::new(b) })),
         "&&" => Infix::Left(2, |_, a, b| Ok(ast::Expr::Binary { operator: ast::OpBin::And, left: Box::new(a), right: Box::new(b) })),
+        // Comparisons
         "==" => Infix::Left(3, |_, a, b| Ok(ast::Expr::Binary { operator: ast::OpBin::Eq, left: Box::new(a), right: Box::new(b) })),
         "!=" => Infix::Left(3, |_, a, b| Ok(ast::Expr::Binary { operator: ast::OpBin::Neq, left: Box::new(a), right: Box::new(b) })),
-        ">=" => Infix::Left(4, |_, a, b| Ok(ast::Expr::Binary { operator: ast::OpBin::Gte, left: Box::new(a), right: Box::new(b) })),
-        "<=" => Infix::Left(4, |_, a, b| Ok(ast::Expr::Binary { operator: ast::OpBin::Lte, left: Box::new(a), right: Box::new(b) })),
-        ">" => Infix::Left(4, |_, a, b| Ok(ast::Expr::Binary { operator: ast::OpBin::Gt, left: Box::new(a), right: Box::new(b) })),
-        "<" => Infix::Left(4, |_, a, b| Ok(ast::Expr::Binary { operator: ast::OpBin::Lt, left: Box::new(a), right: Box::new(b) })),
+        ">=" => Infix::Left(3, |_, a, b| Ok(ast::Expr::Binary { operator: ast::OpBin::Gte, left: Box::new(a), right: Box::new(b) })),
+        "<=" => Infix::Left(3, |_, a, b| Ok(ast::Expr::Binary { operator: ast::OpBin::Lte, left: Box::new(a), right: Box::new(b) })),
+        ">" => Infix::Left(3, |_, a, b| Ok(ast::Expr::Binary { operator: ast::OpBin::Gt, left: Box::new(a), right: Box::new(b) })),
+        "<" => Infix::Left(3, |_, a, b| Ok(ast::Expr::Binary { operator: ast::OpBin::Lt, left: Box::new(a), right: Box::new(b) })),
+        // Cons
+        ":" => Infix::Right(4, |_, a, b| Ok(ast::Expr::Binary { operator: ast::OpBin::Cons, left: Box::new(a), right: Box::new(b) })),
+        // Arithmetic
         "+" => Infix::Left(5, |_, a, b| Ok(ast::Expr::Binary { operator: ast::OpBin::Add, left: Box::new(a), right: Box::new(b) })),
         "-" => Infix::Left(5, |_, a, b| Ok(ast::Expr::Binary { operator: ast::OpBin::Sub, left: Box::new(a), right: Box::new(b) })),
         "*" => Infix::Left(7, |_, a, b| Ok(ast::Expr::Binary { operator: ast::OpBin::Mul, left: Box::new(a), right: Box::new(b) })),

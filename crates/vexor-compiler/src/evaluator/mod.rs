@@ -24,6 +24,7 @@ pub enum Value {
     Bool(<marker::Bool as Evaluable>::Output),
     Color(<marker::Color as Evaluable>::Output),
     Graphic(<marker::Graphic as Evaluable>::Output),
+    List(<marker::List as Evaluable>::Output),
 }
 
 #[derive(Debug, Clone)]
