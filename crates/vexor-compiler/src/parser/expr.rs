@@ -6,8 +6,7 @@ use crate::parser::keyword::pk_nil;
 use crate::parser::keyword::pk_rgb;
 use crate::parser::keyword::{pk_else, pk_false, pk_if, pk_match, pk_true};
 use crate::parser::object::p_graphic;
-use crate::parser::p_identifier_no_ws;
-use crate::parser::p_raw_identifier_no_ws;
+use crate::parser::p_identifier;
 use crate::parser::square_braced;
 use crate::parser::{Input, WhiteSpaceParser, braced, bracketed};
 use winnow::ascii::float;
@@ -71,10 +70,7 @@ pub fn p_list<'a>(input: &mut Input<'a>) -> ModalResult<Vec<ast::Expr>> {
 
 /// Parses a function call.
 pub fn p_call<'a>(input: &mut Input<'a>) -> ModalResult<ast::Expr> {
-    (
-        p_identifier_no_ws,
-        bracketed(separated(0.., p_expr, ','.ws())),
-    )
+    (p_identifier, bracketed(separated(0.., p_expr, ','.ws())))
         .ws()
         .map(|(function, args)| ast::Expr::Call {
             function: function.to_string(),
@@ -150,8 +146,8 @@ pub fn p_if<'a>(input: &mut Input<'a>) -> ModalResult<ast::Expr> {
 /// Parses identifier or object field access
 pub fn p_identifier_or_field<'a>(input: &mut Input<'a>) -> ModalResult<ast::Expr> {
     (
-        p_identifier_no_ws.map(str::to_string),
-        opt(preceded(".", p_raw_identifier_no_ws.map(str::to_string))),
+        p_identifier.map(str::to_string),
+        opt(preceded(".", p_identifier.map(str::to_string))),
     )
         .ws()
         .map(|(var, field)| match field {

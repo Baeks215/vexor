@@ -3,7 +3,7 @@
 use crate::ir::ast;
 use crate::parser::expr::p_expr;
 use crate::parser::keyword::{pk_export, pk_fn, pk_let, pk_where};
-use crate::parser::{Input, WhiteSpaceParser, braced, bracketed, p_identifier, p_identifier_no_ws};
+use crate::parser::{Input, WhiteSpaceParser, braced, bracketed, p_identifier};
 use itertools::{Either, Itertools};
 use winnow::ascii::{multispace0, multispace1};
 use winnow::combinator::{alt, delimited, opt, preceded, separated, terminated};
@@ -18,7 +18,7 @@ enum ProgramUnit {
 
 fn p_assignment<'a>(input: &mut Input<'a>) -> ModalResult<ast::Assignment> {
     (
-        preceded(pk_let.ws(), p_identifier),
+        preceded(pk_let.ws(), p_identifier.ws()),
         preceded("=".ws(), p_expr),
     )
         .map(|(i, e)| ast::Assignment {
@@ -30,8 +30,8 @@ fn p_assignment<'a>(input: &mut Input<'a>) -> ModalResult<ast::Assignment> {
 
 fn p_function<'a>(input: &mut Input<'a>) -> ModalResult<ast::Function> {
     (
-        preceded(pk_fn.ws(), p_identifier_no_ws), // function name
-        bracketed(separated(0.., p_identifier, ",".ws())) // parameters
+        preceded(pk_fn.ws(), p_identifier), // function name
+        bracketed(separated(0.., p_identifier.ws(), ",".ws())) // parameters
             .ws(),
         preceded("=".mws(), p_expr), // return expression
         opt(preceded(

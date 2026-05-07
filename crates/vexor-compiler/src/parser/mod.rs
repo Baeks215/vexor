@@ -36,26 +36,16 @@ where
     }
 }
 
-/// Parse raw identifier without keyword filtering or whitespace
-fn p_raw_identifier_no_ws<'a>(input: &mut Input<'a>) -> ModalResult<&'a str> {
+/// Parse identifier, no ws
+fn p_identifier<'a>(input: &mut Input<'a>) -> ModalResult<&'a str> {
     (
         take_while(1, |c: char| c.is_alphabetic() || c == '_'),
         take_while(0.., |c: char| c.is_alphanumeric() || c == '_'),
     )
         .take()
-        .parse_next(input)
-}
-
-/// Parse identifier without parsing whitespace after
-fn p_identifier_no_ws<'a>(input: &mut Input<'a>) -> ModalResult<&'a str> {
-    p_raw_identifier_no_ws
+        // Ensure the identifier is not a keyword
         .verify(|ident| !keyword::is_keyword(ident))
         .parse_next(input)
-}
-
-/// Parse identifier, rejects keywords and parses whitespace after
-fn p_identifier<'a>(input: &mut Input<'a>) -> ModalResult<&'a str> {
-    p_identifier_no_ws.ws().parse_next(input)
 }
 
 // --- Helpers ---
@@ -98,7 +88,7 @@ mod tests {
 
         let mut input = Input::new("_123 abc");
         assert_eq!(p_identifier.parse_next(&mut input).unwrap(), "_123");
-        assert_eq!(*input, "abc");
+        assert_eq!(*input, " abc");
 
         // Invalid identifier starts with a digit
         let mut input = Input::new("123");
