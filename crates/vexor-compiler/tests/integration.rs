@@ -256,6 +256,12 @@ fn test_compile_list() {
     // cons operator builds list
     assert_number("match 1 : 2 : Nil { [a, b] => a, y => 0 }", 1.0);
 
+    // match with cons deconstructing
+    assert_number(
+        "match [1, 2] { a : as => a + match as { 2 : Nil => 10, y => 0 }, y => 0 }",
+        11.0,
+    );
+
     // length mismatch falls through to catch-all
     assert_number("match [1, 2] { [a, b, c] => 99, y => 0 }", 0.0);
 }

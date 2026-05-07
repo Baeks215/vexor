@@ -31,6 +31,14 @@ pub trait Evaluable {
         scrutinee: Self::Output,
         literal_pattern: Literal,
     ) -> EResult<bool>;
+    /// Matches an evaluated value to a binary operator pattern
+    fn match_bin(
+        context: &mut Context,
+        scrutinee: Self::Output,
+        operator: OpBin,
+        left: Expr,
+        right: Expr,
+    ) -> EResult<bool>;
 }
 
 pub fn eval<T: Evaluable>(context: &Context, expr: ast::Expr) -> EResult<T::Output> {
@@ -102,6 +110,11 @@ fn match_pattern<T: Evaluable>(
             Ok(true)
         }
         Expr::Literal(lit_pattern) => T::match_literal(context, scrutinee, lit_pattern),
+        Expr::Binary {
+            operator,
+            left,
+            right,
+        } => T::match_bin(context, scrutinee, operator, *left, *right),
         _ => Err("Pattern not supported".to_string()),
     }
 }
@@ -263,6 +276,22 @@ impl Evaluable for marker::Any {
             Value::List(s) => marker::List::match_literal(context, s, literal_pattern),
         }
     }
+    fn match_bin(
+        context: &mut Context,
+        scrutinee: Self::Output,
+        operator: OpBin,
+        left: Expr,
+        right: Expr,
+    ) -> EResult<bool> {
+        match scrutinee {
+            Value::Number(s) => marker::Number::match_bin(context, s, operator, left, right),
+            Value::String(s) => marker::String::match_bin(context, s, operator, left, right),
+            Value::Bool(s) => marker::Bool::match_bin(context, s, operator, left, right),
+            Value::Color(s) => marker::Color::match_bin(context, s, operator, left, right),
+            Value::Graphic(s) => marker::Graphic::match_bin(context, s, operator, left, right),
+            Value::List(s) => marker::List::match_bin(context, s, operator, left, right),
+        }
+    }
 }
 
 impl Evaluable for marker::Number {
@@ -311,6 +340,9 @@ impl Evaluable for marker::Number {
             _ => Err("Expected a number literal".to_string()),
         }
     }
+    fn match_bin(_: &mut Context, _: Self::Output, _: OpBin, _: Expr, _: Expr) -> EResult<bool> {
+        Err("Pattern not supported".to_string())
+    }
 }
 
 impl Evaluable for marker::String {
@@ -345,6 +377,9 @@ impl Evaluable for marker::String {
             Literal::String(s) => Ok(scrutinee == s),
             _ => Err("Expected a string literal".to_string()),
         }
+    }
+    fn match_bin(_: &mut Context, _: Self::Output, _: OpBin, _: Expr, _: Expr) -> EResult<bool> {
+        Err("Pattern not supported".to_string())
     }
 }
 
@@ -415,6 +450,9 @@ impl Evaluable for marker::Bool {
             _ => Err("Expected a bool literal".to_string()),
         }
     }
+    fn match_bin(_: &mut Context, _: Self::Output, _: OpBin, _: Expr, _: Expr) -> EResult<bool> {
+        Err("Pattern not supported".to_string())
+    }
 }
 
 impl Evaluable for marker::Color {
@@ -466,6 +504,9 @@ impl Evaluable for marker::Color {
             }
             _ => Err("Expected a color literal".to_string()),
         }
+    }
+    fn match_bin(_: &mut Context, _: Self::Output, _: OpBin, _: Expr, _: Expr) -> EResult<bool> {
+        Err("Pattern not supported".to_string())
     }
 }
 
@@ -594,6 +635,9 @@ impl Evaluable for marker::Graphic {
             _ => Err("Expected a graphic literal".to_string()),
         }
     }
+    fn match_bin(_: &mut Context, _: Self::Output, _: OpBin, _: Expr, _: Expr) -> EResult<bool> {
+        Err("Pattern not supported".to_string())
+    }
 }
 
 impl Evaluable for marker::List {
@@ -665,6 +709,24 @@ impl Evaluable for marker::List {
                 }
             }
             _ => Err("Expected a list literal".to_string()),
+        }
+    }
+    fn match_bin(
+        context: &mut Context,
+        scrutinee: Self::Output,
+        operator: OpBin,
+        left: Expr,
+        right: Expr,
+    ) -> EResult<bool> {
+        match operator {
+            OpBin::Cons => match *scrutinee {
+                ListNode::Nil => Ok(false),
+                ListNode::Cons(head, tail) => {
+                    Ok(match_pattern::<marker::Any>(context, head, left)?
+                        && match_pattern::<marker::List>(context, tail, right)?)
+                }
+            },
+            _ => Err("Pattern not supported".to_string()),
         }
     }
 }
