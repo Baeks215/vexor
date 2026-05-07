@@ -116,7 +116,7 @@ fn test_compile_bool_exprs() {
     }
 
     let with_fn = format!(
-        "fn cmp(a: Number, b: Number) = a > b\nlet flag = cmp(5, 3)\nexport Circle {{ x: 0, y: 0, radius: 1, color: {RED} }}"
+        "fn cmp(a, b) = a > b\nlet flag = cmp(5, 3)\nexport Circle {{ x: 0, y: 0, radius: 1, color: {RED} }}"
     );
     ok(&with_fn);
 }
@@ -223,12 +223,12 @@ fn test_compile_field_access() {
 #[test]
 fn test_compile_function() {
     let double = format!(
-        "fn double(x: Number) = x + x\nexport Circle {{ x: 0, y: 0, radius: double(5), color: {RED} }}"
+        "fn double(x) = x + x\nexport Circle {{ x: 0, y: 0, radius: double(5), color: {RED} }}"
     );
     assert_eq!(ok(&double).exports[0], circle(0.0, 0.0, 10.0));
 
     let area = format!(
-        "fn area(w: Number, h: Number) = w * h\nexport Rect {{ x: 0, y: 0, width: area(2, 3), height: 4, color: {RED} }}"
+        "fn area(w, h) = w * h\nexport Rect {{ x: 0, y: 0, width: area(2, 3), height: 4, color: {RED} }}"
     );
     assert_eq!(ok(&area).exports[0], rect(0.0, 0.0, 6.0, 4.0));
 }

@@ -6,7 +6,7 @@ use crate::evaluator::program::eval_assignment;
 use crate::evaluator::{Context, EResult, Function, Value};
 use crate::ir::ast::{self, Expr, Literal, MatchArm, OpBin, OpUn};
 use crate::ir::scene::marker;
-use crate::ir::{Number, Type, scene};
+use crate::ir::{Number, scene};
 
 pub trait Evaluable {
     type Output: Debug + Clone;
@@ -74,17 +74,8 @@ fn eval_call<T: Evaluable>(context: &Context, func: String, args: Vec<Expr>) -> 
     let args: Vec<(String, Value)> = params
         .iter()
         .zip(args)
-        .map(|(p, arg_expr)| {
-            let (name, ty) = p;
-            let arg = match ty {
-                Type::Number => eval::<marker::Number>(context, arg_expr).map(Value::Number),
-                Type::String => eval::<marker::String>(context, arg_expr).map(Value::String),
-                Type::Bool => eval::<marker::Bool>(context, arg_expr).map(Value::Bool),
-                Type::Color => eval::<marker::Color>(context, arg_expr).map(Value::Color),
-                Type::Graphic => eval::<marker::Graphic>(context, arg_expr).map(Value::Graphic),
-                Type::GType(_) => eval::<marker::Graphic>(context, arg_expr).map(Value::Graphic),
-            };
-            arg.map(|arg| (name.clone(), arg))
+        .map(|(name, arg_expr)| {
+            eval::<marker::Any>(context, arg_expr).map(|arg| (name.clone(), arg))
         })
         .collect::<Result<Vec<_>, _>>()?;
 
