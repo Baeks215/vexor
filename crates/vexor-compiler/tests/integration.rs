@@ -265,3 +265,49 @@ fn test_compile_list() {
     // length mismatch falls through to catch-all
     assert_number("match [1, 2] { [a, b, c] => 99, y => 0 }", 0.0);
 }
+
+#[test]
+fn test_compile_std() {
+    use std::f64::consts::PI;
+
+    // pi constant
+    assert_number("pi", PI);
+
+    // exact-result trig at 0
+    assert_number("rad(0)", 0.0);
+    assert_number("sin(0)", 0.0);
+    assert_number("cos(0)", 1.0);
+    assert_number("tan(0)", 0.0);
+
+    // rad on full turn
+    assert_number("rad(180)", 180.0_f64.to_radians());
+    assert_number("rad(360)", 360.0_f64.to_radians());
+
+    // expression args
+    assert_number("sin(1 + 2 - 3)", 0.0);
+    assert_number("cos(2 * 0)", 1.0);
+
+    // composition
+    assert_number("sin(rad(0))", 0.0);
+    assert_number("cos(rad(0))", 1.0);
+
+    // pi inside expression
+    assert_number("pi * 0", 0.0);
+    assert_number("pi - pi", 0.0);
+
+    // std calls inside let bindings + functions
+    let with_let =
+        format!("let z = sin(0)\nexport Circle {{ x: 0, y: 0, radius: z + 5, color: {RED} }}");
+    assert_eq!(ok(&with_let).exports[0], circle(0.0, 0.0, 5.0));
+
+    let with_fn = format!(
+        "fn deg_sin(d) = sin(rad(d))\nexport Circle {{ x: 0, y: 0, radius: deg_sin(0) + 3, color: {RED} }}"
+    );
+    assert_eq!(ok(&with_fn).exports[0], circle(0.0, 0.0, 3.0));
+
+    // pi as function arg
+    let pi_arg = format!(
+        "fn id(x) = x\nexport Circle {{ x: 0, y: 0, radius: id(pi) - id(pi), color: {RED} }}"
+    );
+    assert_eq!(ok(&pi_arg).exports[0], circle(0.0, 0.0, 0.0));
+}
