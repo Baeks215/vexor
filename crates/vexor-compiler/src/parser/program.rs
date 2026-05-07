@@ -1,16 +1,12 @@
 //! Parser: Text -> AST
 
 use crate::ir::ast;
-use crate::ir::{GraphicType, Type};
 use crate::parser::expr::p_expr;
-use crate::parser::keyword::{
-    pk_bool, pk_circle, pk_color, pk_export, pk_fn, pk_graphic, pk_let, pk_number, pk_rect,
-    pk_string, pk_text, pk_where,
-};
+use crate::parser::keyword::{pk_export, pk_fn, pk_let, pk_where};
 use crate::parser::{Input, WhiteSpaceParser, braced, bracketed, p_identifier, p_identifier_no_ws};
 use itertools::{Either, Itertools};
 use winnow::ascii::{multispace0, multispace1};
-use winnow::combinator::{alt, delimited, opt, preceded, separated, separated_pair, terminated};
+use winnow::combinator::{alt, delimited, opt, preceded, separated, terminated};
 use winnow::error::{ContextError, ParseError};
 use winnow::{ModalResult, Parser, Result};
 
@@ -18,21 +14,6 @@ use winnow::{ModalResult, Parser, Result};
 enum ProgramUnit {
     Assignment(ast::Assignment),
     Function(ast::Function),
-}
-
-fn p_type<'a>(input: &mut Input<'a>) -> ModalResult<Type> {
-    alt((
-        pk_number.map(|_| Type::Number),
-        pk_string.map(|_| Type::String),
-        pk_bool.map(|_| Type::Bool),
-        pk_color.map(|_| Type::Color),
-        pk_graphic.map(|_| Type::Graphic),
-        pk_circle.map(|_| Type::GType(GraphicType::Circle)),
-        pk_rect.map(|_| Type::GType(GraphicType::Rect)),
-        pk_text.map(|_| Type::GType(GraphicType::Text)),
-    ))
-    .ws()
-    .parse_next(input)
 }
 
 fn p_assignment<'a>(input: &mut Input<'a>) -> ModalResult<ast::Assignment> {
@@ -50,12 +31,8 @@ fn p_assignment<'a>(input: &mut Input<'a>) -> ModalResult<ast::Assignment> {
 fn p_function<'a>(input: &mut Input<'a>) -> ModalResult<ast::Function> {
     (
         preceded(pk_fn.ws(), p_identifier_no_ws), // function name
-        bracketed(separated(
-            0..,
-            separated_pair(p_identifier, ":".ws(), p_type),
-            ",".ws(),
-        )) // parameters
-        .ws(),
+        bracketed(separated(0.., p_identifier, ",".ws())) // parameters
+            .ws(),
         preceded("=".mws(), p_expr), // return expression
         opt(preceded(
             pk_where.ws(),
@@ -63,12 +40,9 @@ fn p_function<'a>(input: &mut Input<'a>) -> ModalResult<ast::Function> {
         )), // where scope
     )
         .map(
-            |(name, params, return_expr, scope): (_, Vec<(&str, Type)>, _, _)| ast::Function {
+            |(name, params, return_expr, scope): (_, Vec<&str>, _, _)| ast::Function {
                 name: name.to_string(),
-                params: params
-                    .into_iter()
-                    .map(|(n, t)| (n.to_string(), t))
-                    .collect(),
+                params: params.into_iter().map(str::to_string).collect(),
                 scope: scope.unwrap_or_default(),
                 return_expr: return_expr,
             },

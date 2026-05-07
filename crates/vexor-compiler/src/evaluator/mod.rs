@@ -1,7 +1,6 @@
 //! Evaluator: Typed AST -> Scene
 
 use crate::evaluator::expr::Evaluable;
-use crate::ir::Type;
 use crate::ir::ast;
 use crate::ir::scene::marker;
 use std::collections::HashMap;
@@ -25,11 +24,12 @@ pub enum Value {
     Bool(<marker::Bool as Evaluable>::Output),
     Color(<marker::Color as Evaluable>::Output),
     Graphic(<marker::Graphic as Evaluable>::Output),
+    List(<marker::List as Evaluable>::Output),
 }
 
 #[derive(Debug, Clone)]
 pub struct Function {
-    pub params: Vec<(String, Type)>,
+    pub params: Vec<String>,
     pub scope: Vec<ast::Assignment>,
     pub return_expr: ast::Expr,
 }

@@ -1,6 +1,6 @@
 //! Abstract Syntax Tree nodes
 
-use crate::ir::{Number, Type};
+use crate::ir::Number;
 
 // --- Primitives ---
 
@@ -55,6 +55,7 @@ pub enum OpBin {
     Neq,
     And,
     Or,
+    Cons,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -69,6 +70,7 @@ pub enum Literal {
     Bool(bool),
     Color(Color),
     Graphic(Graphic),
+    List(Vec<Expr>),
 }
 
 /// Expression
@@ -131,7 +133,7 @@ pub struct Assignment {
 #[derive(Debug, Clone)]
 pub struct Function {
     pub name: String,
-    pub params: Vec<(String, Type)>,
+    pub params: Vec<String>,
     pub scope: Vec<Assignment>,
     pub return_expr: Expr,
 }

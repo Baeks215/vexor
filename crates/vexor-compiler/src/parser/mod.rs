@@ -77,6 +77,15 @@ where
     delimited(('{', multispace0), inner, (multispace0, '}'))
 }
 
+/// Parse between braces "[]"
+///   Can contain new lines within braces
+fn square_braced<'a, F, O>(inner: F) -> impl ModalParser<Input<'a>, O, ContextError>
+where
+    F: ModalParser<Input<'a>, O, ContextError>,
+{
+    delimited(('[', multispace0), inner, (multispace0, ']'))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -102,7 +111,7 @@ mod tests {
         let mut input = Input::new("let");
         assert!(p_identifier.parse_next(&mut input).is_err());
 
-        let mut input = Input::new("Color");
+        let mut input = Input::new("export");
         assert!(p_identifier.parse_next(&mut input).is_err());
 
         // Valid identifier starts with keyword

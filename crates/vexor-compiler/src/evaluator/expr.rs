@@ -6,7 +6,7 @@ use crate::evaluator::program::eval_assignment;
 use crate::evaluator::{Context, EResult, Function, Value};
 use crate::ir::ast::{self, Expr, Literal, MatchArm, OpBin, OpUn};
 use crate::ir::scene::marker;
-use crate::ir::{Number, Type, scene};
+use crate::ir::{ListNode, Number, scene};
 
 pub trait Evaluable {
     type Output: Debug + Clone;
@@ -30,6 +30,14 @@ pub trait Evaluable {
         context: &mut Context,
         scrutinee: Self::Output,
         literal_pattern: Literal,
+    ) -> EResult<bool>;
+    /// Matches an evaluated value to a binary operator pattern
+    fn match_bin(
+        context: &mut Context,
+        scrutinee: Self::Output,
+        operator: OpBin,
+        left: Expr,
+        right: Expr,
     ) -> EResult<bool>;
 }
 
@@ -74,17 +82,8 @@ fn eval_call<T: Evaluable>(context: &Context, func: String, args: Vec<Expr>) -> 
     let args: Vec<(String, Value)> = params
         .iter()
         .zip(args)
-        .map(|(p, arg_expr)| {
-            let (name, ty) = p;
-            let arg = match ty {
-                Type::Number => eval::<marker::Number>(context, arg_expr).map(Value::Number),
-                Type::String => eval::<marker::String>(context, arg_expr).map(Value::String),
-                Type::Bool => eval::<marker::Bool>(context, arg_expr).map(Value::Bool),
-                Type::Color => eval::<marker::Color>(context, arg_expr).map(Value::Color),
-                Type::Graphic => eval::<marker::Graphic>(context, arg_expr).map(Value::Graphic),
-                Type::GType(_) => eval::<marker::Graphic>(context, arg_expr).map(Value::Graphic),
-            };
-            arg.map(|arg| (name.clone(), arg))
+        .map(|(name, arg_expr)| {
+            eval::<marker::Any>(context, arg_expr).map(|arg| (name.clone(), arg))
         })
         .collect::<Result<Vec<_>, _>>()?;
 
@@ -111,6 +110,11 @@ fn match_pattern<T: Evaluable>(
             Ok(true)
         }
         Expr::Literal(lit_pattern) => T::match_literal(context, scrutinee, lit_pattern),
+        Expr::Binary {
+            operator,
+            left,
+            right,
+        } => T::match_bin(context, scrutinee, operator, *left, *right),
         _ => Err("Pattern not supported".to_string()),
     }
 }
@@ -225,6 +229,7 @@ impl Evaluable for marker::Any {
             Literal::Bool(b) => Value::Bool(b),
             Literal::Color(_) => Value::Color(marker::Color::eval_literal(context, literal)?),
             Literal::Graphic(_) => Value::Graphic(marker::Graphic::eval_literal(context, literal)?),
+            Literal::List(_) => Value::List(marker::List::eval_literal(context, literal)?),
         })
     }
     fn eval_op_bin(
@@ -247,6 +252,9 @@ impl Evaluable for marker::Any {
             | OpBin::Or => {
                 marker::Bool::eval_op_bin(context, operator, left, right).map(Value::Bool)
             }
+            OpBin::Cons => {
+                marker::List::eval_op_bin(context, operator, left, right).map(Value::List)
+            }
         }
     }
     fn eval_op_un(context: &Context, operator: OpUn, expr: Expr) -> EResult<Self::Output> {
@@ -265,6 +273,23 @@ impl Evaluable for marker::Any {
             Value::Bool(s) => marker::Bool::match_literal(context, s, literal_pattern),
             Value::Color(s) => marker::Color::match_literal(context, s, literal_pattern),
             Value::Graphic(s) => marker::Graphic::match_literal(context, s, literal_pattern),
+            Value::List(s) => marker::List::match_literal(context, s, literal_pattern),
+        }
+    }
+    fn match_bin(
+        context: &mut Context,
+        scrutinee: Self::Output,
+        operator: OpBin,
+        left: Expr,
+        right: Expr,
+    ) -> EResult<bool> {
+        match scrutinee {
+            Value::Number(s) => marker::Number::match_bin(context, s, operator, left, right),
+            Value::String(s) => marker::String::match_bin(context, s, operator, left, right),
+            Value::Bool(s) => marker::Bool::match_bin(context, s, operator, left, right),
+            Value::Color(s) => marker::Color::match_bin(context, s, operator, left, right),
+            Value::Graphic(s) => marker::Graphic::match_bin(context, s, operator, left, right),
+            Value::List(s) => marker::List::match_bin(context, s, operator, left, right),
         }
     }
 }
@@ -315,6 +340,9 @@ impl Evaluable for marker::Number {
             _ => Err("Expected a number literal".to_string()),
         }
     }
+    fn match_bin(_: &mut Context, _: Self::Output, _: OpBin, _: Expr, _: Expr) -> EResult<bool> {
+        Err("Pattern not supported".to_string())
+    }
 }
 
 impl Evaluable for marker::String {
@@ -349,6 +377,9 @@ impl Evaluable for marker::String {
             Literal::String(s) => Ok(scrutinee == s),
             _ => Err("Expected a string literal".to_string()),
         }
+    }
+    fn match_bin(_: &mut Context, _: Self::Output, _: OpBin, _: Expr, _: Expr) -> EResult<bool> {
+        Err("Pattern not supported".to_string())
     }
 }
 
@@ -419,6 +450,9 @@ impl Evaluable for marker::Bool {
             _ => Err("Expected a bool literal".to_string()),
         }
     }
+    fn match_bin(_: &mut Context, _: Self::Output, _: OpBin, _: Expr, _: Expr) -> EResult<bool> {
+        Err("Pattern not supported".to_string())
+    }
 }
 
 impl Evaluable for marker::Color {
@@ -470,6 +504,9 @@ impl Evaluable for marker::Color {
             }
             _ => Err("Expected a color literal".to_string()),
         }
+    }
+    fn match_bin(_: &mut Context, _: Self::Output, _: OpBin, _: Expr, _: Expr) -> EResult<bool> {
+        Err("Pattern not supported".to_string())
     }
 }
 
@@ -596,6 +633,100 @@ impl Evaluable for marker::Graphic {
                 _ => Ok(false),
             },
             _ => Err("Expected a graphic literal".to_string()),
+        }
+    }
+    fn match_bin(_: &mut Context, _: Self::Output, _: OpBin, _: Expr, _: Expr) -> EResult<bool> {
+        Err("Pattern not supported".to_string())
+    }
+}
+
+impl Evaluable for marker::List {
+    type Output = Box<ListNode<Value>>;
+    fn to_value(value: Self::Output) -> Value {
+        Value::List(value)
+    }
+    fn from_value(value: Value) -> EResult<Self::Output> {
+        match value {
+            Value::List(l) => Ok(l),
+            _ => Err("Expected a list".to_string()),
+        }
+    }
+    fn eval_literal(context: &Context, literal: Literal) -> EResult<Self::Output> {
+        match literal {
+            Literal::List(exprs) => {
+                // Build Linked List from vector literal
+                let mut acc = Box::new(ListNode::Nil);
+                for e in exprs.into_iter().rev() {
+                    let e = eval::<marker::Any>(context, e)?;
+                    acc = Box::new(ListNode::Cons(e, acc));
+                }
+                Ok(acc)
+            }
+            _ => Err("Expected a list".to_string()),
+        }
+    }
+    fn eval_op_bin(
+        context: &Context,
+        operator: OpBin,
+        left: Expr,
+        right: Expr,
+    ) -> EResult<Self::Output> {
+        match operator {
+            OpBin::Cons => {
+                let head = eval::<marker::Any>(context, left)?;
+                let tail = eval::<marker::List>(context, right)?;
+                Ok(Box::new(ListNode::Cons(head, tail)))
+            }
+            _ => Err("Unsupported operator".to_string()),
+        }
+    }
+    fn eval_op_un(_: &Context, _: OpUn, _: Expr) -> EResult<Self::Output> {
+        Err("Unsupported operator".to_string())
+    }
+    fn match_literal(
+        context: &mut Context,
+        scrutinee: Self::Output,
+        literal_pattern: Literal,
+    ) -> EResult<bool> {
+        match literal_pattern {
+            Literal::List(ps) => {
+                let mut node = scrutinee;
+                for item_pattern in ps.into_iter() {
+                    let ListNode::Cons(head, tail) = *node else {
+                        // Scrutinee is Nil, pattern is too long
+                        return Ok(false);
+                    };
+                    let matched = match_pattern::<marker::Any>(context, head, item_pattern)?;
+                    if !matched {
+                        return Ok(false);
+                    }
+                    node = tail;
+                }
+                match *node {
+                    ListNode::Nil => Ok(true),
+                    // Scrutinee still has items left, pattern is too short
+                    ListNode::Cons(_, _) => Ok(false),
+                }
+            }
+            _ => Err("Expected a list literal".to_string()),
+        }
+    }
+    fn match_bin(
+        context: &mut Context,
+        scrutinee: Self::Output,
+        operator: OpBin,
+        left: Expr,
+        right: Expr,
+    ) -> EResult<bool> {
+        match operator {
+            OpBin::Cons => match *scrutinee {
+                ListNode::Nil => Ok(false),
+                ListNode::Cons(head, tail) => {
+                    Ok(match_pattern::<marker::Any>(context, head, left)?
+                        && match_pattern::<marker::List>(context, tail, right)?)
+                }
+            },
+            _ => Err("Pattern not supported".to_string()),
         }
     }
 }

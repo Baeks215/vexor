@@ -116,7 +116,7 @@ fn test_compile_bool_exprs() {
     }
 
     let with_fn = format!(
-        "fn cmp(a: Number, b: Number) = a > b\nlet flag = cmp(5, 3)\nexport Circle {{ x: 0, y: 0, radius: 1, color: {RED} }}"
+        "fn cmp(a, b) = a > b\nlet flag = cmp(5, 3)\nexport Circle {{ x: 0, y: 0, radius: 1, color: {RED} }}"
     );
     ok(&with_fn);
 }
@@ -223,12 +223,45 @@ fn test_compile_field_access() {
 #[test]
 fn test_compile_function() {
     let double = format!(
-        "fn double(x: Number) = x + x\nexport Circle {{ x: 0, y: 0, radius: double(5), color: {RED} }}"
+        "fn double(x) = x + x\nexport Circle {{ x: 0, y: 0, radius: double(5), color: {RED} }}"
     );
     assert_eq!(ok(&double).exports[0], circle(0.0, 0.0, 10.0));
 
     let area = format!(
-        "fn area(w: Number, h: Number) = w * h\nexport Rect {{ x: 0, y: 0, width: area(2, 3), height: 4, color: {RED} }}"
+        "fn area(w, h) = w * h\nexport Rect {{ x: 0, y: 0, width: area(2, 3), height: 4, color: {RED} }}"
     );
     assert_eq!(ok(&area).exports[0], rect(0.0, 0.0, 6.0, 4.0));
+}
+
+#[test]
+fn test_compile_list() {
+    // single-element extraction
+    assert_number("match [42] { [x] => x, y => 0 }", 42.0);
+
+    // multi-element, capture second
+    assert_number("match [10, 20] { [a, b] => b, y => 0 }", 20.0);
+
+    // literal prefix + capture
+    assert_number("match [1, 2, 3] { [1, 2, x] => x, y => 0 }", 3.0);
+
+    // string list with literal prefix
+    assert_string(
+        "match [\"hello\", \"world\"] { [\"hello\", x] => x, y => \"no\" }",
+        "world",
+    );
+
+    // bool list compiles
+    assert_bool_compiles("match [true, false] { [a, b] => a, y => false }");
+
+    // cons operator builds list
+    assert_number("match 1 : 2 : Nil { [a, b] => a, y => 0 }", 1.0);
+
+    // match with cons deconstructing
+    assert_number(
+        "match [1, 2] { a : as => a + match as { 2 : Nil => 10, y => 0 }, y => 0 }",
+        11.0,
+    );
+
+    // length mismatch falls through to catch-all
+    assert_number("match [1, 2] { [a, b, c] => 99, y => 0 }", 0.0);
 }
