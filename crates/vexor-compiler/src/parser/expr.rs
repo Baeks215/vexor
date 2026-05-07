@@ -2,10 +2,10 @@
 
 use crate::ir::Number;
 use crate::ir::ast;
+use crate::parser::graphic::p_graphic;
 use crate::parser::keyword::pk_nil;
 use crate::parser::keyword::pk_rgb;
 use crate::parser::keyword::{pk_else, pk_false, pk_if, pk_match, pk_true};
-use crate::parser::object::p_graphic;
 use crate::parser::p_identifier;
 use crate::parser::square_braced;
 use crate::parser::{Input, WhiteSpaceParser, braced, bracketed};

@@ -7,22 +7,37 @@ use winnow::{ModalResult, Parser};
 /// Macro to define a set of keyword parsers
 macro_rules! define_keywords {
     (
-        // Comma-separated list of `parser_name => "keyword"`
-        $($func_name:ident => $kw_str:expr),* $(,)?
+        // Comma-separated list of `parser_name => "keyword"` or `parser_name => "keyword" ; return type : variant`
+        $($func_name:ident => $kw_str:expr $(; $type:ty : $variant:expr)?),* $(,)?
     ) => {
         // Generates a parser function for every keyword in the list
         $(
-            #[doc = concat!("Parses the `", $kw_str, "` keyword.")]
-            pub fn $func_name<'a>(input: &mut Input<'a>) -> ModalResult<&'a str> {
-                $kw_str
-                    .context(StrContext::Label(concat!("keyword '", $kw_str, "'")))
-                    .parse_next(input)
-            }
+            define_keywords!(@fn $func_name, $kw_str $(, $type, $variant)?);
         )*
 
         /// Checks if a string is a keyword.
         pub fn is_keyword(s: &str) -> bool {
             matches!(s, $($kw_str)|*)
+        }
+    };
+
+    // With type variant — returns the specified type
+    (@fn $func_name:ident, $kw_str:expr, $type:ty, $variant:expr) => {
+        #[doc = concat!("Parses the `", $kw_str, "` keyword.")]
+        pub fn $func_name<'a>(input: &mut Input<'a>) -> ModalResult<$type> {
+            $kw_str.value($variant)
+                .context(StrContext::Label(concat!("keyword '", $kw_str, "'")))
+                .parse_next(input)
+        }
+    };
+
+    // Without type variant — returns &'a str
+    (@fn $func_name:ident, $kw_str:expr) => {
+        #[doc = concat!("Parses the `", $kw_str, "` keyword.")]
+        pub fn $func_name<'a>(input: &mut Input<'a>) -> ModalResult<&'a str> {
+            $kw_str
+                .context(StrContext::Label(concat!("keyword '", $kw_str, "'")))
+                .parse_next(input)
         }
     };
 }
@@ -37,9 +52,9 @@ define_keywords! {
     pk_if => "if",
     pk_else => "else",
     // Graphic Literals
-    pk_circle => "Circle",
-    pk_rect => "Rect",
-    pk_text => "Text",
+    pk_circle => "Circle"; Graphic : Graphic::Circle,
+    pk_rect => "Rect"; Graphic : Graphic::Rect,
+    pk_text => "Text"; Graphic : Graphic::Text,
     // Bool literals
     pk_true => "true",
     pk_false => "false",
@@ -47,6 +62,13 @@ define_keywords! {
     pk_nil => "Nil",
     // Standard functions
     pk_rgb => "rgb",
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum Graphic {
+    Circle,
+    Rect,
+    Text,
 }
 
 #[cfg(test)]
