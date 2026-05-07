@@ -100,6 +100,10 @@ pub enum Expr {
         function: String,
         args: Vec<Expr>,
     },
+    /// Standard Function call
+    Std(Std),
+    /// Constant
+    Const(Const),
     /// Match expression
     Match {
         scrutinee: Box<Expr>,
@@ -111,6 +115,21 @@ pub enum Expr {
         then_branch: Box<Expr>,
         else_branch: Box<Expr>,
     },
+}
+
+// --- Standard Functions ---
+
+#[derive(Debug, Clone)]
+pub enum Std {
+    Rad(Box<Expr>),
+    Sin(Box<Expr>),
+    Cos(Box<Expr>),
+    Tan(Box<Expr>),
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum Const {
+    Pi,
 }
 
 // --- Match ---

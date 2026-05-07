@@ -1,14 +1,5 @@
 //! Parser for expressions
 
-use crate::ir::Number;
-use crate::ir::ast;
-use crate::parser::graphic::p_graphic;
-use crate::parser::keyword::pk_nil;
-use crate::parser::keyword::pk_rgb;
-use crate::parser::keyword::{pk_else, pk_false, pk_if, pk_match, pk_true};
-use crate::parser::p_identifier;
-use crate::parser::square_braced;
-use crate::parser::{Input, WhiteSpaceParser, braced, bracketed};
 use winnow::ascii::float;
 use winnow::combinator::{
     Infix, Prefix, alt, delimited, dispatch, expression, fail, opt, preceded, separated,
@@ -16,6 +7,17 @@ use winnow::combinator::{
 use winnow::error::StrContext;
 use winnow::token::take_while;
 use winnow::{ModalResult, Parser};
+
+use crate::ir::Number;
+use crate::ir::ast;
+use crate::parser::graphic::p_graphic;
+use crate::parser::keyword::{
+    self as k, pk_cos, pk_else, pk_false, pk_if, pk_match, pk_nil, pk_pi, pk_rad, pk_rgb, pk_sin,
+    pk_tan, pk_true,
+};
+use crate::parser::p_identifier;
+use crate::parser::square_braced;
+use crate::parser::{Input, WhiteSpaceParser, braced, bracketed};
 
 // --- Primitives ---
 
@@ -77,6 +79,27 @@ pub fn p_call<'a>(input: &mut Input<'a>) -> ModalResult<ast::Expr> {
             args,
         })
         .parse_next(input)
+}
+
+/// Parses a standard function call.
+pub fn p_std<'a>(input: &mut Input<'a>) -> ModalResult<ast::Std> {
+    (
+        alt((pk_rad, pk_sin, pk_cos, pk_tan)),
+        bracketed(separated(0.., p_expr, ','.ws())),
+    )
+        .ws()
+        .map(|(function, mut args): (_, Vec<_>)| match function {
+            k::Std::Rad => ast::Std::Rad(Box::new(args.remove(0))),
+            k::Std::Sin => ast::Std::Sin(Box::new(args.remove(0))),
+            k::Std::Cos => ast::Std::Cos(Box::new(args.remove(0))),
+            k::Std::Tan => ast::Std::Tan(Box::new(args.remove(0))),
+        })
+        .parse_next(input)
+}
+
+/// Parses a constant.
+pub fn p_constant<'a>(input: &mut Input<'a>) -> ModalResult<ast::Const> {
+    pk_pi.ws().parse_next(input)
 }
 
 /// Parses a literal expression.
@@ -164,7 +187,9 @@ pub fn p_atom<'a>(input: &mut Input<'a>) -> ModalResult<ast::Expr> {
         p_if,
         p_match,
         p_call,
+        p_std.map(ast::Expr::Std),
         p_identifier_or_field,
+        p_constant.map(ast::Expr::Const),
     ))
     .parse_next(input)
 }

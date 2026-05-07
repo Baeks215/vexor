@@ -1,6 +1,7 @@
 //! Keyword parsers.
 
 use super::Input;
+use crate::ir::ast::Const;
 use winnow::error::StrContext;
 use winnow::{ModalResult, Parser};
 
@@ -60,8 +61,15 @@ define_keywords! {
     pk_false => "false",
     // List literals
     pk_nil => "Nil",
-    // Standard functions
+    // Color Literal
     pk_rgb => "rgb",
+    // Standard functions
+    pk_rad => "rad"; Std : Std::Rad,
+    pk_sin => "sin"; Std : Std::Sin,
+    pk_cos => "cos"; Std : Std::Cos,
+    pk_tan => "tan"; Std : Std::Tan,
+    // Constants
+    pk_pi => "pi"; Const: Const::Pi
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -69,6 +77,14 @@ pub enum Graphic {
     Circle,
     Rect,
     Text,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum Std {
+    Rad,
+    Sin,
+    Cos,
+    Tan,
 }
 
 #[cfg(test)]

@@ -143,7 +143,7 @@ fn test_compile_match() {
 
     // Destructure Circle fields, use captured radius in body (7 * 2 = 14)
     let prog = format!(
-        "let g = Circle {{ x: 0, y: 0, radius: 7, color: {RED} }}\nlet r = match g {{ Circle {{ x: cx, y: cy, radius: rad, color: c }} => rad * 2, y => 0 }}\nexport Circle {{ x: 0, y: 0, radius: r, color: {RED} }}"
+        "let g = Circle {{ x: 0, y: 0, radius: 7, color: {RED} }}\nlet r = match g {{ Circle {{ x: cx, y: cy, radius: radius, color: c }} => radius * 2, y => 0 }}\nexport Circle {{ x: 0, y: 0, radius: r, color: {RED} }}"
     );
     assert_eq!(ok(&prog).exports[0], circle(0.0, 0.0, 14.0));
 
@@ -167,13 +167,13 @@ fn test_compile_match() {
 
     // Multi-variant: extract x coord from whichever graphic variant matches
     let prog = format!(
-        "let g = Rect {{ x: 3, y: 0, width: 1, height: 1, color: {RED} }}\nlet r = match g {{ Circle {{ x: gx, y: gy, radius: rad, color: c }} => gx, Rect {{ x: gx, y: gy, width: w, height: h, color: c }} => gx, y => 0 }}\nexport Circle {{ x: 0, y: 0, radius: r, color: {RED} }}"
+        "let g = Rect {{ x: 3, y: 0, width: 1, height: 1, color: {RED} }}\nlet r = match g {{ Circle {{ x: gx, y: gy, radius: radius, color: c }} => gx, Rect {{ x: gx, y: gy, width: w, height: h, color: c }} => gx, y => 0 }}\nexport Circle {{ x: 0, y: 0, radius: r, color: {RED} }}"
     );
     assert_eq!(ok(&prog).exports[0], circle(0.0, 0.0, 3.0));
 
     // Variant mismatch: Rect does not match Circle pattern, falls to catch-all
     let prog = format!(
-        "let g = Rect {{ x: 0, y: 0, width: 2, height: 2, color: {RED} }}\nlet r = match g {{ Circle {{ x: cx, y: cy, radius: rad, color: c }} => rad, y => 99 }}\nexport Circle {{ x: 0, y: 0, radius: r, color: {RED} }}"
+        "let g = Rect {{ x: 0, y: 0, width: 2, height: 2, color: {RED} }}\nlet r = match g {{ Circle {{ x: cx, y: cy, radius: radius, color: c }} => radius, y => 99 }}\nexport Circle {{ x: 0, y: 0, radius: r, color: {RED} }}"
     );
     assert_eq!(ok(&prog).exports[0], circle(0.0, 0.0, 99.0));
 }
