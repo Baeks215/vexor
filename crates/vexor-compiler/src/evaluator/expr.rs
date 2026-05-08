@@ -127,9 +127,9 @@ fn eval_call<T: Evaluable>(context: &Context, func: String, args: Vec<Expr>) -> 
     for assignment in scope {
         eval_assignment(&mut context, assignment.clone())?;
     }
-    // Evaluate return expression
-    let value = eval::<marker::Any>(&context, return_expr.clone())?;
-    T::from_value(value)
+
+    // Evaluate return expression as the overall expression type
+    eval::<T>(&context, return_expr.clone())
 }
 
 fn match_pattern<T: Evaluable>(
