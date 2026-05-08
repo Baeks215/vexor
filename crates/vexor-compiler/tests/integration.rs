@@ -40,7 +40,7 @@ fn text(x: f64, y: f64, content: &str) -> Graphic {
 const RED: &str = "rgb(1, 0, 0, 1)";
 
 fn ok(input: &str) -> Scene {
-    compile(input).expect("compile should succeed")
+    compile(input).unwrap_or_else(|e| panic!("{}", e))
 }
 
 fn assert_number(expr: &str, expected: f64) {
@@ -59,7 +59,7 @@ fn assert_bool_compiles(expr: &str) {
 }
 
 fn assert_rejects(input: &str) {
-    assert!(compile(input).is_none());
+    assert!(compile(input).is_err());
 }
 
 #[test]
@@ -82,7 +82,7 @@ fn test_compile_basics() {
 #[test]
 fn test_compile_invalid_input() {
     assert_rejects("not valid vexor code !!!");
-    assert!(compile_to_svg("garbage @@@").is_none());
+    assert!(compile_to_svg("garbage @@@").is_err());
 }
 
 #[test]
@@ -264,6 +264,38 @@ fn test_compile_list() {
 
     // length mismatch falls through to catch-all
     assert_number("match [1, 2] { [a, b, c] => 99, y => 0 }", 0.0);
+}
+
+#[test]
+fn test_compile_brackets() {
+    // basic grouping
+    assert_number("(1 + 2) * 3", 9.0);
+    assert_number("1 + (2 * 3)", 7.0);
+
+    // without brackets, mul binds tighter — same result as natural precedence
+    assert_number("(2 * 3)", 6.0);
+
+    // brackets override add-before-mul order
+    assert_number("(1 + 2) * (3 + 4)", 21.0);
+    assert_number("2 * (3 + 4) - 1", 13.0);
+
+    // nested brackets
+    assert_number("((2 + 3))", 5.0);
+    assert_number("((1 + 2) * (2 + 1))", 9.0);
+
+    // unary minus inside brackets
+    assert_number("(-1 + 3) * 2", 4.0);
+    assert_number("10 / (2 + 3)", 2.0);
+
+    // brackets in function args
+    let with_fn = format!(
+        "fn add(a, b) = a + b\nexport Circle {{ x: 0, y: 0, radius: add((1 + 2), (3 + 4)), color: {RED} }}"
+    );
+    assert_eq!(ok(&with_fn).exports[0], circle(0.0, 0.0, 10.0));
+
+    // comparison with brackets changing meaning
+    assert_bool_compiles("(1 + 1) == 2");
+    assert_bool_compiles("(3 * 3) > (2 + 2)");
 }
 
 #[test]

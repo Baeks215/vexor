@@ -2,7 +2,7 @@
 
 use winnow::ascii::float;
 use winnow::combinator::{
-    Infix, Prefix, alt, delimited, dispatch, expression, fail, opt, preceded, separated,
+    Infix, Prefix, alt, delimited, dispatch, expression, fail, opt, preceded,
 };
 use winnow::error::StrContext;
 use winnow::token::take_while;
@@ -15,9 +15,9 @@ use crate::parser::keyword::{
     self as k, pk_cos, pk_else, pk_false, pk_if, pk_match, pk_nil, pk_pi, pk_rad, pk_rgb, pk_sin,
     pk_tan, pk_true,
 };
-use crate::parser::p_identifier;
 use crate::parser::square_braced;
 use crate::parser::{Input, WhiteSpaceParser, braced, bracketed};
+use crate::parser::{comma_list, p_identifier};
 
 // --- Primitives ---
 
@@ -48,7 +48,7 @@ pub fn p_color<'a>(input: &mut Input<'a>) -> ModalResult<ast::Color> {
     preceded(
         pk_rgb,
         bracketed(
-            separated(4, p_expr, ','.ws()).map(|mut es: Vec<ast::Expr>| ast::Color::Rgba {
+            comma_list(4, p_expr).map(|mut es: Vec<ast::Expr>| ast::Color::Rgba {
                 r: Box::new(es.remove(0)),
                 g: Box::new(es.remove(0)),
                 b: Box::new(es.remove(0)),
@@ -64,7 +64,7 @@ pub fn p_color<'a>(input: &mut Input<'a>) -> ModalResult<ast::Color> {
 pub fn p_list<'a>(input: &mut Input<'a>) -> ModalResult<Vec<ast::Expr>> {
     alt((
         pk_nil.map(|_| vec![]),
-        square_braced(separated(0.., p_expr, ','.mws())),
+        square_braced(comma_list(0.., p_expr)),
     ))
     .ws()
     .parse_next(input)
@@ -72,7 +72,7 @@ pub fn p_list<'a>(input: &mut Input<'a>) -> ModalResult<Vec<ast::Expr>> {
 
 /// Parses a function call.
 pub fn p_call<'a>(input: &mut Input<'a>) -> ModalResult<ast::Expr> {
-    (p_identifier, bracketed(separated(0.., p_expr, ','.ws())))
+    (p_identifier, bracketed(comma_list(0.., p_expr)))
         .ws()
         .map(|(function, args)| ast::Expr::Call {
             function: function.to_string(),
@@ -85,7 +85,7 @@ pub fn p_call<'a>(input: &mut Input<'a>) -> ModalResult<ast::Expr> {
 pub fn p_std<'a>(input: &mut Input<'a>) -> ModalResult<ast::Std> {
     (
         alt((pk_rad, pk_sin, pk_cos, pk_tan)),
-        bracketed(separated(0.., p_expr, ','.ws())),
+        bracketed(comma_list(0.., p_expr)),
     )
         .ws()
         .map(|(function, mut args): (_, Vec<_>)| match function {
@@ -134,7 +134,7 @@ pub fn p_match_arm<'a>(input: &mut Input<'a>) -> ModalResult<ast::MatchArm> {
 pub fn p_match<'a>(input: &mut Input<'a>) -> ModalResult<ast::Expr> {
     preceded(
         pk_match.ws(),
-        (p_expr, braced(separated(1.., p_match_arm, ",".mws()))),
+        (p_expr, braced(comma_list(1.., p_match_arm))),
     )
     .ws()
     .map(
@@ -183,6 +183,7 @@ pub fn p_identifier_or_field<'a>(input: &mut Input<'a>) -> ModalResult<ast::Expr
 /// Parses an atom.
 pub fn p_atom<'a>(input: &mut Input<'a>) -> ModalResult<ast::Expr> {
     alt((
+        bracketed(p_expr).ws(),
         p_literal.map(ast::Expr::Literal),
         p_if,
         p_match,

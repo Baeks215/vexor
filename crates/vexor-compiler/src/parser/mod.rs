@@ -1,8 +1,9 @@
 //! Common parser utilities.
 
 use winnow::ascii::{multispace0, space0};
-use winnow::combinator::{delimited, terminated};
+use winnow::combinator::{delimited, separated, terminated};
 use winnow::error::ContextError;
+use winnow::stream::{Accumulate, Range};
 use winnow::token::take_while;
 use winnow::{LocatingSlice, ModalParser, ModalResult, Parser};
 
@@ -51,15 +52,16 @@ fn p_identifier<'a>(input: &mut Input<'a>) -> ModalResult<&'a str> {
 // --- Helpers ---
 
 /// Parse between brackets "()"
+///   Can be across multiple lines
 fn bracketed<'a, F, O>(inner: F) -> impl ModalParser<Input<'a>, O, ContextError>
 where
     F: ModalParser<Input<'a>, O, ContextError>,
 {
-    delimited(('(', space0), inner, (space0, ')'))
+    delimited(('(', multispace0), inner, (multispace0, ')'))
 }
 
 /// Parse between braces "{}"
-///   Can contain new lines within braces
+///   Can be across multiple lines
 fn braced<'a, F, O>(inner: F) -> impl ModalParser<Input<'a>, O, ContextError>
 where
     F: ModalParser<Input<'a>, O, ContextError>,
@@ -68,12 +70,25 @@ where
 }
 
 /// Parse between braces "[]"
-///   Can contain new lines within braces
+///   Can be across multiple lines
 fn square_braced<'a, F, O>(inner: F) -> impl ModalParser<Input<'a>, O, ContextError>
 where
     F: ModalParser<Input<'a>, O, ContextError>,
 {
     delimited(('[', multispace0), inner, (multispace0, ']'))
+}
+
+/// Parse a comma-separated list of items
+///   Can be across multiple lines
+fn comma_list<'a, F, O, Accumulator>(
+    occurrences: impl Into<Range>,
+    inner: F,
+) -> impl ModalParser<Input<'a>, Accumulator, ContextError>
+where
+    F: ModalParser<Input<'a>, O, ContextError>,
+    Accumulator: Accumulate<O>,
+{
+    separated(occurrences, inner, (multispace0, ',', multispace0))
 }
 
 #[cfg(test)]

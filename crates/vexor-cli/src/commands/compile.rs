@@ -19,9 +19,13 @@ pub fn run(args: CompileArgs) {
     };
 
     let exports = match vexor_compiler::compile_to_svg(&source) {
-        Some(exports) => exports,
-        None => {
-            eprintln!("error: compilation failed for '{}'", args.input.display());
+        Ok(exports) => exports,
+        Err(e) => {
+            eprintln!(
+                "error: compilation failed for '{}':\n\n{}",
+                args.input.display(),
+                e
+            );
             std::process::exit(1);
         }
     };
