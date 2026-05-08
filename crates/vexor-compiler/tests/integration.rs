@@ -40,7 +40,7 @@ fn text(x: f64, y: f64, content: &str) -> Graphic {
 const RED: &str = "rgb(1, 0, 0, 1)";
 
 fn ok(input: &str) -> Scene {
-    compile(input).expect("compile should succeed")
+    compile(input).unwrap_or_else(|e| panic!("{}", e))
 }
 
 fn assert_number(expr: &str, expected: f64) {
@@ -59,7 +59,7 @@ fn assert_bool_compiles(expr: &str) {
 }
 
 fn assert_rejects(input: &str) {
-    assert!(compile(input).is_none());
+    assert!(compile(input).is_err());
 }
 
 #[test]
@@ -82,7 +82,7 @@ fn test_compile_basics() {
 #[test]
 fn test_compile_invalid_input() {
     assert_rejects("not valid vexor code !!!");
-    assert!(compile_to_svg("garbage @@@").is_none());
+    assert!(compile_to_svg("garbage @@@").is_err());
 }
 
 #[test]
