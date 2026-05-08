@@ -267,6 +267,38 @@ fn test_compile_list() {
 }
 
 #[test]
+fn test_compile_brackets() {
+    // basic grouping
+    assert_number("(1 + 2) * 3", 9.0);
+    assert_number("1 + (2 * 3)", 7.0);
+
+    // without brackets, mul binds tighter — same result as natural precedence
+    assert_number("(2 * 3)", 6.0);
+
+    // brackets override add-before-mul order
+    assert_number("(1 + 2) * (3 + 4)", 21.0);
+    assert_number("2 * (3 + 4) - 1", 13.0);
+
+    // nested brackets
+    assert_number("((2 + 3))", 5.0);
+    assert_number("((1 + 2) * (2 + 1))", 9.0);
+
+    // unary minus inside brackets
+    assert_number("(-1 + 3) * 2", 4.0);
+    assert_number("10 / (2 + 3)", 2.0);
+
+    // brackets in function args
+    let with_fn = format!(
+        "fn add(a, b) = a + b\nexport Circle {{ x: 0, y: 0, radius: add((1 + 2), (3 + 4)), color: {RED} }}"
+    );
+    assert_eq!(ok(&with_fn).exports[0], circle(0.0, 0.0, 10.0));
+
+    // comparison with brackets changing meaning
+    assert_bool_compiles("(1 + 1) == 2");
+    assert_bool_compiles("(3 * 3) > (2 + 2)");
+}
+
+#[test]
 fn test_compile_std() {
     use std::f64::consts::PI;
 

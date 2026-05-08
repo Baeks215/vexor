@@ -183,6 +183,7 @@ pub fn p_identifier_or_field<'a>(input: &mut Input<'a>) -> ModalResult<ast::Expr
 /// Parses an atom.
 pub fn p_atom<'a>(input: &mut Input<'a>) -> ModalResult<ast::Expr> {
     alt((
+        bracketed(p_expr).ws(),
         p_literal.map(ast::Expr::Literal),
         p_if,
         p_match,
