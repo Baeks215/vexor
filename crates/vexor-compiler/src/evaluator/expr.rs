@@ -4,8 +4,8 @@ use std::f64::consts::PI;
 use std::fmt::Debug;
 
 use crate::evaluator::program::eval_assignment;
-use crate::evaluator::{Context, EResult, Function, Value};
-use crate::ir::ast::{self, Expr, Literal, MatchArm, OpBin, OpUn, Std};
+use crate::evaluator::{Context, EResult, Function, Value, to_int};
+use crate::ir::ast::{self, Expr, ListLiteral, Literal, MatchArm, OpBin, OpUn, Std};
 use crate::ir::scene::marker;
 use crate::ir::{ListNode, Number, scene};
 
@@ -686,14 +686,41 @@ impl Evaluable for marker::List {
     }
     fn eval_literal(context: &Context, literal: Literal) -> EResult<Self::Output> {
         match literal {
-            Literal::List(exprs) => {
-                // Build Linked List from vector literal
-                let mut acc = Box::new(ListNode::Nil);
-                for e in exprs.into_iter().rev() {
-                    let e = eval::<marker::Any>(context, e)?;
-                    acc = Box::new(ListNode::Cons(e, acc));
+            Literal::List(list) => {
+                match list {
+                    // Build Linked List from vector literal
+                    ListLiteral::List(exprs) => {
+                        let mut acc = Box::new(ListNode::Nil);
+
+                        // Iterate in reverse to build linked list
+                        for e in exprs.into_iter().rev() {
+                            let e = eval::<marker::Any>(context, e)?;
+                            acc = Box::new(ListNode::Cons(e, acc));
+                        }
+                        Ok(acc)
+                    }
+                    // Build Linked List from stepped range
+                    ListLiteral::Range { start, second, end } => {
+                        let mut acc = Box::new(ListNode::Nil);
+
+                        // Evaluate range bounds and convert to integers
+                        let start = eval::<marker::Number>(context, *start).and_then(to_int)?;
+                        let second = second
+                            .map(|e| eval::<marker::Number>(context, *e).and_then(to_int))
+                            .transpose()?;
+                        let end = eval::<marker::Number>(context, *end).and_then(to_int)?;
+
+                        let iter_rev = build_range_rev(start, second, end)?;
+
+                        // Iterate in reverse to build linked list
+                        for n in iter_rev {
+                            // Loss of precision for large numbers
+                            let value = Value::Number(n as f64);
+                            acc = Box::new(ListNode::Cons(value, acc));
+                        }
+                        Ok(acc)
+                    }
                 }
-                Ok(acc)
             }
             _ => Err("Expected a list".to_string()),
         }
@@ -722,7 +749,7 @@ impl Evaluable for marker::List {
         literal_pattern: Literal,
     ) -> EResult<bool> {
         match literal_pattern {
-            Literal::List(ps) => {
+            Literal::List(ListLiteral::List(ps)) => {
                 let mut node = scrutinee;
                 for item_pattern in ps.into_iter() {
                     let ListNode::Cons(head, tail) = *node else {
@@ -762,4 +789,49 @@ impl Evaluable for marker::List {
             _ => Err("Pattern not supported".to_string()),
         }
     }
+}
+
+// --- Helpers --- //
+
+/// Builds a range of integers in reverse
+fn build_range_rev(
+    start: i64,
+    second: Option<i64>,
+    end: i64,
+) -> EResult<impl Iterator<Item = i64>> {
+    let step = match second {
+        Some(s) => s - start,
+        None => {
+            if end >= start {
+                1
+            } else {
+                -1
+            }
+        }
+    };
+    let total_range = end - start;
+
+    // Check range step
+    if step == 0 {
+        return Err("Range step cannot be zero.".to_string());
+    }
+    if start != end && total_range.signum() != step.signum() {
+        return Err("Range step direction is inconsistent with end.".to_string());
+    }
+
+    // Normalise end to be the last element in the range
+    let end = total_range / step * step + start;
+
+    // Switch to reverse
+    let (start, end, step) = (end, start, -step);
+
+    Ok(std::iter::successors(Some(start), move |&prev| {
+        let next = prev + step;
+        // Check if next value is still within bounds
+        if (step > 0 && next <= end) || (step < 0 && next >= end) {
+            Some(next)
+        } else {
+            None
+        }
+    }))
 }

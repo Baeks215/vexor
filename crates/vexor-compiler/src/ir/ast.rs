@@ -64,13 +64,23 @@ pub enum OpUn {
 }
 
 #[derive(Debug, Clone)]
+pub enum ListLiteral {
+    List(Vec<Expr>),
+    Range {
+        start: Box<Expr>,
+        second: Option<Box<Expr>>,
+        end: Box<Expr>,
+    },
+}
+
+#[derive(Debug, Clone)]
 pub enum Literal {
     Number(Number),
     String(String),
     Bool(bool),
     Color(Color),
     Graphic(Graphic),
-    List(Vec<Expr>),
+    List(ListLiteral),
 }
 
 /// Expression

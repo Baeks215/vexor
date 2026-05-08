@@ -1,8 +1,8 @@
 //! Parser for expressions
 
-use winnow::ascii::float;
+use winnow::ascii::{dec_int, float};
 use winnow::combinator::{
-    Infix, Prefix, alt, delimited, dispatch, expression, fail, opt, preceded,
+    Infix, Prefix, alt, delimited, dispatch, expression, fail, opt, peek, preceded, terminated,
 };
 use winnow::error::StrContext;
 use winnow::token::take_while;
@@ -23,10 +23,15 @@ use crate::parser::{comma_list, p_identifier};
 
 /// Parses a number literal.
 pub fn p_number<'a>(input: &mut Input<'a>) -> ModalResult<Number> {
-    float
-        .context(StrContext::Label("number"))
-        .ws()
-        .parse_next(input)
+    alt((
+        // Integer if followed by range syntax
+        //   otherwise float will take '.' off range operator
+        terminated(dec_int, peek("..")).map(|n: i64| n as f64),
+        float,
+    ))
+    .context(StrContext::Label("number"))
+    .ws()
+    .parse_next(input)
 }
 
 /// Parses a string literal.
@@ -61,10 +66,22 @@ pub fn p_color<'a>(input: &mut Input<'a>) -> ModalResult<ast::Color> {
 }
 
 /// Parses a list literal.
-pub fn p_list<'a>(input: &mut Input<'a>) -> ModalResult<Vec<ast::Expr>> {
+pub fn p_list<'a>(input: &mut Input<'a>) -> ModalResult<ast::ListLiteral> {
     alt((
-        pk_nil.map(|_| vec![]),
-        square_braced(comma_list(0.., p_expr)),
+        pk_nil.map(|_| ast::ListLiteral::List(vec![])),
+        square_braced(alt((
+            (
+                p_expr.mws(),
+                opt(preceded(','.mws(), p_expr.mws())),
+                preceded("..".mws(), p_expr),
+            )
+                .map(|(start, second, end)| ast::ListLiteral::Range {
+                    start: Box::new(start),
+                    second: second.map(|s| Box::new(s)),
+                    end: Box::new(end),
+                }),
+            comma_list(0.., p_expr).map(|es| ast::ListLiteral::List(es)),
+        ))),
     ))
     .ws()
     .parse_next(input)

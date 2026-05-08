@@ -1,8 +1,8 @@
 //! Evaluator: Typed AST -> Scene
 
 use crate::evaluator::expr::Evaluable;
-use crate::ir::ast;
 use crate::ir::scene::marker;
+use crate::ir::{Number, ast};
 use std::collections::HashMap;
 
 mod expr;
@@ -93,4 +93,15 @@ impl Context {
             .get(name)
             .ok_or("Unknown function".to_string())
     }
+}
+
+/// --- Helpers ---
+
+const EPS: f64 = 1e-9;
+fn to_int(n: Number) -> EResult<i64> {
+    let rounded = n.round();
+    if (n - rounded).abs() > EPS {
+        return Err(format!("Expected integer, got {}", n));
+    }
+    Ok(n as i64)
 }
