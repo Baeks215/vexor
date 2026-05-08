@@ -3,7 +3,7 @@
 use crate::ir::ast;
 use crate::parser::expr::p_expr;
 use crate::parser::keyword::{pk_export, pk_fn, pk_let, pk_where};
-use crate::parser::{Input, WhiteSpaceParser, braced, bracketed, p_identifier};
+use crate::parser::{Input, WhiteSpaceParser, braced, bracketed, comma_list, p_identifier};
 use itertools::{Either, Itertools};
 use winnow::ascii::{multispace0, multispace1};
 use winnow::combinator::{alt, delimited, opt, preceded, separated, terminated};
@@ -31,13 +31,14 @@ fn p_assignment<'a>(input: &mut Input<'a>) -> ModalResult<ast::Assignment> {
 fn p_function<'a>(input: &mut Input<'a>) -> ModalResult<ast::Function> {
     (
         preceded(pk_fn.ws(), p_identifier), // function name
-        bracketed(separated(0.., p_identifier.ws(), ",".ws())) // parameters
+        bracketed(comma_list(0.., p_identifier)) // parameters
             .ws(),
         preceded("=".mws(), p_expr), // return expression
         opt(preceded(
             pk_where.ws(),
-            braced(separated(0.., p_assignment, multispace0)).ws(),
-        )), // where scope
+            braced(comma_list(0.., p_assignment)),
+        ))
+        .ws(), // where scope
     )
         .map(
             |(name, params, return_expr, scope): (_, Vec<&str>, _, _)| ast::Function {

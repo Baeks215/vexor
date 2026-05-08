@@ -3,8 +3,8 @@
 use crate::ir::ast;
 use crate::parser::expr::p_expr;
 use crate::parser::keyword::{self as k, pk_circle, pk_rect, pk_text};
-use crate::parser::{Input, WhiteSpaceParser, braced};
-use winnow::combinator::{alt, separated, separated_pair};
+use crate::parser::{Input, WhiteSpaceParser, braced, comma_list};
+use winnow::combinator::{alt, separated_pair};
 use winnow::error::{ContextError, ErrMode};
 use winnow::{ModalResult, Parser};
 
@@ -38,14 +38,13 @@ macro_rules! extract_fields {
 pub fn p_graphic<'a>(input: &mut Input<'a>) -> ModalResult<ast::Graphic> {
     let (name, fields) = (
         alt((pk_circle, pk_rect, pk_text)).ws(),
-        braced(separated(
+        braced(comma_list(
             0..,
             separated_pair(
                 alt(("x", "y", "width", "height", "radius", "content", "color")),
                 ':'.ws(),
                 p_expr,
             ),
-            ','.mws(),
         )),
     )
         .ws()
