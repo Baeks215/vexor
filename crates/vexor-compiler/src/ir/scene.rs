@@ -17,7 +17,13 @@ pub enum Color {
 
 /// Renderable graphic component, typed
 #[derive(Debug, Clone)]
-pub enum Graphic {
+pub struct Graphic {
+    pub ty: GraphicType,
+    pub style: Style,
+}
+
+#[derive(Debug, Clone)]
+pub enum GraphicType {
     Circle {
         x: Number,
         y: Number,
@@ -37,6 +43,20 @@ pub enum Graphic {
         content: String,
         color: Color,
     },
+}
+
+/// Style of a graphic component
+#[derive(Debug, Clone)]
+pub struct Style {
+    pub fill: Color,
+    pub stroke: Option<Stroke>,
+}
+
+/// Stroke of a graphic component
+#[derive(Debug, Clone)]
+pub struct Stroke {
+    pub color: Color,
+    pub width: Number,
 }
 
 // --- Scene ---
