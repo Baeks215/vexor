@@ -6,6 +6,7 @@ use crate::ir::{Number, ast};
 use std::collections::HashMap;
 
 mod expr;
+mod list;
 mod program;
 
 pub use program::eval_program;

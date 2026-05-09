@@ -3,11 +3,12 @@
 use std::f64::consts::PI;
 use std::fmt::Debug;
 
+use crate::evaluator::list::ListNode;
 use crate::evaluator::program::eval_assignment;
 use crate::evaluator::{Context, EResult, Function, Value, to_int};
 use crate::ir::ast::{self, Expr, ListLiteral, Literal, MatchArm, OpBin, OpUn, Std};
 use crate::ir::scene::marker;
-use crate::ir::{ListNode, Number, scene};
+use crate::ir::{Number, scene};
 
 pub trait Evaluable {
     type Output: Debug + Clone;
@@ -97,12 +98,34 @@ fn eval_std<T: Evaluable>(context: &Context, std: Std) -> Result<<T as Evaluable
             let x = eval::<marker::Number>(context, *expr)?;
             Value::Number(x.tan())
         }
+        Std::Map { function, list } => {
+            let Expr::Variable(function) = *function else {
+                return Err("Must be a function name".to_string());
+            };
+            let list = eval::<marker::List>(context, *list)?;
+            let result = (*list)
+                .map(|x| eval_call_values::<marker::Any>(context, function.clone(), vec![x]))?;
+            Value::List(Box::new(result))
+        }
     };
     T::from_value(result)
 }
 
 /// Generic function call evaluation.
 fn eval_call<T: Evaluable>(context: &Context, func: String, args: Vec<Expr>) -> EResult<T::Output> {
+    let args: Vec<Value> = args
+        .into_iter()
+        .map(|arg_expr| eval::<marker::Any>(context, arg_expr))
+        .collect::<Result<Vec<_>, _>>()?;
+
+    eval_call_values::<T>(context, func, args)
+}
+
+fn eval_call_values<T: Evaluable>(
+    context: &Context,
+    func: String,
+    args: Vec<Value>,
+) -> EResult<T::Output> {
     let Function {
         params,
         scope,
@@ -112,13 +135,7 @@ fn eval_call<T: Evaluable>(context: &Context, func: String, args: Vec<Expr>) -> 
     if params.len() != args.len() {
         return Err("Incorrect number of arguments".to_string());
     }
-    let args: Vec<(String, Value)> = params
-        .iter()
-        .zip(args)
-        .map(|(name, arg_expr)| {
-            eval::<marker::Any>(context, arg_expr).map(|arg| (name.clone(), arg))
-        })
-        .collect::<Result<Vec<_>, _>>()?;
+    let args: Vec<(String, Value)> = params.into_iter().cloned().zip(args).collect();
 
     // Add arguments to context as variables
     let mut context = context.new_scope_function(args);

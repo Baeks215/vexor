@@ -385,3 +385,20 @@ fn test_compile_std() {
     );
     assert_eq!(ok(&pi_arg).exports[0], circle(0.0, 0.0, 0.0));
 }
+
+#[test]
+fn test_compile_map() {
+    // map over non-empty list: double each element, match second
+    assert_body_number(
+        "fn double(x) = x * 2",
+        "match map(double, [1, 2, 3]) { [a, b, c] => b, y => 0 }",
+        4.0,
+    );
+
+    // map over empty list: result is also empty, falls to catch-all
+    assert_body_number(
+        "fn double(x) = x * 2",
+        "match map(double, []) { [a] => a, y => 99 }",
+        99.0,
+    );
+}

@@ -68,6 +68,7 @@ define_keywords! {
     pk_sin => "sin"; Std : Std::Sin,
     pk_cos => "cos"; Std : Std::Cos,
     pk_tan => "tan"; Std : Std::Tan,
+    pk_map => "map"; Std : Std::Map,
     // Constants
     pk_pi => "pi"; Const: Const::Pi
 }
@@ -85,6 +86,7 @@ pub enum Std {
     Sin,
     Cos,
     Tan,
+    Map,
 }
 
 #[cfg(test)]

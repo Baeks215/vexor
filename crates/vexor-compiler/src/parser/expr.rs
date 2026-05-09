@@ -12,8 +12,8 @@ use crate::ir::Number;
 use crate::ir::ast;
 use crate::parser::graphic::p_graphic;
 use crate::parser::keyword::{
-    self as k, pk_cos, pk_else, pk_false, pk_if, pk_match, pk_nil, pk_pi, pk_rad, pk_rgb, pk_sin,
-    pk_tan, pk_true,
+    self as k, pk_cos, pk_else, pk_false, pk_if, pk_map, pk_match, pk_nil, pk_pi, pk_rad, pk_rgb,
+    pk_sin, pk_tan, pk_true,
 };
 use crate::parser::square_braced;
 use crate::parser::{Input, WhiteSpaceParser, braced, bracketed};
@@ -101,7 +101,7 @@ pub fn p_call<'a>(input: &mut Input<'a>) -> ModalResult<ast::Expr> {
 /// Parses a standard function call.
 pub fn p_std<'a>(input: &mut Input<'a>) -> ModalResult<ast::Std> {
     (
-        alt((pk_rad, pk_sin, pk_cos, pk_tan)),
+        alt((pk_rad, pk_sin, pk_cos, pk_tan, pk_map)),
         bracketed(comma_list(0.., p_expr)),
     )
         .ws()
@@ -110,6 +110,11 @@ pub fn p_std<'a>(input: &mut Input<'a>) -> ModalResult<ast::Std> {
             k::Std::Sin => ast::Std::Sin(Box::new(args.remove(0))),
             k::Std::Cos => ast::Std::Cos(Box::new(args.remove(0))),
             k::Std::Tan => ast::Std::Tan(Box::new(args.remove(0))),
+            k::Std::Map => {
+                let function = Box::new(args.remove(0));
+                let list = Box::new(args.remove(0));
+                ast::Std::Map { function, list }
+            }
         })
         .parse_next(input)
 }
