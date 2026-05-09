@@ -1,0 +1,10 @@
+// OUTPUT: 10, 6, 7
+
+fn double(x) = x + x
+fn area(w, h) = w * h
+fn add_one(x) = x + 1
+fn triple(x) = x * 3
+
+export Circle { radius: double(5), x: 0, y: 0, color: rgb(1, 0, 0, 1) }
+export Circle { radius: area(2, 3), x: 0, y: 0, color: rgb(1, 0, 0, 1) }
+export Circle { radius: add_one(triple(2)), x: 0, y: 0, color: rgb(1, 0, 0, 1) }

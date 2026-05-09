@@ -1,0 +1,8 @@
+// OUTPUT: 1, 1, 0
+
+fn is_even(n) = if n == 0 { 1 } else { is_odd(n - 1) }
+fn is_odd(n) = if n == 0 { 0 } else { is_even(n - 1) }
+
+export Circle { radius: is_even(4), x: 0, y: 0, color: rgb(1, 0, 0, 1) }
+export Circle { radius: is_odd(3), x: 0, y: 0, color: rgb(1, 0, 0, 1) }
+export Circle { radius: is_odd(0), x: 0, y: 0, color: rgb(1, 0, 0, 1) }

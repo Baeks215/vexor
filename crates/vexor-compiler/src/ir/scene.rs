@@ -5,7 +5,7 @@ use crate::ir::Number;
 // --- Primitives ---
 
 /// Color Literal, typed
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy)]
 pub enum Color {
     Rgba {
         r: Number,
@@ -16,7 +16,7 @@ pub enum Color {
 }
 
 /// Renderable graphic component, typed
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 pub enum Graphic {
     Circle {
         x: Number,
@@ -41,7 +41,7 @@ pub enum Graphic {
 
 // --- Scene ---
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 pub struct Scene {
     pub exports: Vec<Graphic>,
 }
