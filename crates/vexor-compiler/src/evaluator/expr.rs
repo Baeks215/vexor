@@ -3,7 +3,7 @@
 use std::f64::consts::PI;
 use std::fmt::Debug;
 
-use crate::evaluator::list::ListNode;
+use crate::evaluator::data_structure::ListNode;
 use crate::evaluator::program::eval_assignment;
 use crate::evaluator::{Context, EResult, Function, Value, to_int};
 use crate::ir::ast::{self, Expr, ListLiteral, Literal, MatchArm, OpBin, OpUn, Std};
@@ -103,9 +103,21 @@ fn eval_std<T: Evaluable>(context: &Context, std: Std) -> Result<<T as Evaluable
                 return Err("Must be a function name".to_string());
             };
             let list = eval::<marker::List>(context, *list)?;
-            let result = (*list)
-                .map(|x| eval_call_values::<marker::Any>(context, function.clone(), vec![x]))?;
-            Value::List(Box::new(result))
+            let mut items = vec![];
+            let mut curr = *list;
+            while let ListNode::Cons(head, tail) = curr {
+                let new_head =
+                    eval_call_values::<marker::Any>(context, function.clone(), vec![head])?;
+                items.push(new_head);
+                curr = *tail;
+            }
+
+            let mut acc = Box::new(ListNode::Nil);
+            for item in items.into_iter().rev() {
+                acc = Box::new(ListNode::Cons(item, acc));
+            }
+
+            Value::List(acc)
         }
     };
     T::from_value(result)
@@ -718,8 +730,6 @@ impl Evaluable for marker::List {
                     }
                     // Build Linked List from stepped range
                     ListLiteral::Range { start, second, end } => {
-                        let mut acc = Box::new(ListNode::Nil);
-
                         // Evaluate range bounds and convert to integers
                         let start = eval::<marker::Number>(context, *start).and_then(to_int)?;
                         let second = second
@@ -727,9 +737,10 @@ impl Evaluable for marker::List {
                             .transpose()?;
                         let end = eval::<marker::Number>(context, *end).and_then(to_int)?;
 
-                        let iter_rev = build_range_rev(start, second, end)?;
+                        let mut acc = Box::new(ListNode::Nil);
 
                         // Iterate in reverse to build linked list
+                        let iter_rev = build_range_rev(start, second, end)?;
                         for n in iter_rev {
                             // Loss of precision for large numbers
                             let value = Value::Number(n as f64);
