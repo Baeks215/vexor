@@ -1,7 +1,6 @@
 //! Evaluator: Typed AST -> Scene
 
 use crate::evaluator::expr::Evaluable;
-use crate::ir::scene::marker;
 use crate::ir::{Number, ast};
 use std::collections::HashMap;
 
@@ -16,15 +15,33 @@ type EError = String;
 /// Result type for evaluation
 type EResult<O> = Result<O, EError>;
 
+/// Marker Types used to annotate generics
+mod ty {
+    #[derive(Debug, Clone, Copy)]
+    pub struct Any;
+    #[derive(Debug, Clone, Copy)]
+    pub struct Number;
+    #[derive(Debug, Clone, Copy)]
+    pub struct String;
+    #[derive(Debug, Clone, Copy)]
+    pub struct Bool;
+    #[derive(Debug, Clone, Copy)]
+    pub struct Color;
+    #[derive(Debug, Clone, Copy)]
+    pub struct Graphic;
+    #[derive(Debug, Clone, Copy)]
+    pub struct List;
+}
+
 /// Literal value types
 #[derive(Debug, Clone)]
 pub enum Value {
-    Number(<marker::Number as Evaluable>::Output),
-    String(<marker::String as Evaluable>::Output),
-    Bool(<marker::Bool as Evaluable>::Output),
-    Color(<marker::Color as Evaluable>::Output),
-    Graphic(<marker::Graphic as Evaluable>::Output),
-    List(<marker::List as Evaluable>::Output),
+    Number(<ty::Number as Evaluable>::Output),
+    String(<ty::String as Evaluable>::Output),
+    Bool(<ty::Bool as Evaluable>::Output),
+    Color(<ty::Color as Evaluable>::Output),
+    Graphic(<ty::Graphic as Evaluable>::Output),
+    List(<ty::List as Evaluable>::Output),
 }
 
 #[derive(Debug, Clone)]

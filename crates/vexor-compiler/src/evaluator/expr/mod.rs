@@ -4,10 +4,9 @@ use std::f64::consts::PI;
 use std::fmt::Debug;
 
 use crate::evaluator::program::eval_assignment;
-use crate::evaluator::{Context, EResult, Function, Value};
+use crate::evaluator::{Context, EResult, Function, Value, ty};
 use crate::ir::ast::{self, Expr, Literal, MatchArm, Std, op};
 use crate::ir::scene;
-use crate::ir::scene::marker;
 
 mod bool;
 mod color;
@@ -51,7 +50,7 @@ pub fn eval<T: Evaluable>(context: &Context, expr: ast::Expr) -> EResult<T::Outp
         Expr::Call { function, args } => {
             let args: Vec<Value> = args
                 .into_iter()
-                .map(|arg_expr| eval::<marker::Any>(context, arg_expr))
+                .map(|arg_expr| eval::<ty::Any>(context, arg_expr))
                 .collect::<Result<Vec<_>, _>>()?;
 
             eval_call::<T>(context, function, args)
@@ -64,7 +63,7 @@ pub fn eval<T: Evaluable>(context: &Context, expr: ast::Expr) -> EResult<T::Outp
         } => eval_op_bin::<T>(context, operator, *left, *right),
         Expr::Unary { operator, operand } => eval_op_un::<T>(context, operator, *operand),
         Expr::Match { scrutinee, arms } => {
-            let s = eval::<marker::Any>(context, *scrutinee)?;
+            let s = eval::<ty::Any>(context, *scrutinee)?;
             eval_match::<T>(context, arms, s)
         }
         Expr::If {
@@ -72,7 +71,7 @@ pub fn eval<T: Evaluable>(context: &Context, expr: ast::Expr) -> EResult<T::Outp
             then_branch,
             else_branch,
         } => {
-            if eval::<marker::Bool>(context, *condition)? {
+            if eval::<ty::Bool>(context, *condition)? {
                 eval::<T>(context, *then_branch)
             } else {
                 eval::<T>(context, *else_branch)
@@ -93,8 +92,8 @@ fn eval_op_bin<T: Evaluable>(
     let result = match operator {
         op::Binary::Arithmetic(operator) => {
             // Force evaluate as expected types
-            let left = eval::<marker::Number>(context, left)?;
-            let right = eval::<marker::Number>(context, right)?;
+            let left = eval::<ty::Number>(context, left)?;
+            let right = eval::<ty::Number>(context, right)?;
             Value::Number(match operator {
                 op::Arithmetic::Add => left + right,
                 op::Arithmetic::Sub => left - right,
@@ -103,16 +102,16 @@ fn eval_op_bin<T: Evaluable>(
             })
         }
         op::Binary::Logic(operator) => {
-            let l = eval::<marker::Bool>(context, left)?;
-            let r = eval::<marker::Bool>(context, right)?;
+            let l = eval::<ty::Bool>(context, left)?;
+            let r = eval::<ty::Bool>(context, right)?;
             Value::Bool(match operator {
                 op::Logic::And => l && r,
                 op::Logic::Or => l || r,
             })
         }
         op::Binary::Compare(operator) => {
-            let l = eval::<marker::Number>(context, left)?;
-            let r = eval::<marker::Number>(context, right)?;
+            let l = eval::<ty::Number>(context, left)?;
+            let r = eval::<ty::Number>(context, right)?;
             Value::Bool(match operator {
                 op::Compare::Gt => l > r,
                 op::Compare::Gte => l >= r,
@@ -123,8 +122,8 @@ fn eval_op_bin<T: Evaluable>(
             })
         }
         op::Binary::Cons => {
-            let head = eval::<marker::Any>(context, left)?;
-            let tail = eval::<marker::List>(context, right)?;
+            let head = eval::<ty::Any>(context, left)?;
+            let tail = eval::<ty::List>(context, right)?;
             Value::List(Box::new(list::ListNode::Cons(head, tail)))
         }
     };
@@ -140,7 +139,7 @@ fn eval_op_un<T: Evaluable>(
 ) -> EResult<T::Output> {
     let result = match operator {
         op::Unary::Not => {
-            let value = eval::<marker::Bool>(context, expr)?;
+            let value = eval::<ty::Bool>(context, expr)?;
             Value::Bool(!value)
         }
     };
@@ -158,30 +157,30 @@ fn eval_const<T: Evaluable>(c: ast::Const) -> Result<<T as Evaluable>::Output, S
 fn eval_std<T: Evaluable>(context: &Context, std: Std) -> Result<<T as Evaluable>::Output, String> {
     let result = match std {
         Std::Rad(expr) => {
-            let x = eval::<marker::Number>(context, *expr)?;
+            let x = eval::<ty::Number>(context, *expr)?;
             Value::Number(x.to_radians())
         }
         Std::Sin(expr) => {
-            let x = eval::<marker::Number>(context, *expr)?;
+            let x = eval::<ty::Number>(context, *expr)?;
             Value::Number(x.sin())
         }
         Std::Cos(expr) => {
-            let x = eval::<marker::Number>(context, *expr)?;
+            let x = eval::<ty::Number>(context, *expr)?;
             Value::Number(x.cos())
         }
         Std::Tan(expr) => {
-            let x = eval::<marker::Number>(context, *expr)?;
+            let x = eval::<ty::Number>(context, *expr)?;
             Value::Number(x.tan())
         }
         Std::Map { function, list } => {
             let Expr::Variable(function) = *function else {
                 return Err("Must be a function name".to_string());
             };
-            let list = eval::<marker::List>(context, *list)?;
+            let list = eval::<ty::List>(context, *list)?;
             let mut items = vec![];
             let mut curr = *list;
             while let list::ListNode::Cons(head, tail) = curr {
-                let new_head = eval_call::<marker::Any>(context, function.clone(), vec![head])?;
+                let new_head = eval_call::<ty::Any>(context, function.clone(), vec![head])?;
                 items.push(new_head);
                 curr = *tail;
             }
@@ -260,13 +259,13 @@ fn eval_match<T: Evaluable>(
     } in arms
     {
         let mut arm_ctx = context.clone();
-        let matched = match_pattern::<marker::Any>(&mut arm_ctx, scrutinee.clone(), pattern)?;
+        let matched = match_pattern::<ty::Any>(&mut arm_ctx, scrutinee.clone(), pattern)?;
         if !matched {
             continue;
         }
 
         if let Some(condition) = guard {
-            if !eval::<marker::Bool>(&arm_ctx, condition)? {
+            if !eval::<ty::Bool>(&arm_ctx, condition)? {
                 continue;
             }
         }
@@ -328,7 +327,7 @@ fn eval_field_access<T: Evaluable>(
     T::from_value(result)
 }
 
-impl Evaluable for marker::Any {
+impl Evaluable for ty::Any {
     type Output = Value;
     fn to_value(value: Self::Output) -> Value {
         value
@@ -341,9 +340,9 @@ impl Evaluable for marker::Any {
             Literal::Number(n) => Value::Number(n),
             Literal::String(s) => Value::String(s),
             Literal::Bool(b) => Value::Bool(b),
-            Literal::Color(_) => Value::Color(marker::Color::eval_literal(context, literal)?),
-            Literal::Graphic(_) => Value::Graphic(marker::Graphic::eval_literal(context, literal)?),
-            Literal::List(_) => Value::List(marker::List::eval_literal(context, literal)?),
+            Literal::Color(_) => Value::Color(ty::Color::eval_literal(context, literal)?),
+            Literal::Graphic(_) => Value::Graphic(ty::Graphic::eval_literal(context, literal)?),
+            Literal::List(_) => Value::List(ty::List::eval_literal(context, literal)?),
         })
     }
     fn match_literal(
@@ -352,12 +351,12 @@ impl Evaluable for marker::Any {
         literal_pattern: Literal,
     ) -> EResult<bool> {
         match scrutinee {
-            Value::Number(s) => marker::Number::match_literal(context, s, literal_pattern),
-            Value::String(s) => marker::String::match_literal(context, s, literal_pattern),
-            Value::Bool(s) => marker::Bool::match_literal(context, s, literal_pattern),
-            Value::Color(s) => marker::Color::match_literal(context, s, literal_pattern),
-            Value::Graphic(s) => marker::Graphic::match_literal(context, s, literal_pattern),
-            Value::List(s) => marker::List::match_literal(context, s, literal_pattern),
+            Value::Number(s) => ty::Number::match_literal(context, s, literal_pattern),
+            Value::String(s) => ty::String::match_literal(context, s, literal_pattern),
+            Value::Bool(s) => ty::Bool::match_literal(context, s, literal_pattern),
+            Value::Color(s) => ty::Color::match_literal(context, s, literal_pattern),
+            Value::Graphic(s) => ty::Graphic::match_literal(context, s, literal_pattern),
+            Value::List(s) => ty::List::match_literal(context, s, literal_pattern),
         }
     }
     fn match_bin(
@@ -368,12 +367,12 @@ impl Evaluable for marker::Any {
         right: Expr,
     ) -> EResult<bool> {
         match scrutinee {
-            Value::Number(s) => marker::Number::match_bin(context, s, operator, left, right),
-            Value::String(s) => marker::String::match_bin(context, s, operator, left, right),
-            Value::Bool(s) => marker::Bool::match_bin(context, s, operator, left, right),
-            Value::Color(s) => marker::Color::match_bin(context, s, operator, left, right),
-            Value::Graphic(s) => marker::Graphic::match_bin(context, s, operator, left, right),
-            Value::List(s) => marker::List::match_bin(context, s, operator, left, right),
+            Value::Number(s) => ty::Number::match_bin(context, s, operator, left, right),
+            Value::String(s) => ty::String::match_bin(context, s, operator, left, right),
+            Value::Bool(s) => ty::Bool::match_bin(context, s, operator, left, right),
+            Value::Color(s) => ty::Color::match_bin(context, s, operator, left, right),
+            Value::Graphic(s) => ty::Graphic::match_bin(context, s, operator, left, right),
+            Value::List(s) => ty::List::match_bin(context, s, operator, left, right),
         }
     }
 }

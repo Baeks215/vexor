@@ -1,7 +1,6 @@
 use crate::evaluator::expr::{Evaluable, eval, match_pattern};
-use crate::evaluator::{Context, EResult, Value, to_int};
+use crate::evaluator::{Context, EResult, Value, to_int, ty};
 use crate::ir::ast::{Expr, ListLiteral, Literal, op};
-use crate::ir::scene::marker;
 
 /// Linked List node
 #[derive(Debug, Clone)]
@@ -10,7 +9,7 @@ pub enum ListNode<T: Clone> {
     Cons(T, Box<ListNode<T>>),
 }
 
-impl Evaluable for marker::List {
+impl Evaluable for ty::List {
     type Output = Box<ListNode<Value>>;
     fn to_value(value: Self::Output) -> Value {
         Value::List(value)
@@ -31,7 +30,7 @@ impl Evaluable for marker::List {
 
                         // Iterate in reverse to build linked list
                         for e in exprs.into_iter().rev() {
-                            let e = eval::<marker::Any>(context, e)?;
+                            let e = eval::<ty::Any>(context, e)?;
                             acc = Box::new(ListNode::Cons(e, acc));
                         }
                         Ok(acc)
@@ -39,11 +38,11 @@ impl Evaluable for marker::List {
                     // Build Linked List from stepped range
                     ListLiteral::Range { start, second, end } => {
                         // Evaluate range bounds and convert to integers
-                        let start = eval::<marker::Number>(context, *start).and_then(to_int)?;
+                        let start = eval::<ty::Number>(context, *start).and_then(to_int)?;
                         let second = second
-                            .map(|e| eval::<marker::Number>(context, *e).and_then(to_int))
+                            .map(|e| eval::<ty::Number>(context, *e).and_then(to_int))
                             .transpose()?;
-                        let end = eval::<marker::Number>(context, *end).and_then(to_int)?;
+                        let end = eval::<ty::Number>(context, *end).and_then(to_int)?;
 
                         let mut acc = Box::new(ListNode::Nil);
 
@@ -74,7 +73,7 @@ impl Evaluable for marker::List {
                         // Scrutinee is Nil, pattern is too long
                         return Ok(false);
                     };
-                    let matched = match_pattern::<marker::Any>(context, head, item_pattern)?;
+                    let matched = match_pattern::<ty::Any>(context, head, item_pattern)?;
                     if !matched {
                         return Ok(false);
                     }
@@ -99,10 +98,8 @@ impl Evaluable for marker::List {
         match operator {
             op::Binary::Cons => match *scrutinee {
                 ListNode::Nil => Ok(false),
-                ListNode::Cons(head, tail) => {
-                    Ok(match_pattern::<marker::Any>(context, head, left)?
-                        && match_pattern::<marker::List>(context, tail, right)?)
-                }
+                ListNode::Cons(head, tail) => Ok(match_pattern::<ty::Any>(context, head, left)?
+                    && match_pattern::<ty::List>(context, tail, right)?),
             },
             _ => Err("Pattern not supported".to_string()),
         }

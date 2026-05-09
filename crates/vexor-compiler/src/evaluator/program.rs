@@ -1,13 +1,12 @@
 //! Evaluator for program
 
-use crate::evaluator::{Context, EResult, expr};
-use crate::ir::scene::marker;
+use crate::evaluator::{Context, EResult, expr, ty};
 use crate::ir::{ast, scene};
 
 pub fn eval_assignment(context: &mut Context, statement: ast::Assignment) -> EResult<()> {
     match statement {
         ast::Assignment { identifier, value } => {
-            let evaluated = expr::eval::<marker::Any>(context, value)?;
+            let evaluated = expr::eval::<ty::Any>(context, value)?;
             let old = context.set_var(identifier, evaluated);
             if let Some(_) = old {
                 return Err("Variable already exists".to_string());
@@ -36,7 +35,7 @@ pub fn eval_program(program: ast::Program) -> EResult<scene::Scene> {
         eval_assignment(&mut context, assignment)?;
     }
     for export in exports {
-        let evaluated = expr::eval::<marker::Graphic>(&context, export)?;
+        let evaluated = expr::eval::<ty::Graphic>(&context, export)?;
         exported.push(evaluated);
     }
     Ok(scene::Scene { exports: exported })

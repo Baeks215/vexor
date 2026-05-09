@@ -1,0 +1,7 @@
+// OUTPUT: 120, 8
+
+fn factorial(n) = if n <= 1 { 1 } else { n * factorial(n - 1) }
+fn power(base, exp) = if exp <= 0 { 1 } else { base * power(base, exp - 1) }
+
+export Circle { radius: factorial(5), x: 0, y: 0, color: rgb(1, 0, 0, 1) }
+export Circle { radius: power(2, 3), x: 0, y: 0, color: rgb(1, 0, 0, 1) }

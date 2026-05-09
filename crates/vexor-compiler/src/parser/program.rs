@@ -3,9 +3,10 @@
 use crate::ir::ast;
 use crate::parser::expr::p_expr;
 use crate::parser::keyword::{pk_export, pk_fn, pk_let, pk_where};
-use crate::parser::{Input, WhiteSpaceParser, braced, bracketed, comma_list, p_identifier};
+use crate::parser::{
+    Input, WhiteSpaceParser, braced, bracketed, comma_list, newline1, p_identifier, p_mws,
+};
 use itertools::{Either, Itertools};
-use winnow::ascii::{multispace0, multispace1};
 use winnow::combinator::{alt, delimited, opt, preceded, separated, terminated};
 use winnow::error::{ContextError, ParseError};
 use winnow::{ModalResult, Parser, Result};
@@ -70,14 +71,14 @@ pub fn parse_program<'a>(
 ) -> Result<ast::Program, ParseError<Input<'a>, ContextError>> {
     let input = Input::new(input);
     delimited(
-        multispace0,
+        p_mws,
         (
             opt(terminated(
-                separated(0.., p_program_unit, multispace1),
-                multispace1,
+                separated(0.., p_program_unit, newline1),
+                newline1,
             ))
             .map(|u| u.unwrap_or_default()),
-            separated(0.., p_export, multispace1),
+            separated(0.., p_export, newline1),
         )
             .map(|(units, exports): (Vec<_>, Vec<_>)| {
                 let (functions, statements) = units.into_iter().partition_map(|u| match u {
@@ -90,7 +91,7 @@ pub fn parse_program<'a>(
                     exports,
                 }
             }),
-        multispace0,
+        p_mws,
     )
     .parse(input)
 }

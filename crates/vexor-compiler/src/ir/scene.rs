@@ -4,26 +4,8 @@ use crate::ir::Number;
 
 // --- Primitives ---
 
-/// Marker Types used to annotate generics
-pub mod marker {
-    #[derive(Debug, Clone, Copy)]
-    pub struct Any;
-    #[derive(Debug, Clone, Copy)]
-    pub struct Number;
-    #[derive(Debug, Clone, Copy)]
-    pub struct String;
-    #[derive(Debug, Clone, Copy)]
-    pub struct Bool;
-    #[derive(Debug, Clone, Copy)]
-    pub struct Color;
-    #[derive(Debug, Clone, Copy)]
-    pub struct Graphic;
-    #[derive(Debug, Clone, Copy)]
-    pub struct List;
-}
-
 /// Color Literal, typed
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy)]
 pub enum Color {
     Rgba {
         r: Number,
@@ -34,7 +16,7 @@ pub enum Color {
 }
 
 /// Renderable graphic component, typed
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 pub enum Graphic {
     Circle {
         x: Number,
@@ -59,7 +41,7 @@ pub enum Graphic {
 
 // --- Scene ---
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 pub struct Scene {
     pub exports: Vec<Graphic>,
 }

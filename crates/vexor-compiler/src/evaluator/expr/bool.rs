@@ -1,9 +1,8 @@
 use crate::evaluator::expr::Evaluable;
-use crate::evaluator::{Context, EResult, Value};
+use crate::evaluator::{Context, EResult, Value, ty};
 use crate::ir::ast::{Expr, Literal, op};
-use crate::ir::scene::marker;
 
-impl Evaluable for marker::Bool {
+impl Evaluable for ty::Bool {
     type Output = bool;
     fn to_value(value: Self::Output) -> Value {
         Value::Bool(value)
