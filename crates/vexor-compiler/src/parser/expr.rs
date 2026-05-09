@@ -10,6 +10,7 @@ use winnow::{ModalResult, Parser};
 
 use crate::ir::Number;
 use crate::ir::ast;
+use crate::ir::ast::op;
 use crate::parser::graphic::p_graphic;
 use crate::parser::keyword::{
     self as k, pk_cos, pk_else, pk_false, pk_if, pk_map, pk_match, pk_nil, pk_pi, pk_rad, pk_rgb,
@@ -224,26 +225,26 @@ pub fn p_expr<'a>(input: &mut Input<'a>) -> ModalResult<ast::Expr> {
         alt(("==", "!=", ">=", "<=")),
         alt(("+", "-", "*", "/", ">", "<", ":")),
     )).ws();
-        "||" => Infix::Left(1, |_, a, b| Ok(ast::Expr::Binary { operator: ast::OpBin::Or, left: Box::new(a), right: Box::new(b) })),
-        "&&" => Infix::Left(2, |_, a, b| Ok(ast::Expr::Binary { operator: ast::OpBin::And, left: Box::new(a), right: Box::new(b) })),
+        "||" => Infix::Left(1, |_, a, b| Ok(ast::Expr::Binary { operator: op::Binary::Logic(op::Logic::Or), left: Box::new(a), right: Box::new(b) })),
+        "&&" => Infix::Left(2, |_, a, b| Ok(ast::Expr::Binary { operator: op::Binary::Logic(op::Logic::And), left: Box::new(a), right: Box::new(b) })),
         // Comparisons
-        "==" => Infix::Left(3, |_, a, b| Ok(ast::Expr::Binary { operator: ast::OpBin::Eq, left: Box::new(a), right: Box::new(b) })),
-        "!=" => Infix::Left(3, |_, a, b| Ok(ast::Expr::Binary { operator: ast::OpBin::Neq, left: Box::new(a), right: Box::new(b) })),
-        ">=" => Infix::Left(3, |_, a, b| Ok(ast::Expr::Binary { operator: ast::OpBin::Gte, left: Box::new(a), right: Box::new(b) })),
-        "<=" => Infix::Left(3, |_, a, b| Ok(ast::Expr::Binary { operator: ast::OpBin::Lte, left: Box::new(a), right: Box::new(b) })),
-        ">" => Infix::Left(3, |_, a, b| Ok(ast::Expr::Binary { operator: ast::OpBin::Gt, left: Box::new(a), right: Box::new(b) })),
-        "<" => Infix::Left(3, |_, a, b| Ok(ast::Expr::Binary { operator: ast::OpBin::Lt, left: Box::new(a), right: Box::new(b) })),
+        "==" => Infix::Left(3, |_, a, b| Ok(ast::Expr::Binary { operator: op::Binary::Compare(op::Compare::Eq), left: Box::new(a), right: Box::new(b) })),
+        "!=" => Infix::Left(3, |_, a, b| Ok(ast::Expr::Binary { operator: op::Binary::Compare(op::Compare::Neq), left: Box::new(a), right: Box::new(b) })),
+        ">=" => Infix::Left(3, |_, a, b| Ok(ast::Expr::Binary { operator: op::Binary::Compare(op::Compare::Gte), left: Box::new(a), right: Box::new(b) })),
+        "<=" => Infix::Left(3, |_, a, b| Ok(ast::Expr::Binary { operator: op::Binary::Compare(op::Compare::Lte), left: Box::new(a), right: Box::new(b) })),
+        ">" => Infix::Left(3, |_, a, b| Ok(ast::Expr::Binary { operator: op::Binary::Compare(op::Compare::Gt), left: Box::new(a), right: Box::new(b) })),
+        "<" => Infix::Left(3, |_, a, b| Ok(ast::Expr::Binary { operator: op::Binary::Compare(op::Compare::Lt), left: Box::new(a), right: Box::new(b) })),
         // Cons
-        ":" => Infix::Right(4, |_, a, b| Ok(ast::Expr::Binary { operator: ast::OpBin::Cons, left: Box::new(a), right: Box::new(b) })),
+        ":" => Infix::Right(4, |_, a, b| Ok(ast::Expr::Binary { operator: op::Binary::Cons, left: Box::new(a), right: Box::new(b) })),
         // Arithmetic
-        "+" => Infix::Left(5, |_, a, b| Ok(ast::Expr::Binary { operator: ast::OpBin::Add, left: Box::new(a), right: Box::new(b) })),
-        "-" => Infix::Left(5, |_, a, b| Ok(ast::Expr::Binary { operator: ast::OpBin::Sub, left: Box::new(a), right: Box::new(b) })),
-        "*" => Infix::Left(7, |_, a, b| Ok(ast::Expr::Binary { operator: ast::OpBin::Mul, left: Box::new(a), right: Box::new(b) })),
-        "/" => Infix::Left(7, |_, a, b| Ok(ast::Expr::Binary { operator: ast::OpBin::Div, left: Box::new(a), right: Box::new(b) })),
+        "+" => Infix::Left(5, |_, a, b| Ok(ast::Expr::Binary { operator: op::Binary::Arithmetic(op::Arithmetic::Add), left: Box::new(a), right: Box::new(b) })),
+        "-" => Infix::Left(5, |_, a, b| Ok(ast::Expr::Binary { operator: op::Binary::Arithmetic(op::Arithmetic::Sub), left: Box::new(a), right: Box::new(b) })),
+        "*" => Infix::Left(7, |_, a, b| Ok(ast::Expr::Binary { operator: op::Binary::Arithmetic(op::Arithmetic::Mul), left: Box::new(a), right: Box::new(b) })),
+        "/" => Infix::Left(7, |_, a, b| Ok(ast::Expr::Binary { operator: op::Binary::Arithmetic(op::Arithmetic::Div), left: Box::new(a), right: Box::new(b) })),
         _ => fail,
     })
     .prefix(dispatch! {"!";
-        "!" => Prefix(11, |_, a| Ok(ast::Expr::Unary { operator: ast::OpUn::Not, operand: Box::new(a) })),
+        "!" => Prefix(11, |_, a| Ok(ast::Expr::Unary { operator: op::Unary::Not, operand: Box::new(a) })),
         _ => fail,
     })
     .parse_next(input)

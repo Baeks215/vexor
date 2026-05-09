@@ -6,7 +6,7 @@ use std::fmt::Debug;
 use crate::evaluator::data_structure::ListNode;
 use crate::evaluator::program::eval_assignment;
 use crate::evaluator::{Context, EResult, Function, Value, to_int};
-use crate::ir::ast::{self, Expr, ListLiteral, Literal, MatchArm, OpBin, OpUn, Std};
+use crate::ir::ast::{self, Expr, ListLiteral, Literal, MatchArm, Std, op};
 use crate::ir::scene::marker;
 use crate::ir::{Number, scene};
 
@@ -18,15 +18,6 @@ pub trait Evaluable {
     fn from_value(value: Value) -> EResult<Self::Output>;
     /// Evaluates a literal expression
     fn eval_literal(context: &Context, literal: Literal) -> EResult<Self::Output>;
-    /// Evaluates a binary operator expression
-    fn eval_op_bin(
-        context: &Context,
-        operator: OpBin,
-        left: Expr,
-        right: Expr,
-    ) -> EResult<Self::Output>;
-    /// Evaluates a unary operator expression
-    fn eval_op_un(context: &Context, operator: OpUn, expr: Expr) -> EResult<Self::Output>;
     /// Matches an evaluated value to a literal ast value
     fn match_literal(
         context: &mut Context,
@@ -37,7 +28,7 @@ pub trait Evaluable {
     fn match_bin(
         context: &mut Context,
         scrutinee: Self::Output,
-        operator: OpBin,
+        operator: op::Binary,
         left: Expr,
         right: Expr,
     ) -> EResult<bool>;
@@ -57,8 +48,8 @@ pub fn eval<T: Evaluable>(context: &Context, expr: ast::Expr) -> EResult<T::Outp
             operator,
             left,
             right,
-        } => T::eval_op_bin(context, operator, *left, *right),
-        Expr::Unary { operator, operand } => T::eval_op_un(context, operator, *operand),
+        } => eval_op_bin::<T>(context, operator, *left, *right),
+        Expr::Unary { operator, operand } => eval_op_un::<T>(context, operator, *operand),
         Expr::Match { scrutinee, arms } => {
             let s = eval::<marker::Any>(context, *scrutinee)?;
             eval_match::<T>(context, arms, s)
@@ -70,6 +61,71 @@ pub fn eval<T: Evaluable>(context: &Context, expr: ast::Expr) -> EResult<T::Outp
         } => eval_if::<T>(context, *condition, *then_branch, *else_branch),
         Expr::Field { object, field } => eval_field_access::<T>(context, object, field),
     }
+}
+
+/// Evaluates a binary operator expression
+fn eval_op_bin<T: Evaluable>(
+    context: &Context,
+    operator: op::Binary,
+    left: Expr,
+    right: Expr,
+) -> EResult<T::Output> {
+    // Evaluate as general value
+    let result = match operator {
+        op::Binary::Arithmetic(operator) => {
+            // Force evaluate as expected types
+            let left = eval::<marker::Number>(context, left)?;
+            let right = eval::<marker::Number>(context, right)?;
+            Value::Number(match operator {
+                op::Arithmetic::Add => left + right,
+                op::Arithmetic::Sub => left - right,
+                op::Arithmetic::Mul => left * right,
+                op::Arithmetic::Div => left / right,
+            })
+        }
+        op::Binary::Logic(operator) => {
+            let l = eval::<marker::Bool>(context, left)?;
+            let r = eval::<marker::Bool>(context, right)?;
+            Value::Bool(match operator {
+                op::Logic::And => l && r,
+                op::Logic::Or => l || r,
+            })
+        }
+        op::Binary::Compare(operator) => {
+            let l = eval::<marker::Number>(context, left)?;
+            let r = eval::<marker::Number>(context, right)?;
+            Value::Bool(match operator {
+                op::Compare::Gt => l > r,
+                op::Compare::Gte => l >= r,
+                op::Compare::Lt => l < r,
+                op::Compare::Lte => l <= r,
+                op::Compare::Eq => l == r,
+                op::Compare::Neq => l != r,
+            })
+        }
+        op::Binary::Cons => {
+            let head = eval::<marker::Any>(context, left)?;
+            let tail = eval::<marker::List>(context, right)?;
+            Value::List(Box::new(ListNode::Cons(head, tail)))
+        }
+    };
+    // Convert to output type, errors if type mismatch
+    T::from_value(result)
+}
+
+/// Evaluates a unary operator expression
+fn eval_op_un<T: Evaluable>(
+    context: &Context,
+    operator: op::Unary,
+    expr: Expr,
+) -> EResult<T::Output> {
+    let result = match operator {
+        op::Unary::Not => {
+            let value = eval::<marker::Bool>(context, expr)?;
+            Value::Bool(!value)
+        }
+    };
+    T::from_value(result)
 }
 
 /// Evaluates a constant value.
@@ -294,36 +350,6 @@ impl Evaluable for marker::Any {
             Literal::List(_) => Value::List(marker::List::eval_literal(context, literal)?),
         })
     }
-    fn eval_op_bin(
-        context: &Context,
-        operator: OpBin,
-        left: Expr,
-        right: Expr,
-    ) -> EResult<Self::Output> {
-        match operator {
-            OpBin::Add | OpBin::Sub | OpBin::Mul | OpBin::Div => {
-                marker::Number::eval_op_bin(context, operator, left, right).map(Value::Number)
-            }
-            OpBin::Gt
-            | OpBin::Gte
-            | OpBin::Lt
-            | OpBin::Lte
-            | OpBin::Eq
-            | OpBin::Neq
-            | OpBin::And
-            | OpBin::Or => {
-                marker::Bool::eval_op_bin(context, operator, left, right).map(Value::Bool)
-            }
-            OpBin::Cons => {
-                marker::List::eval_op_bin(context, operator, left, right).map(Value::List)
-            }
-        }
-    }
-    fn eval_op_un(context: &Context, operator: OpUn, expr: Expr) -> EResult<Self::Output> {
-        match operator {
-            OpUn::Not => marker::Bool::eval_op_un(context, operator, expr).map(Value::Bool),
-        }
-    }
     fn match_literal(
         context: &mut Context,
         scrutinee: Self::Output,
@@ -341,7 +367,7 @@ impl Evaluable for marker::Any {
     fn match_bin(
         context: &mut Context,
         scrutinee: Self::Output,
-        operator: OpBin,
+        operator: op::Binary,
         left: Expr,
         right: Expr,
     ) -> EResult<bool> {
@@ -373,25 +399,6 @@ impl Evaluable for marker::Number {
             _ => Err("Expected a number".to_string()),
         }
     }
-    fn eval_op_bin(
-        context: &Context,
-        operator: OpBin,
-        left: Expr,
-        right: Expr,
-    ) -> EResult<Self::Output> {
-        let left = eval::<marker::Number>(context, left)?;
-        let right = eval::<marker::Number>(context, right)?;
-        match operator {
-            OpBin::Add => Ok(left + right),
-            OpBin::Sub => Ok(left - right),
-            OpBin::Mul => Ok(left * right),
-            OpBin::Div => Ok(left / right),
-            _ => Err("Unsupported operator for number".to_string()),
-        }
-    }
-    fn eval_op_un(_: &Context, _: OpUn, _: Expr) -> EResult<Self::Output> {
-        Err("Unsupported operator".to_string())
-    }
     fn match_literal(
         _: &mut Context,
         scrutinee: Self::Output,
@@ -402,7 +409,13 @@ impl Evaluable for marker::Number {
             _ => Err("Expected a number literal".to_string()),
         }
     }
-    fn match_bin(_: &mut Context, _: Self::Output, _: OpBin, _: Expr, _: Expr) -> EResult<bool> {
+    fn match_bin(
+        _: &mut Context,
+        _: Self::Output,
+        _: op::Binary,
+        _: Expr,
+        _: Expr,
+    ) -> EResult<bool> {
         Err("Pattern not supported".to_string())
     }
 }
@@ -424,12 +437,6 @@ impl Evaluable for marker::String {
             _ => Err("Expected a string".to_string()),
         }
     }
-    fn eval_op_bin(_: &Context, _: OpBin, _: Expr, _: Expr) -> EResult<Self::Output> {
-        Err("Unsupported operator".to_string())
-    }
-    fn eval_op_un(_: &Context, _: OpUn, _: Expr) -> EResult<Self::Output> {
-        Err("Unsupported operator".to_string())
-    }
     fn match_literal(
         _: &mut Context,
         scrutinee: Self::Output,
@@ -440,7 +447,13 @@ impl Evaluable for marker::String {
             _ => Err("Expected a string literal".to_string()),
         }
     }
-    fn match_bin(_: &mut Context, _: Self::Output, _: OpBin, _: Expr, _: Expr) -> EResult<bool> {
+    fn match_bin(
+        _: &mut Context,
+        _: Self::Output,
+        _: op::Binary,
+        _: Expr,
+        _: Expr,
+    ) -> EResult<bool> {
         Err("Pattern not supported".to_string())
     }
 }
@@ -462,46 +475,6 @@ impl Evaluable for marker::Bool {
             _ => Err("Expected a bool".to_string()),
         }
     }
-    fn eval_op_bin(
-        context: &Context,
-        operator: OpBin,
-        left: Expr,
-        right: Expr,
-    ) -> EResult<Self::Output> {
-        match operator {
-            OpBin::And | OpBin::Or => {
-                let l = eval::<marker::Bool>(context, left)?;
-                let r = eval::<marker::Bool>(context, right)?;
-                Ok(match operator {
-                    OpBin::And => l && r,
-                    OpBin::Or => l || r,
-                    _ => unreachable!(),
-                })
-            }
-            OpBin::Gt | OpBin::Gte | OpBin::Lt | OpBin::Lte | OpBin::Eq | OpBin::Neq => {
-                let l = eval::<marker::Number>(context, left)?;
-                let r = eval::<marker::Number>(context, right)?;
-                Ok(match operator {
-                    OpBin::Gt => l > r,
-                    OpBin::Gte => l >= r,
-                    OpBin::Lt => l < r,
-                    OpBin::Lte => l <= r,
-                    OpBin::Eq => l == r,
-                    OpBin::Neq => l != r,
-                    _ => unreachable!(),
-                })
-            }
-            _ => Err("Unsupported operator".to_string()),
-        }
-    }
-    fn eval_op_un(context: &Context, operator: OpUn, expr: Expr) -> EResult<Self::Output> {
-        match operator {
-            OpUn::Not => {
-                let value = eval::<marker::Bool>(context, expr)?;
-                Ok(!value)
-            }
-        }
-    }
     fn match_literal(
         _: &mut Context,
         scrutinee: Self::Output,
@@ -512,7 +485,13 @@ impl Evaluable for marker::Bool {
             _ => Err("Expected a bool literal".to_string()),
         }
     }
-    fn match_bin(_: &mut Context, _: Self::Output, _: OpBin, _: Expr, _: Expr) -> EResult<bool> {
+    fn match_bin(
+        _: &mut Context,
+        _: Self::Output,
+        _: op::Binary,
+        _: Expr,
+        _: Expr,
+    ) -> EResult<bool> {
         Err("Pattern not supported".to_string())
     }
 }
@@ -539,12 +518,6 @@ impl Evaluable for marker::Color {
             a: eval::<marker::Number>(context, *a)?,
         })
     }
-    fn eval_op_bin(_: &Context, _: OpBin, _: Expr, _: Expr) -> EResult<Self::Output> {
-        Err("Unsupported operator".to_string())
-    }
-    fn eval_op_un(_: &Context, _: OpUn, _: Expr) -> EResult<Self::Output> {
-        Err("Unsupported operator".to_string())
-    }
     fn match_literal(
         context: &mut Context,
         scrutinee: Self::Output,
@@ -567,7 +540,13 @@ impl Evaluable for marker::Color {
             _ => Err("Expected a color literal".to_string()),
         }
     }
-    fn match_bin(_: &mut Context, _: Self::Output, _: OpBin, _: Expr, _: Expr) -> EResult<bool> {
+    fn match_bin(
+        _: &mut Context,
+        _: Self::Output,
+        _: op::Binary,
+        _: Expr,
+        _: Expr,
+    ) -> EResult<bool> {
         Err("Pattern not supported".to_string())
     }
 }
@@ -624,12 +603,6 @@ impl Evaluable for marker::Graphic {
                 color: eval::<marker::Color>(context, *color)?,
             }),
         }
-    }
-    fn eval_op_bin(_: &Context, _: OpBin, _: Expr, _: Expr) -> EResult<Self::Output> {
-        Err("Unsupported operator".to_string())
-    }
-    fn eval_op_un(_: &Context, _: OpUn, _: Expr) -> EResult<Self::Output> {
-        Err("Unsupported operator".to_string())
     }
     fn match_literal(
         context: &mut Context,
@@ -697,7 +670,13 @@ impl Evaluable for marker::Graphic {
             _ => Err("Expected a graphic literal".to_string()),
         }
     }
-    fn match_bin(_: &mut Context, _: Self::Output, _: OpBin, _: Expr, _: Expr) -> EResult<bool> {
+    fn match_bin(
+        _: &mut Context,
+        _: Self::Output,
+        _: op::Binary,
+        _: Expr,
+        _: Expr,
+    ) -> EResult<bool> {
         Err("Pattern not supported".to_string())
     }
 }
@@ -753,24 +732,6 @@ impl Evaluable for marker::List {
             _ => Err("Expected a list".to_string()),
         }
     }
-    fn eval_op_bin(
-        context: &Context,
-        operator: OpBin,
-        left: Expr,
-        right: Expr,
-    ) -> EResult<Self::Output> {
-        match operator {
-            OpBin::Cons => {
-                let head = eval::<marker::Any>(context, left)?;
-                let tail = eval::<marker::List>(context, right)?;
-                Ok(Box::new(ListNode::Cons(head, tail)))
-            }
-            _ => Err("Unsupported operator".to_string()),
-        }
-    }
-    fn eval_op_un(_: &Context, _: OpUn, _: Expr) -> EResult<Self::Output> {
-        Err("Unsupported operator".to_string())
-    }
     fn match_literal(
         context: &mut Context,
         scrutinee: Self::Output,
@@ -802,12 +763,12 @@ impl Evaluable for marker::List {
     fn match_bin(
         context: &mut Context,
         scrutinee: Self::Output,
-        operator: OpBin,
+        operator: op::Binary,
         left: Expr,
         right: Expr,
     ) -> EResult<bool> {
         match operator {
-            OpBin::Cons => match *scrutinee {
+            op::Binary::Cons => match *scrutinee {
                 ListNode::Nil => Ok(false),
                 ListNode::Cons(head, tail) => {
                     Ok(match_pattern::<marker::Any>(context, head, left)?

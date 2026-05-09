@@ -41,26 +41,43 @@ pub enum Graphic {
 
 // --- Expressions ---
 
-#[derive(Debug, Clone, Copy)]
-pub enum OpBin {
-    Add,
-    Sub,
-    Mul,
-    Div,
-    Gt,
-    Gte,
-    Lt,
-    Lte,
-    Eq,
-    Neq,
-    And,
-    Or,
-    Cons,
-}
+pub mod op {
+    #[derive(Debug, Clone, Copy)]
+    pub enum Binary {
+        Arithmetic(Arithmetic),
+        Compare(Compare),
+        Logic(Logic),
+        Cons,
+    }
 
-#[derive(Debug, Clone, Copy)]
-pub enum OpUn {
-    Not,
+    #[derive(Debug, Clone, Copy)]
+    pub enum Arithmetic {
+        Add,
+        Sub,
+        Mul,
+        Div,
+    }
+
+    #[derive(Debug, Clone, Copy)]
+    pub enum Compare {
+        Gt,
+        Gte,
+        Lt,
+        Lte,
+        Eq,
+        Neq,
+    }
+
+    #[derive(Debug, Clone, Copy)]
+    pub enum Logic {
+        And,
+        Or,
+    }
+
+    #[derive(Debug, Clone, Copy)]
+    pub enum Unary {
+        Not,
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -97,12 +114,12 @@ pub enum Expr {
     },
     // Expressions with operators
     Binary {
-        operator: OpBin,
+        operator: op::Binary,
         left: Box<Expr>,
         right: Box<Expr>,
     },
     Unary {
-        operator: OpUn,
+        operator: op::Unary,
         operand: Box<Expr>,
     },
     /// Function call
