@@ -1,10 +1,9 @@
 use crate::evaluator::expr::{Evaluable, eval, match_pattern};
-use crate::evaluator::{Context, EResult, Value};
+use crate::evaluator::{Context, EResult, Value, ty};
 use crate::ir::ast::{self, Expr, Literal, op};
 use crate::ir::scene;
-use crate::ir::scene::marker;
 
-impl Evaluable for marker::Graphic {
+impl Evaluable for ty::Graphic {
     type Output = scene::Graphic;
     fn to_value(value: Self::Output) -> Value {
         Value::Graphic(value)
@@ -26,10 +25,10 @@ impl Evaluable for marker::Graphic {
                 radius,
                 color,
             } => Ok(scene::Graphic::Circle {
-                x: eval::<marker::Number>(context, *x)?,
-                y: eval::<marker::Number>(context, *y)?,
-                radius: eval::<marker::Number>(context, *radius)?,
-                color: eval::<marker::Color>(context, *color)?,
+                x: eval::<ty::Number>(context, *x)?,
+                y: eval::<ty::Number>(context, *y)?,
+                radius: eval::<ty::Number>(context, *radius)?,
+                color: eval::<ty::Color>(context, *color)?,
             }),
             ast::Graphic::Rect {
                 x,
@@ -38,11 +37,11 @@ impl Evaluable for marker::Graphic {
                 height,
                 color,
             } => Ok(scene::Graphic::Rect {
-                x: eval::<marker::Number>(context, *x)?,
-                y: eval::<marker::Number>(context, *y)?,
-                width: eval::<marker::Number>(context, *width)?,
-                height: eval::<marker::Number>(context, *height)?,
-                color: eval::<marker::Color>(context, *color)?,
+                x: eval::<ty::Number>(context, *x)?,
+                y: eval::<ty::Number>(context, *y)?,
+                width: eval::<ty::Number>(context, *width)?,
+                height: eval::<ty::Number>(context, *height)?,
+                color: eval::<ty::Color>(context, *color)?,
             }),
             ast::Graphic::Text {
                 x,
@@ -50,10 +49,10 @@ impl Evaluable for marker::Graphic {
                 content,
                 color,
             } => Ok(scene::Graphic::Text {
-                x: eval::<marker::Number>(context, *x)?,
-                y: eval::<marker::Number>(context, *y)?,
-                content: eval::<marker::String>(context, *content)?,
-                color: eval::<marker::Color>(context, *color)?,
+                x: eval::<ty::Number>(context, *x)?,
+                y: eval::<ty::Number>(context, *y)?,
+                content: eval::<ty::String>(context, *content)?,
+                color: eval::<ty::Color>(context, *color)?,
             }),
         }
     }
@@ -77,10 +76,10 @@ impl Evaluable for marker::Graphic {
                         radius: radius_e,
                         color: color_e,
                     },
-                ) => Ok(match_pattern::<marker::Number>(context, x, *x_e)?
-                    && match_pattern::<marker::Number>(context, y, *y_e)?
-                    && match_pattern::<marker::Number>(context, radius, *radius_e)?
-                    && match_pattern::<marker::Color>(context, color, *color_e)?),
+                ) => Ok(match_pattern::<ty::Number>(context, x, *x_e)?
+                    && match_pattern::<ty::Number>(context, y, *y_e)?
+                    && match_pattern::<ty::Number>(context, radius, *radius_e)?
+                    && match_pattern::<ty::Color>(context, color, *color_e)?),
                 (
                     scene::Graphic::Rect {
                         x,
@@ -96,11 +95,11 @@ impl Evaluable for marker::Graphic {
                         height: height_e,
                         color: color_e,
                     },
-                ) => Ok(match_pattern::<marker::Number>(context, x, *x_e)?
-                    && match_pattern::<marker::Number>(context, y, *y_e)?
-                    && match_pattern::<marker::Number>(context, width, *width_e)?
-                    && match_pattern::<marker::Number>(context, height, *height_e)?
-                    && match_pattern::<marker::Color>(context, color, *color_e)?),
+                ) => Ok(match_pattern::<ty::Number>(context, x, *x_e)?
+                    && match_pattern::<ty::Number>(context, y, *y_e)?
+                    && match_pattern::<ty::Number>(context, width, *width_e)?
+                    && match_pattern::<ty::Number>(context, height, *height_e)?
+                    && match_pattern::<ty::Color>(context, color, *color_e)?),
                 (
                     scene::Graphic::Text {
                         x,
@@ -114,10 +113,10 @@ impl Evaluable for marker::Graphic {
                         content: content_e,
                         color: color_e,
                     },
-                ) => Ok(match_pattern::<marker::Number>(context, x, *x_e)?
-                    && match_pattern::<marker::Number>(context, y, *y_e)?
-                    && match_pattern::<marker::String>(context, content, *content_e)?
-                    && match_pattern::<marker::Color>(context, color, *color_e)?),
+                ) => Ok(match_pattern::<ty::Number>(context, x, *x_e)?
+                    && match_pattern::<ty::Number>(context, y, *y_e)?
+                    && match_pattern::<ty::String>(context, content, *content_e)?
+                    && match_pattern::<ty::Color>(context, color, *color_e)?),
                 _ => Ok(false),
             },
             _ => Err("Expected a graphic literal".to_string()),
