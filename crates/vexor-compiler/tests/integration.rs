@@ -70,11 +70,13 @@ fn assert_rejects(input: &str) {
 
 #[test]
 fn test_compile_basics() {
-    let single = format!("export Circle {{ x: 0, y: 0, radius: 10, color: {RED} }}");
-    assert_eq!(ok(&single).exports, vec![circle(0.0, 0.0, 10.0)]);
+    let single = format!("let r = 5\nexport Circle {{ x: 0, y: 0, radius: r, color: {RED} }}");
+    assert_eq!(ok(&single).exports, vec![circle(0.0, 0.0, 5.0)]);
 
-    let with_let = format!("let r = 5\nexport Circle {{ x: 0, y: 0, radius: r, color: {RED} }}");
-    assert_eq!(ok(&with_let).exports, vec![circle(0.0, 0.0, 5.0)]);
+    let with_comment = format!(
+        "let r = 5 // My comment, ignore this\nexport Circle {{ x: 0, y: 0, radius: r, color: {RED} }}"
+    );
+    assert_eq!(ok(&with_comment).exports, vec![circle(0.0, 0.0, 5.0)]);
 
     let multi = format!(
         "export Circle {{ x: 0, y: 0, radius: 1, color: {RED} }}\nexport Rect {{ x: 0, y: 0, width: 2, height: 3, color: {RED} }}"

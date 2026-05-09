@@ -1,7 +1,7 @@
 //! Common parser utilities.
 
-use winnow::ascii::{multispace0, space0};
-use winnow::combinator::{delimited, separated, terminated};
+use winnow::ascii::{line_ending, multispace1, space1, till_line_ending};
+use winnow::combinator::{alt, delimited, repeat, separated, terminated};
 use winnow::error::ContextError;
 use winnow::stream::{Accumulate, Range};
 use winnow::token::take_while;
@@ -29,12 +29,34 @@ where
     P: ModalParser<Input<'a>, O, ContextError>,
 {
     fn ws(self) -> impl ModalParser<Input<'a>, O, ContextError> {
-        terminated(self, space0)
+        terminated(self, p_ws)
     }
 
     fn mws(self) -> impl ModalParser<Input<'a>, O, ContextError> {
-        terminated(self, multispace0)
+        terminated(self, p_mws)
     }
+}
+
+/// Parse whitespace, and exclude comments
+fn p_ws<'a>(input: &mut Input<'a>) -> ModalResult<()> {
+    repeat(0.., alt((space1.void(), p_line_comment))).parse_next(input)
+}
+
+/// Parse whitespace, including newlines, and exclude comments
+fn p_mws<'a>(input: &mut Input<'a>) -> ModalResult<()> {
+    repeat(0.., alt((multispace1.void(), p_line_comment))).parse_next(input)
+}
+
+/// Parse at least 1 new line
+fn newline1<'a>(input: &mut Input<'a>) -> ModalResult<()> {
+    repeat(1.., line_ending.ws())
+        .map(|_: ()| ())
+        .parse_next(input)
+}
+
+/// Parse line comment
+fn p_line_comment<'a>(input: &mut Input<'a>) -> ModalResult<()> {
+    ("//", till_line_ending).void().parse_next(input)
 }
 
 /// Parse identifier, no ws
@@ -57,7 +79,7 @@ fn bracketed<'a, F, O>(inner: F) -> impl ModalParser<Input<'a>, O, ContextError>
 where
     F: ModalParser<Input<'a>, O, ContextError>,
 {
-    delimited(('(', multispace0), inner, (multispace0, ')'))
+    delimited(('(', p_mws), inner, (p_mws, ')'))
 }
 
 /// Parse between braces "{}"
@@ -66,7 +88,7 @@ fn braced<'a, F, O>(inner: F) -> impl ModalParser<Input<'a>, O, ContextError>
 where
     F: ModalParser<Input<'a>, O, ContextError>,
 {
-    delimited(('{', multispace0), inner, (multispace0, '}'))
+    delimited(('{', p_mws), inner, (p_mws, '}'))
 }
 
 /// Parse between braces "[]"
@@ -75,7 +97,7 @@ fn square_braced<'a, F, O>(inner: F) -> impl ModalParser<Input<'a>, O, ContextEr
 where
     F: ModalParser<Input<'a>, O, ContextError>,
 {
-    delimited(('[', multispace0), inner, (multispace0, ']'))
+    delimited(('[', p_mws), inner, (p_mws, ']'))
 }
 
 /// Parse a comma-separated list of items
@@ -88,7 +110,7 @@ where
     F: ModalParser<Input<'a>, O, ContextError>,
     Accumulator: Accumulate<O>,
 {
-    separated(occurrences, inner, (multispace0, ',', multispace0))
+    separated(occurrences, inner, (p_mws, ',', p_mws))
 }
 
 #[cfg(test)]
