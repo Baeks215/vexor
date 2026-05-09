@@ -3,11 +3,12 @@
 use std::f64::consts::PI;
 use std::fmt::Debug;
 
+use crate::evaluator::data_structure::ListNode;
 use crate::evaluator::program::eval_assignment;
-use crate::evaluator::{Context, EResult, Function, Value};
-use crate::ir::ast::{self, Expr, Literal, MatchArm, OpBin, OpUn, Std};
+use crate::evaluator::{Context, EResult, Function, Value, to_int};
+use crate::ir::ast::{self, Expr, ListLiteral, Literal, MatchArm, OpBin, OpUn, Std};
 use crate::ir::scene::marker;
-use crate::ir::{ListNode, Number, scene};
+use crate::ir::{Number, scene};
 
 pub trait Evaluable {
     type Output: Debug + Clone;
@@ -97,12 +98,46 @@ fn eval_std<T: Evaluable>(context: &Context, std: Std) -> Result<<T as Evaluable
             let x = eval::<marker::Number>(context, *expr)?;
             Value::Number(x.tan())
         }
+        Std::Map { function, list } => {
+            let Expr::Variable(function) = *function else {
+                return Err("Must be a function name".to_string());
+            };
+            let list = eval::<marker::List>(context, *list)?;
+            let mut items = vec![];
+            let mut curr = *list;
+            while let ListNode::Cons(head, tail) = curr {
+                let new_head =
+                    eval_call_values::<marker::Any>(context, function.clone(), vec![head])?;
+                items.push(new_head);
+                curr = *tail;
+            }
+
+            let mut acc = Box::new(ListNode::Nil);
+            for item in items.into_iter().rev() {
+                acc = Box::new(ListNode::Cons(item, acc));
+            }
+
+            Value::List(acc)
+        }
     };
     T::from_value(result)
 }
 
 /// Generic function call evaluation.
 fn eval_call<T: Evaluable>(context: &Context, func: String, args: Vec<Expr>) -> EResult<T::Output> {
+    let args: Vec<Value> = args
+        .into_iter()
+        .map(|arg_expr| eval::<marker::Any>(context, arg_expr))
+        .collect::<Result<Vec<_>, _>>()?;
+
+    eval_call_values::<T>(context, func, args)
+}
+
+fn eval_call_values<T: Evaluable>(
+    context: &Context,
+    func: String,
+    args: Vec<Value>,
+) -> EResult<T::Output> {
     let Function {
         params,
         scope,
@@ -112,13 +147,7 @@ fn eval_call<T: Evaluable>(context: &Context, func: String, args: Vec<Expr>) -> 
     if params.len() != args.len() {
         return Err("Incorrect number of arguments".to_string());
     }
-    let args: Vec<(String, Value)> = params
-        .iter()
-        .zip(args)
-        .map(|(name, arg_expr)| {
-            eval::<marker::Any>(context, arg_expr).map(|arg| (name.clone(), arg))
-        })
-        .collect::<Result<Vec<_>, _>>()?;
+    let args: Vec<(String, Value)> = params.into_iter().cloned().zip(args).collect();
 
     // Add arguments to context as variables
     let mut context = context.new_scope_function(args);
@@ -127,9 +156,9 @@ fn eval_call<T: Evaluable>(context: &Context, func: String, args: Vec<Expr>) -> 
     for assignment in scope {
         eval_assignment(&mut context, assignment.clone())?;
     }
-    // Evaluate return expression
-    let value = eval::<marker::Any>(&context, return_expr.clone())?;
-    T::from_value(value)
+
+    // Evaluate return expression as the overall expression type
+    eval::<T>(&context, return_expr.clone())
 }
 
 fn match_pattern<T: Evaluable>(
@@ -686,14 +715,40 @@ impl Evaluable for marker::List {
     }
     fn eval_literal(context: &Context, literal: Literal) -> EResult<Self::Output> {
         match literal {
-            Literal::List(exprs) => {
-                // Build Linked List from vector literal
-                let mut acc = Box::new(ListNode::Nil);
-                for e in exprs.into_iter().rev() {
-                    let e = eval::<marker::Any>(context, e)?;
-                    acc = Box::new(ListNode::Cons(e, acc));
+            Literal::List(list) => {
+                match list {
+                    // Build Linked List from vector literal
+                    ListLiteral::List(exprs) => {
+                        let mut acc = Box::new(ListNode::Nil);
+
+                        // Iterate in reverse to build linked list
+                        for e in exprs.into_iter().rev() {
+                            let e = eval::<marker::Any>(context, e)?;
+                            acc = Box::new(ListNode::Cons(e, acc));
+                        }
+                        Ok(acc)
+                    }
+                    // Build Linked List from stepped range
+                    ListLiteral::Range { start, second, end } => {
+                        // Evaluate range bounds and convert to integers
+                        let start = eval::<marker::Number>(context, *start).and_then(to_int)?;
+                        let second = second
+                            .map(|e| eval::<marker::Number>(context, *e).and_then(to_int))
+                            .transpose()?;
+                        let end = eval::<marker::Number>(context, *end).and_then(to_int)?;
+
+                        let mut acc = Box::new(ListNode::Nil);
+
+                        // Iterate in reverse to build linked list
+                        let iter_rev = build_range_rev(start, second, end)?;
+                        for n in iter_rev {
+                            // Loss of precision for large numbers
+                            let value = Value::Number(n as f64);
+                            acc = Box::new(ListNode::Cons(value, acc));
+                        }
+                        Ok(acc)
+                    }
                 }
-                Ok(acc)
             }
             _ => Err("Expected a list".to_string()),
         }
@@ -722,7 +777,7 @@ impl Evaluable for marker::List {
         literal_pattern: Literal,
     ) -> EResult<bool> {
         match literal_pattern {
-            Literal::List(ps) => {
+            Literal::List(ListLiteral::List(ps)) => {
                 let mut node = scrutinee;
                 for item_pattern in ps.into_iter() {
                     let ListNode::Cons(head, tail) = *node else {
@@ -762,4 +817,49 @@ impl Evaluable for marker::List {
             _ => Err("Pattern not supported".to_string()),
         }
     }
+}
+
+// --- Helpers --- //
+
+/// Builds a range of integers in reverse
+fn build_range_rev(
+    start: i64,
+    second: Option<i64>,
+    end: i64,
+) -> EResult<impl Iterator<Item = i64>> {
+    let step = match second {
+        Some(s) => s - start,
+        None => {
+            if end >= start {
+                1
+            } else {
+                -1
+            }
+        }
+    };
+    let total_range = end - start;
+
+    // Check range step
+    if step == 0 {
+        return Err("Range step cannot be zero.".to_string());
+    }
+    if start != end && total_range.signum() != step.signum() {
+        return Err("Range step direction is inconsistent with end.".to_string());
+    }
+
+    // Normalise end to be the last element in the range
+    let end = total_range / step * step + start;
+
+    // Switch to reverse
+    let (start, end, step) = (end, start, -step);
+
+    Ok(std::iter::successors(Some(start), move |&prev| {
+        let next = prev + step;
+        // Check if next value is still within bounds
+        if (step > 0 && next <= end) || (step < 0 && next >= end) {
+            Some(next)
+        } else {
+            None
+        }
+    }))
 }

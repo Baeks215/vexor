@@ -1,8 +1,8 @@
 //! Parser for expressions
 
-use winnow::ascii::float;
+use winnow::ascii::{dec_int, float};
 use winnow::combinator::{
-    Infix, Prefix, alt, delimited, dispatch, expression, fail, opt, preceded,
+    Infix, Prefix, alt, delimited, dispatch, expression, fail, opt, peek, preceded, terminated,
 };
 use winnow::error::StrContext;
 use winnow::token::take_while;
@@ -12,8 +12,8 @@ use crate::ir::Number;
 use crate::ir::ast;
 use crate::parser::graphic::p_graphic;
 use crate::parser::keyword::{
-    self as k, pk_cos, pk_else, pk_false, pk_if, pk_match, pk_nil, pk_pi, pk_rad, pk_rgb, pk_sin,
-    pk_tan, pk_true,
+    self as k, pk_cos, pk_else, pk_false, pk_if, pk_map, pk_match, pk_nil, pk_pi, pk_rad, pk_rgb,
+    pk_sin, pk_tan, pk_true,
 };
 use crate::parser::square_braced;
 use crate::parser::{Input, WhiteSpaceParser, braced, bracketed};
@@ -23,10 +23,15 @@ use crate::parser::{comma_list, p_identifier};
 
 /// Parses a number literal.
 pub fn p_number<'a>(input: &mut Input<'a>) -> ModalResult<Number> {
-    float
-        .context(StrContext::Label("number"))
-        .ws()
-        .parse_next(input)
+    alt((
+        // Integer if followed by range syntax
+        //   otherwise float will take '.' off range operator
+        terminated(dec_int, peek("..")).map(|n: i64| n as f64),
+        float,
+    ))
+    .context(StrContext::Label("number"))
+    .ws()
+    .parse_next(input)
 }
 
 /// Parses a string literal.
@@ -61,10 +66,22 @@ pub fn p_color<'a>(input: &mut Input<'a>) -> ModalResult<ast::Color> {
 }
 
 /// Parses a list literal.
-pub fn p_list<'a>(input: &mut Input<'a>) -> ModalResult<Vec<ast::Expr>> {
+pub fn p_list<'a>(input: &mut Input<'a>) -> ModalResult<ast::ListLiteral> {
     alt((
-        pk_nil.map(|_| vec![]),
-        square_braced(comma_list(0.., p_expr)),
+        pk_nil.map(|_| ast::ListLiteral::List(vec![])),
+        square_braced(alt((
+            (
+                p_expr.mws(),
+                opt(preceded(','.mws(), p_expr.mws())),
+                preceded("..".mws(), p_expr),
+            )
+                .map(|(start, second, end)| ast::ListLiteral::Range {
+                    start: Box::new(start),
+                    second: second.map(|s| Box::new(s)),
+                    end: Box::new(end),
+                }),
+            comma_list(0.., p_expr).map(|es| ast::ListLiteral::List(es)),
+        ))),
     ))
     .ws()
     .parse_next(input)
@@ -84,7 +101,7 @@ pub fn p_call<'a>(input: &mut Input<'a>) -> ModalResult<ast::Expr> {
 /// Parses a standard function call.
 pub fn p_std<'a>(input: &mut Input<'a>) -> ModalResult<ast::Std> {
     (
-        alt((pk_rad, pk_sin, pk_cos, pk_tan)),
+        alt((pk_rad, pk_sin, pk_cos, pk_tan, pk_map)),
         bracketed(comma_list(0.., p_expr)),
     )
         .ws()
@@ -93,6 +110,11 @@ pub fn p_std<'a>(input: &mut Input<'a>) -> ModalResult<ast::Std> {
             k::Std::Sin => ast::Std::Sin(Box::new(args.remove(0))),
             k::Std::Cos => ast::Std::Cos(Box::new(args.remove(0))),
             k::Std::Tan => ast::Std::Tan(Box::new(args.remove(0))),
+            k::Std::Map => {
+                let function = Box::new(args.remove(0));
+                let list = Box::new(args.remove(0));
+                ast::Std::Map { function, list }
+            }
         })
         .parse_next(input)
 }

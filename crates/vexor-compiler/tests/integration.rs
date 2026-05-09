@@ -48,6 +48,12 @@ fn assert_number(expr: &str, expected: f64) {
     assert_eq!(ok(&input).exports[0], circle(0.0, 0.0, expected));
 }
 
+fn assert_body_number(body: &str, expr: &str, expected: f64) {
+    let input =
+        format!("{body}\nlet r = {expr}\nexport Circle {{ x: 0, y: 0, radius: r, color: {RED} }}");
+    assert_eq!(ok(&input).exports[0], circle(0.0, 0.0, expected));
+}
+
 fn assert_string(expr: &str, expected: &str) {
     let input = format!("let s = {expr}\nexport Text {{ x: 0, y: 0, content: s, color: {RED} }}");
     assert_eq!(ok(&input).exports[0], text(0.0, 0.0, expected));
@@ -267,6 +273,42 @@ fn test_compile_list() {
 }
 
 #[test]
+fn test_compile_list_range() {
+    // simple inclusive range [1..3] = [1, 2, 3]
+    assert_number("match [1..3] { [a, b, c] => c, y => 0 }", 3.0);
+
+    // reverse
+    assert_number("match [3 .. 1] { [a, b, c] => c, y => 0 }", 1.0);
+
+    // stepped range [1,3..10] = [1, 3, 5, 7, 9]
+    assert_number("match [1, 3..10] { [a, b, c, d, e] => e, y => 0 }", 9.0);
+
+    // stepped range in reverse
+    assert_number("match [10, 8..2] { [a, b, c, d, e] => d, y => 0 }", 4.0);
+
+    // range with variables: let x = 1, let y = 4 => [1..4] = [1, 2, 3, 4]
+    assert_body_number(
+        "let x = 1\nlet y = 4",
+        "match [x .. y] { [a, b, c, d] => d, z => 0 }",
+        4.0,
+    );
+
+    // range with expressions: [1 .. y - 1] where y = 4 => [1, 2, 3]
+    assert_body_number(
+        "let y = 4",
+        "match [1 .. y - 1] { [a, b, c] => c, z => 0 }",
+        3.0,
+    );
+
+    // stepped range with expression bound: [0, 2 .. x * 3] where x = 2 => [0, 2, 4, 6]
+    assert_body_number(
+        "let x = 2",
+        "match [0, 2 .. x * 3] { [a, b, c, d] => d, z => 0 }",
+        6.0,
+    );
+}
+
+#[test]
 fn test_compile_brackets() {
     // basic grouping
     assert_number("(1 + 2) * 3", 9.0);
@@ -342,4 +384,21 @@ fn test_compile_std() {
         "fn id(x) = x\nexport Circle {{ x: 0, y: 0, radius: id(pi) - id(pi), color: {RED} }}"
     );
     assert_eq!(ok(&pi_arg).exports[0], circle(0.0, 0.0, 0.0));
+}
+
+#[test]
+fn test_compile_map() {
+    // map over non-empty list: double each element, match second
+    assert_body_number(
+        "fn double(x) = x * 2",
+        "match map(double, [1, 2, 3]) { [a, b, c] => b, y => 0 }",
+        4.0,
+    );
+
+    // map over empty list: result is also empty, falls to catch-all
+    assert_body_number(
+        "fn double(x) = x * 2",
+        "match map(double, []) { [a] => a, y => 99 }",
+        99.0,
+    );
 }
