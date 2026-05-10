@@ -62,6 +62,9 @@ trait ToAttributes {
 }
 impl ToAttributes for Affine {
     fn add_as_attr(self, current: &mut Vec<Attribute>) {
+        if self == Affine::IDENTITY {
+            return;
+        }
         let [a, b, c, d, e, f] = self.as_coeffs();
         current.push((
             "transform",
