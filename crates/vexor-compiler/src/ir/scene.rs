@@ -24,6 +24,15 @@ pub struct Graphic {
     pub style: Style,
     pub transform: Affine,
 }
+impl Graphic {
+    pub fn new(ty: GraphicType) -> Self {
+        Self {
+            ty,
+            style: Style::default(),
+            transform: Affine::default(),
+        }
+    }
+}
 
 #[derive(Debug, Clone)]
 pub enum GraphicType {
@@ -37,6 +46,21 @@ pub enum GraphicType {
 pub struct Style {
     pub fill: Color,
     pub stroke: Option<Stroke>,
+}
+impl Default for Style {
+    fn default() -> Self {
+        Self {
+            // Black fill
+            fill: Color::Rgba {
+                r: 0.0,
+                g: 0.0,
+                b: 0.0,
+                a: 1.0,
+            },
+            // No stroke
+            stroke: None,
+        }
+    }
 }
 
 /// Stroke of a graphic component

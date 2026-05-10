@@ -282,43 +282,25 @@ fn eval_field_access<T: Evaluable>(
 ) -> EResult<T::Output> {
     let object_value = context.get_var(&object)?;
     let result = match object_value {
-        Value::Graphic(g) => match g {
-            scene::Graphic::Circle {
-                x,
-                y,
-                radius,
-                color,
-            } => match field.as_str() {
-                "x" => Value::Number(x),
-                "y" => Value::Number(y),
+        Value::Graphic(g) => match g.ty {
+            scene::GraphicType::Circle { radius } => match field.as_str() {
+                // TEMP: 0 for x and y
+                "x" => Value::Number(0.0),
+                "y" => Value::Number(0.0),
                 "radius" => Value::Number(radius),
-                "color" => Value::Color(color),
                 _ => return Err("Unknown field".to_string()),
             },
-            scene::Graphic::Rect {
-                x,
-                y,
-                width,
-                height,
-                color,
-            } => match field.as_str() {
-                "x" => Value::Number(x),
-                "y" => Value::Number(y),
+            scene::GraphicType::Rect { width, height } => match field.as_str() {
+                "x" => Value::Number(0.0),
+                "y" => Value::Number(0.0),
                 "width" => Value::Number(width),
                 "height" => Value::Number(height),
-                "color" => Value::Color(color),
                 _ => return Err("Unknown field".to_string()),
             },
-            scene::Graphic::Text {
-                x,
-                y,
-                content,
-                color,
-            } => match field.as_str() {
-                "x" => Value::Number(x),
-                "y" => Value::Number(y),
+            scene::GraphicType::Text { content } => match field.as_str() {
+                "x" => Value::Number(0.0),
+                "y" => Value::Number(0.0),
                 "content" => Value::String(content),
-                "color" => Value::Color(color),
                 _ => return Err("Unknown field".to_string()),
             },
         },

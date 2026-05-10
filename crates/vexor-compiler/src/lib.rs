@@ -4,7 +4,7 @@ mod ir;
 mod parser;
 
 pub use exporter::*;
-pub use ir::scene::{Color, Graphic, Scene};
+pub use ir::scene::{Color, Graphic, GraphicType, Scene};
 
 /// Compiler error
 type CError = String;
