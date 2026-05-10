@@ -18,43 +18,18 @@ impl Evaluable for ty::Graphic {
         let Literal::Graphic(node) = literal else {
             return Err("Expected a graphic object".to_string());
         };
-        match node {
-            ast::Graphic::Circle {
-                x,
-                y,
-                radius,
-                color,
-            } => Ok(scene::Graphic::Circle {
-                x: eval::<ty::Number>(context, *x)?,
-                y: eval::<ty::Number>(context, *y)?,
+        Ok(scene::Graphic::new(match node {
+            ast::Graphic::Circle { radius } => scene::GraphicType::Circle {
                 radius: eval::<ty::Number>(context, *radius)?,
-                color: eval::<ty::Color>(context, *color)?,
-            }),
-            ast::Graphic::Rect {
-                x,
-                y,
-                width,
-                height,
-                color,
-            } => Ok(scene::Graphic::Rect {
-                x: eval::<ty::Number>(context, *x)?,
-                y: eval::<ty::Number>(context, *y)?,
+            },
+            ast::Graphic::Rect { width, height } => scene::GraphicType::Rect {
                 width: eval::<ty::Number>(context, *width)?,
                 height: eval::<ty::Number>(context, *height)?,
-                color: eval::<ty::Color>(context, *color)?,
-            }),
-            ast::Graphic::Text {
-                x,
-                y,
-                content,
-                color,
-            } => Ok(scene::Graphic::Text {
-                x: eval::<ty::Number>(context, *x)?,
-                y: eval::<ty::Number>(context, *y)?,
+            },
+            ast::Graphic::Text { content } => scene::GraphicType::Text {
                 content: eval::<ty::String>(context, *content)?,
-                color: eval::<ty::Color>(context, *color)?,
-            }),
-        }
+            },
+        }))
     }
     fn match_literal(
         context: &mut Context,
@@ -62,63 +37,27 @@ impl Evaluable for ty::Graphic {
         literal_pattern: Literal,
     ) -> EResult<bool> {
         match literal_pattern {
-            Literal::Graphic(pattern) => match (scrutinee, pattern) {
+            Literal::Graphic(pattern) => Ok(match (scrutinee.ty, pattern) {
                 (
-                    scene::Graphic::Circle {
-                        x,
-                        y,
-                        radius,
-                        color,
-                    },
-                    ast::Graphic::Circle {
-                        x: x_e,
-                        y: y_e,
-                        radius: radius_e,
-                        color: color_e,
-                    },
-                ) => Ok(match_pattern::<ty::Number>(context, x, *x_e)?
-                    && match_pattern::<ty::Number>(context, y, *y_e)?
-                    && match_pattern::<ty::Number>(context, radius, *radius_e)?
-                    && match_pattern::<ty::Color>(context, color, *color_e)?),
+                    scene::GraphicType::Circle { radius },
+                    ast::Graphic::Circle { radius: radius_e },
+                ) => match_pattern::<ty::Number>(context, radius, *radius_e)?,
                 (
-                    scene::Graphic::Rect {
-                        x,
-                        y,
-                        width,
-                        height,
-                        color,
-                    },
+                    scene::GraphicType::Rect { width, height },
                     ast::Graphic::Rect {
-                        x: x_e,
-                        y: y_e,
                         width: width_e,
                         height: height_e,
-                        color: color_e,
                     },
-                ) => Ok(match_pattern::<ty::Number>(context, x, *x_e)?
-                    && match_pattern::<ty::Number>(context, y, *y_e)?
-                    && match_pattern::<ty::Number>(context, width, *width_e)?
-                    && match_pattern::<ty::Number>(context, height, *height_e)?
-                    && match_pattern::<ty::Color>(context, color, *color_e)?),
+                ) => {
+                    match_pattern::<ty::Number>(context, width, *width_e)?
+                        && match_pattern::<ty::Number>(context, height, *height_e)?
+                }
                 (
-                    scene::Graphic::Text {
-                        x,
-                        y,
-                        content,
-                        color,
-                    },
-                    ast::Graphic::Text {
-                        x: x_e,
-                        y: y_e,
-                        content: content_e,
-                        color: color_e,
-                    },
-                ) => Ok(match_pattern::<ty::Number>(context, x, *x_e)?
-                    && match_pattern::<ty::Number>(context, y, *y_e)?
-                    && match_pattern::<ty::String>(context, content, *content_e)?
-                    && match_pattern::<ty::Color>(context, color, *color_e)?),
-                _ => Ok(false),
-            },
+                    scene::GraphicType::Text { content },
+                    ast::Graphic::Text { content: content_e },
+                ) => match_pattern::<ty::String>(context, content, *content_e)?,
+                _ => false,
+            }),
             _ => Err("Expected a graphic literal".to_string()),
         }
     }

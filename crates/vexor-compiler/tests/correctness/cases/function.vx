@@ -5,6 +5,6 @@ fn area(w, h) = w * h
 fn add_one(x) = x + 1
 fn triple(x) = x * 3
 
-export Circle { radius: double(5), x: 0, y: 0, color: rgb(1, 0, 0, 1) }
-export Circle { radius: area(2, 3), x: 0, y: 0, color: rgb(1, 0, 0, 1) }
-export Circle { radius: add_one(triple(2)), x: 0, y: 0, color: rgb(1, 0, 0, 1) }
+export Circle(double(5))
+export Circle(area(2, 3))
+export Circle(add_one(triple(2)))

@@ -1,8 +1,91 @@
 // Translator for svg export
 
-use crate::ir::scene::{Color, Graphic};
+use crate::ir::scene::{Color, Graphic, GraphicType, Stroke, Style};
+use kurbo::Affine;
 use svg::node::element as svg_el;
 
+type Attribute = (&'static str, String);
+
+pub fn export_to_svg(graphic: Graphic) -> String {
+    translate_graphic(svg::Document::new(), graphic).to_string()
+}
+
+/// Applies vector of attributes to an SVG node
+macro_rules! apply_attributes {
+    ($node:expr, $attributes:expr) => {{
+        let mut node = $node;
+        for (key, value) in $attributes {
+            node = node.set(key, value);
+        }
+        node
+    }};
+}
+
+/// Translates a graphic to an SVG document node
+fn translate_graphic(current: svg::Document, graphic: Graphic) -> svg::Document {
+    let Graphic {
+        ty,
+        style,
+        transform,
+    } = graphic;
+
+    let mut extra = vec![];
+    transform.add_as_attr(&mut extra);
+    style.add_as_attr(&mut extra);
+
+    match ty {
+        GraphicType::Circle { radius } => current.add(apply_attributes!(
+            svg_el::Circle::new()
+                .set("r", radius)
+                .set("cx", 0.0)
+                .set("cy", 0.0),
+            extra
+        )),
+        GraphicType::Rect { width, height } => current.add(apply_attributes!(
+            svg_el::Rectangle::new()
+                .set("width", width)
+                .set("height", height)
+                .set("x", 0.0)
+                .set("y", 0.0),
+            extra
+        )),
+        GraphicType::Text { content } => current.add(apply_attributes!(
+            svg_el::Text::new(content).set("x", 0.0).set("y", 0.0),
+            extra
+        )),
+    }
+}
+
+trait ToAttributes {
+    /// Converts to svg attributes and adds to the vector
+    fn add_as_attr(self, current: &mut Vec<Attribute>);
+}
+impl ToAttributes for Affine {
+    fn add_as_attr(self, current: &mut Vec<Attribute>) {
+        if self == Affine::IDENTITY {
+            return;
+        }
+        let [a, b, c, d, e, f] = self.as_coeffs();
+        current.push((
+            "transform",
+            format!("matrix({} {} {} {} {} {})", a, b, c, d, e, f),
+        ));
+        current.push(("vector-effect", "non-scaling-stroke".to_string()))
+    }
+}
+impl ToAttributes for Style {
+    fn add_as_attr(self, current: &mut Vec<Attribute>) {
+        let Style { fill, stroke } = self;
+        current.push(("fill", color_to_svg(fill)));
+
+        if let Some(Stroke { color, width }) = stroke {
+            current.push(("stroke", color_to_svg(color)));
+            current.push(("stroke-width", width.to_string()));
+        }
+    }
+}
+
+/// Converts a color to an SVG color string
 fn color_to_svg(color: Color) -> String {
     match color {
         Color::Rgba { r, g, b, a } => format!(
@@ -12,122 +95,5 @@ fn color_to_svg(color: Color) -> String {
             (b * 255.0).round() as u8,
             a
         ),
-    }
-}
-
-/// Translates a graphic into an SVG document string.
-pub fn export_to_svg(graphic: Graphic) -> String {
-    translate_graphic(svg::Document::new(), graphic).to_string()
-}
-
-/// Translates a graphic to an SVG node.
-fn translate_graphic(current: svg::Document, graphic: Graphic) -> svg::Document {
-    match graphic {
-        Graphic::Circle {
-            x,
-            y,
-            radius,
-            color,
-        } => {
-            let node = svg_el::Circle::new()
-                .set("cx", x)
-                .set("cy", y)
-                .set("r", radius)
-                .set("fill", color_to_svg(color));
-            current.add(node)
-        }
-        Graphic::Rect {
-            x,
-            y,
-            width,
-            height,
-            color,
-        } => {
-            let node = svg_el::Rectangle::new()
-                .set("x", x)
-                .set("y", y)
-                .set("width", width)
-                .set("height", height)
-                .set("fill", color_to_svg(color));
-            current.add(node)
-        }
-        Graphic::Text {
-            x,
-            y,
-            content,
-            color,
-        } => {
-            let node = svg_el::Text::new(content)
-                .set("x", x)
-                .set("y", y)
-                .set("fill", color_to_svg(color));
-            current.add(node)
-        }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn red() -> Color {
-        Color::Rgba {
-            r: 1.0,
-            g: 0.0,
-            b: 0.0,
-            a: 1.0,
-        }
-    }
-
-    #[test]
-    fn test_circle() {
-        let doc = translate_graphic(
-            svg::Document::new(),
-            Graphic::Circle {
-                x: 10.0,
-                y: 20.0,
-                radius: 42.0,
-                color: red(),
-            },
-        );
-        let svg = doc.to_string();
-        assert!(svg.contains("<circle"));
-        assert!(svg.contains("r=\"42\""));
-        assert!(svg.contains("cx=\"10\""));
-        assert!(svg.contains("cy=\"20\""));
-    }
-
-    #[test]
-    fn test_rect() {
-        let doc = translate_graphic(
-            svg::Document::new(),
-            Graphic::Rect {
-                x: 0.0,
-                y: 0.0,
-                width: 100.0,
-                height: 50.0,
-                color: red(),
-            },
-        );
-        let svg = doc.to_string();
-        assert!(svg.contains("<rect"));
-        assert!(svg.contains("width=\"100\""));
-        assert!(svg.contains("height=\"50\""));
-    }
-
-    #[test]
-    fn test_text() {
-        let doc = translate_graphic(
-            svg::Document::new(),
-            Graphic::Text {
-                x: 0.0,
-                y: 0.0,
-                content: "hello".to_string(),
-                color: red(),
-            },
-        );
-        let svg = doc.to_string();
-        assert!(svg.contains("<text"));
-        assert!(svg.contains("hello"));
     }
 }

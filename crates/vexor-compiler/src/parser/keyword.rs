@@ -69,6 +69,11 @@ define_keywords! {
     pk_cos => "cos"; Std : Std::Cos,
     pk_tan => "tan"; Std : Std::Tan,
     pk_map => "map"; Std : Std::Map,
+    pk_move => "move"; Std : Std::Move,
+    pk_scale => "scale"; Std : Std::Scale,
+    pk_rotate => "rotate"; Std : Std::Rotate,
+    pk_fill => "fill"; Std : Std::Fill,
+    pk_stroke => "stroke"; Std : Std::Stroke,
     // Constants
     pk_pi => "pi"; Const: Const::Pi
 }
@@ -87,6 +92,11 @@ pub enum Std {
     Cos,
     Tan,
     Map,
+    Move,
+    Scale,
+    Rotate,
+    Fill,
+    Stroke,
 }
 
 #[cfg(test)]

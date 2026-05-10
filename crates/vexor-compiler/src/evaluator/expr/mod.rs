@@ -3,6 +3,8 @@
 use std::f64::consts::PI;
 use std::fmt::Debug;
 
+use kurbo::Affine;
+
 use crate::evaluator::program::eval_assignment;
 use crate::evaluator::{Context, EResult, Function, Value, ty};
 use crate::ir::ast::{self, Expr, Literal, MatchArm, Std, op};
@@ -192,6 +194,39 @@ fn eval_std<T: Evaluable>(context: &Context, std: Std) -> Result<<T as Evaluable
 
             Value::List(acc)
         }
+        Std::Move { x, y, graphic } => {
+            let x = eval::<ty::Number>(context, *x)?;
+            let y = eval::<ty::Number>(context, *y)?;
+            let graphic = eval::<ty::Graphic>(context, *graphic)?;
+            Value::Graphic(graphic.transform(Affine::translate((x, y))))
+        }
+        Std::Scale { scale, graphic } => {
+            let scale = eval::<ty::Number>(context, *scale)?;
+            let graphic = eval::<ty::Graphic>(context, *graphic)?;
+            Value::Graphic(graphic.transform(Affine::scale(scale)))
+        }
+        Std::Rotate { angle, graphic } => {
+            let angle = eval::<ty::Number>(context, *angle)?;
+            let graphic = eval::<ty::Graphic>(context, *graphic)?;
+            Value::Graphic(graphic.transform(Affine::rotate(angle)))
+        }
+        Std::Fill { color, graphic } => {
+            let color = eval::<ty::Color>(context, *color)?;
+            let graphic = eval::<ty::Graphic>(context, *graphic)?;
+            Value::Graphic(graphic.transform_style(|s| s.with_fill(color)))
+        }
+        Std::Stroke {
+            color,
+            width,
+            graphic,
+        } => {
+            let width = eval::<ty::Number>(context, *width)?;
+            let color = eval::<ty::Color>(context, *color)?;
+            let graphic = eval::<ty::Graphic>(context, *graphic)?;
+            Value::Graphic(
+                graphic.transform_style(|s| s.with_stroke(scene::Stroke { width, color })),
+            )
+        }
     };
     T::from_value(result)
 }
@@ -282,43 +317,25 @@ fn eval_field_access<T: Evaluable>(
 ) -> EResult<T::Output> {
     let object_value = context.get_var(&object)?;
     let result = match object_value {
-        Value::Graphic(g) => match g {
-            scene::Graphic::Circle {
-                x,
-                y,
-                radius,
-                color,
-            } => match field.as_str() {
-                "x" => Value::Number(x),
-                "y" => Value::Number(y),
+        Value::Graphic(g) => match g.ty {
+            scene::GraphicType::Circle { radius } => match field.as_str() {
+                // TEMP: 0 for x and y
+                "x" => Value::Number(0.0),
+                "y" => Value::Number(0.0),
                 "radius" => Value::Number(radius),
-                "color" => Value::Color(color),
                 _ => return Err("Unknown field".to_string()),
             },
-            scene::Graphic::Rect {
-                x,
-                y,
-                width,
-                height,
-                color,
-            } => match field.as_str() {
-                "x" => Value::Number(x),
-                "y" => Value::Number(y),
+            scene::GraphicType::Rect { width, height } => match field.as_str() {
+                "x" => Value::Number(0.0),
+                "y" => Value::Number(0.0),
                 "width" => Value::Number(width),
                 "height" => Value::Number(height),
-                "color" => Value::Color(color),
                 _ => return Err("Unknown field".to_string()),
             },
-            scene::Graphic::Text {
-                x,
-                y,
-                content,
-                color,
-            } => match field.as_str() {
-                "x" => Value::Number(x),
-                "y" => Value::Number(y),
+            scene::GraphicType::Text { content } => match field.as_str() {
+                "x" => Value::Number(0.0),
+                "y" => Value::Number(0.0),
                 "content" => Value::String(content),
-                "color" => Value::Color(color),
                 _ => return Err("Unknown field".to_string()),
             },
         },

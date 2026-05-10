@@ -9,6 +9,7 @@ license.workspace = true
 [dependencies]
 winnow.workspace = true
 svg.workspace = true
+kurbo.workspace = true
 itertools.workspace = true
 
 [dev-dependencies]

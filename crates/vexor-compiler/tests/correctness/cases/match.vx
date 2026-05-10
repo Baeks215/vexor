@@ -2,15 +2,15 @@
 
 let r1 = match 5 { x if x > 10 => 100, y => y + 1 }
 
-let g = Circle { x: 0, y: 0, radius: 7, color: rgb(1, 0, 0, 1) }
-let r2 = match g { Circle { x: cx, y: cy, radius: r, color: c } => r * 2, y => 0 }
+let g = Circle(7)
+let r2 = match g { Circle(r) => r * 2, y => 0 }
 
-let b = Rect { x: 0, y: 0, width: 4, height: 5, color: rgb(1, 0, 0, 1) }
-let r3 = match b { Rect { x: rx, y: ry, width: w, height: h, color: c } => w * h, y => 0 }
+let b = Rect(4, 5)
+let r3 = match b { Rect(w,h) => w * h, y => 0 }
 
-let r4 = match g { Circle { x: cx, y: cy, radius: 5, color: c } => 0, y => 99 }
+let r4 = match g { Circle(5) => 0, y => 99 }
 
-export Circle { radius: r1, x: 0, y: 0, color: rgb(1, 0, 0, 1) }
-export Circle { radius: r2, x: 0, y: 0, color: rgb(1, 0, 0, 1) }
-export Circle { radius: r3, x: 0, y: 0, color: rgb(1, 0, 0, 1) }
-export Circle { radius: r4, x: 0, y: 0, color: rgb(1, 0, 0, 1) }
+export Circle(r1)
+export Circle(r2)
+export Circle(r3)
+export Circle(r4)

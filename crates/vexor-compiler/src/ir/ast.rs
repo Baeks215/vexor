@@ -18,25 +18,9 @@ pub enum Color {
 /// Graphic Object
 #[derive(Debug, Clone)]
 pub enum Graphic {
-    Circle {
-        x: Box<Expr>,
-        y: Box<Expr>,
-        radius: Box<Expr>,
-        color: Box<Expr>,
-    },
-    Rect {
-        x: Box<Expr>,
-        y: Box<Expr>,
-        width: Box<Expr>,
-        height: Box<Expr>,
-        color: Box<Expr>,
-    },
-    Text {
-        x: Box<Expr>,
-        y: Box<Expr>,
-        content: Box<Expr>,
-        color: Box<Expr>,
-    },
+    Circle { radius: Box<Expr> },
+    Rect { width: Box<Expr>, height: Box<Expr> },
+    Text { content: Box<Expr> },
 }
 
 // --- Expressions ---
@@ -157,6 +141,30 @@ pub enum Std {
     Map {
         function: Box<Expr>,
         list: Box<Expr>,
+    },
+    // Transformations
+    Move {
+        x: Box<Expr>,
+        y: Box<Expr>,
+        graphic: Box<Expr>,
+    },
+    Scale {
+        scale: Box<Expr>,
+        graphic: Box<Expr>,
+    },
+    Rotate {
+        angle: Box<Expr>,
+        graphic: Box<Expr>,
+    },
+    // Style
+    Fill {
+        color: Box<Expr>,
+        graphic: Box<Expr>,
+    },
+    Stroke {
+        width: Box<Expr>,
+        color: Box<Expr>,
+        graphic: Box<Expr>,
     },
 }
 
