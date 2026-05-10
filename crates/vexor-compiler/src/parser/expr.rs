@@ -11,11 +11,8 @@ use winnow::{ModalResult, Parser};
 use crate::ir::Number;
 use crate::ir::ast;
 use crate::ir::ast::op;
-use crate::parser::graphic::p_graphic;
-use crate::parser::keyword::{
-    self as k, pk_cos, pk_else, pk_false, pk_if, pk_map, pk_match, pk_nil, pk_pi, pk_rad, pk_rgb,
-    pk_sin, pk_tan, pk_true,
-};
+use crate::parser::call::{p_call, p_graphic, p_std};
+use crate::parser::keyword as k;
 use crate::parser::square_braced;
 use crate::parser::{Input, WhiteSpaceParser, braced, bracketed};
 use crate::parser::{comma_list, p_identifier};
@@ -44,7 +41,7 @@ pub fn p_string<'a>(input: &mut Input<'a>) -> ModalResult<&'a str> {
 
 /// Parses a bool literal.
 pub fn p_bool<'a>(input: &mut Input<'a>) -> ModalResult<bool> {
-    alt((pk_true.map(|_| true), pk_false.map(|_| false)))
+    alt((k::pk_true.map(|_| true), k::pk_false.map(|_| false)))
         .ws()
         .parse_next(input)
 }
@@ -52,7 +49,7 @@ pub fn p_bool<'a>(input: &mut Input<'a>) -> ModalResult<bool> {
 /// Parses a color.
 pub fn p_color<'a>(input: &mut Input<'a>) -> ModalResult<ast::Color> {
     preceded(
-        pk_rgb,
+        k::pk_rgb,
         bracketed(
             comma_list(4, p_expr).map(|mut es: Vec<ast::Expr>| ast::Color::Rgba {
                 r: Box::new(es.remove(0)),
@@ -69,7 +66,7 @@ pub fn p_color<'a>(input: &mut Input<'a>) -> ModalResult<ast::Color> {
 /// Parses a list literal.
 pub fn p_list<'a>(input: &mut Input<'a>) -> ModalResult<ast::ListLiteral> {
     alt((
-        pk_nil.map(|_| ast::ListLiteral::List(vec![])),
+        k::pk_nil.map(|_| ast::ListLiteral::List(vec![])),
         square_braced(alt((
             (
                 p_expr.mws(),
@@ -88,41 +85,9 @@ pub fn p_list<'a>(input: &mut Input<'a>) -> ModalResult<ast::ListLiteral> {
     .parse_next(input)
 }
 
-/// Parses a function call.
-pub fn p_call<'a>(input: &mut Input<'a>) -> ModalResult<ast::Expr> {
-    (p_identifier, bracketed(comma_list(0.., p_expr)))
-        .ws()
-        .map(|(function, args)| ast::Expr::Call {
-            function: function.to_string(),
-            args,
-        })
-        .parse_next(input)
-}
-
-/// Parses a standard function call.
-pub fn p_std<'a>(input: &mut Input<'a>) -> ModalResult<ast::Std> {
-    (
-        alt((pk_rad, pk_sin, pk_cos, pk_tan, pk_map)),
-        bracketed(comma_list(0.., p_expr)),
-    )
-        .ws()
-        .map(|(function, mut args): (_, Vec<_>)| match function {
-            k::Std::Rad => ast::Std::Rad(Box::new(args.remove(0))),
-            k::Std::Sin => ast::Std::Sin(Box::new(args.remove(0))),
-            k::Std::Cos => ast::Std::Cos(Box::new(args.remove(0))),
-            k::Std::Tan => ast::Std::Tan(Box::new(args.remove(0))),
-            k::Std::Map => {
-                let function = Box::new(args.remove(0));
-                let list = Box::new(args.remove(0));
-                ast::Std::Map { function, list }
-            }
-        })
-        .parse_next(input)
-}
-
 /// Parses a constant.
 pub fn p_constant<'a>(input: &mut Input<'a>) -> ModalResult<ast::Const> {
-    pk_pi.ws().parse_next(input)
+    k::pk_pi.ws().parse_next(input)
 }
 
 /// Parses a literal expression.
@@ -142,7 +107,7 @@ pub fn p_literal<'a>(input: &mut Input<'a>) -> ModalResult<ast::Literal> {
 pub fn p_match_arm<'a>(input: &mut Input<'a>) -> ModalResult<ast::MatchArm> {
     (
         p_expr,
-        opt(preceded(pk_if.ws(), p_expr)),
+        opt(preceded(k::pk_if.ws(), p_expr)),
         preceded("=>".ws(), p_expr),
     )
         .map(|(pattern, guard, body)| ast::MatchArm {
@@ -156,7 +121,7 @@ pub fn p_match_arm<'a>(input: &mut Input<'a>) -> ModalResult<ast::MatchArm> {
 /// Parses a match expression: `match <expr> { <arm>, <arm>, ... }`.
 pub fn p_match<'a>(input: &mut Input<'a>) -> ModalResult<ast::Expr> {
     preceded(
-        pk_match.ws(),
+        k::pk_match.ws(),
         (p_expr, braced(comma_list(1.., p_match_arm))),
     )
     .ws()
@@ -172,9 +137,9 @@ pub fn p_match<'a>(input: &mut Input<'a>) -> ModalResult<ast::Expr> {
 /// Parses an if expression: `if <cond> { <then> } else { <else> }`.
 pub fn p_if<'a>(input: &mut Input<'a>) -> ModalResult<ast::Expr> {
     (
-        preceded(pk_if.ws(), p_expr),
+        preceded(k::pk_if.ws(), p_expr),
         braced(p_expr).ws(),
-        preceded(pk_else.ws(), braced(p_expr)),
+        preceded(k::pk_else.ws(), braced(p_expr)),
     )
         .ws()
         .map(
@@ -207,13 +172,13 @@ pub fn p_identifier_or_field<'a>(input: &mut Input<'a>) -> ModalResult<ast::Expr
 pub fn p_atom<'a>(input: &mut Input<'a>) -> ModalResult<ast::Expr> {
     alt((
         bracketed(p_expr).ws(),
+        p_constant.map(ast::Expr::Const),
         p_literal.map(ast::Expr::Literal),
         p_if,
         p_match,
-        p_call,
         p_std.map(ast::Expr::Std),
+        p_call,
         p_identifier_or_field,
-        p_constant.map(ast::Expr::Const),
     ))
     .parse_next(input)
 }
