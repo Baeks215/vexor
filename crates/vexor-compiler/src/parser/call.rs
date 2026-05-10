@@ -22,14 +22,15 @@ pub fn p_call<'a>(input: &mut Input<'a>) -> ModalResult<ast::Expr> {
 pub fn p_std<'a>(input: &mut Input<'a>) -> ModalResult<ast::Std> {
     let (function, args) = (
         alt((
-            k::pk_rad,
-            k::pk_sin,
-            k::pk_cos,
-            k::pk_tan,
+            alt((k::pk_rad, k::pk_sin, k::pk_cos, k::pk_tan)),
             k::pk_map,
-            k::pk_move,
-            k::pk_scale,
-            k::pk_rotate,
+            alt((
+                k::pk_move,
+                k::pk_scale,
+                k::pk_rotate,
+                k::pk_fill,
+                k::pk_stroke,
+            )),
         )),
         bracketed(comma_list(0.., p_expr)),
     )
@@ -102,6 +103,21 @@ fn build_std(function: k::Std, args: Vec<ast::Expr>) -> ModalResult<ast::Std> {
             let (angle, graphic) = unpack!(args)?;
             ast::Std::Rotate {
                 angle: Box::new(angle),
+                graphic: Box::new(graphic),
+            }
+        }
+        k::Std::Fill => {
+            let (color, graphic) = unpack!(args)?;
+            ast::Std::Fill {
+                color: Box::new(color),
+                graphic: Box::new(graphic),
+            }
+        }
+        k::Std::Stroke => {
+            let (width, color, graphic) = unpack!(args)?;
+            ast::Std::Stroke {
+                width: Box::new(width),
+                color: Box::new(color),
                 graphic: Box::new(graphic),
             }
         }

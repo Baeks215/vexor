@@ -156,6 +156,16 @@ pub enum Std {
         angle: Box<Expr>,
         graphic: Box<Expr>,
     },
+    // Style
+    Fill {
+        color: Box<Expr>,
+        graphic: Box<Expr>,
+    },
+    Stroke {
+        width: Box<Expr>,
+        color: Box<Expr>,
+        graphic: Box<Expr>,
+    },
 }
 
 #[derive(Debug, Clone, Copy)]

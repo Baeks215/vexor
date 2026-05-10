@@ -34,10 +34,18 @@ impl Graphic {
         }
     }
 
-    /// Applies a transformation to the graphic component.
+    /// Applies a geometric transformation to the graphic component.
     pub fn transform(self, transform: Affine) -> Self {
         Self {
             transform: transform * self.transform,
+            ..self
+        }
+    }
+
+    /// Applies a transformation to the style of the graphic component.
+    pub fn transform_style(self, f: impl FnOnce(Style) -> Style) -> Self {
+        Self {
+            style: f(self.style),
             ..self
         }
     }
@@ -55,6 +63,17 @@ pub enum GraphicType {
 pub struct Style {
     pub fill: Color,
     pub stroke: Option<Stroke>,
+}
+impl Style {
+    pub fn with_fill(self, fill: Color) -> Self {
+        Self { fill, ..self }
+    }
+    pub fn with_stroke(self, stroke: Stroke) -> Self {
+        Self {
+            stroke: Some(stroke),
+            ..self
+        }
+    }
 }
 impl Default for Style {
     fn default() -> Self {

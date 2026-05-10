@@ -72,6 +72,8 @@ define_keywords! {
     pk_move => "move"; Std : Std::Move,
     pk_scale => "scale"; Std : Std::Scale,
     pk_rotate => "rotate"; Std : Std::Rotate,
+    pk_fill => "fill"; Std : Std::Fill,
+    pk_stroke => "stroke"; Std : Std::Stroke,
     // Constants
     pk_pi => "pi"; Const: Const::Pi
 }
@@ -93,6 +95,8 @@ pub enum Std {
     Move,
     Scale,
     Rotate,
+    Fill,
+    Stroke,
 }
 
 #[cfg(test)]

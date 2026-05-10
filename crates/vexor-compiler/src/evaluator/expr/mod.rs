@@ -210,6 +210,23 @@ fn eval_std<T: Evaluable>(context: &Context, std: Std) -> Result<<T as Evaluable
             let graphic = eval::<ty::Graphic>(context, *graphic)?;
             Value::Graphic(graphic.transform(Affine::rotate(angle)))
         }
+        Std::Fill { color, graphic } => {
+            let color = eval::<ty::Color>(context, *color)?;
+            let graphic = eval::<ty::Graphic>(context, *graphic)?;
+            Value::Graphic(graphic.transform_style(|s| s.with_fill(color)))
+        }
+        Std::Stroke {
+            color,
+            width,
+            graphic,
+        } => {
+            let width = eval::<ty::Number>(context, *width)?;
+            let color = eval::<ty::Color>(context, *color)?;
+            let graphic = eval::<ty::Graphic>(context, *graphic)?;
+            Value::Graphic(
+                graphic.transform_style(|s| s.with_stroke(scene::Stroke { width, color })),
+            )
+        }
     };
     T::from_value(result)
 }
