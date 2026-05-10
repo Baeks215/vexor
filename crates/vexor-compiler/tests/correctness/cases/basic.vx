@@ -2,9 +2,4 @@
 
 let r = 10
 
-export Circle {
-    radius: r,
-    x: 0,
-    y: 0,
-    color: rgb(1, 0, 0, 1)
-}
+export Circle(r)

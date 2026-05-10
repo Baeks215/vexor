@@ -1,7 +1,5 @@
 use vexor_compiler::{Graphic, compile, compile_to_svg};
 
-const RED: &str = "rgb(1, 0, 0, 1)";
-
 fn compiles(input: &str) -> Vec<Graphic> {
     compile(input).unwrap_or_else(|e| panic!("{}", e)).exports
 }
@@ -15,23 +13,18 @@ fn test_compile() {
     let single = format!(
         "
 let r = 10  // My comment, ignore this
-export Circle {{
-    x: 0, // More comments
-    y: 0,
-    radius: r,
-    color: {RED}
-}}"
+export Circle(r)"
     );
-    matches!(compiles(&single).remove(0), Graphic::Circle { .. });
+    matches!(compiles(&single).remove(0), Graphic { .. });
 
     let multi = format!(
         "
-    export Circle {{ x: 0, y: 0, radius: 1, color: {RED} }}
-    export Rect {{ x: 0, y: 0, width: 2, height: 3, color: {RED} }}"
+    export Circle(1)
+    export Rect(2, 3)"
     );
     matches!(
         compiles(&multi).as_slice(),
-        [Graphic::Circle { .. }, Graphic::Rect { .. }]
+        [Graphic { .. }, Graphic { .. }]
     );
 }
 
@@ -43,15 +36,13 @@ fn test_compile_invalid_input() {
 
 #[test]
 fn test_compile_to_svg() {
-    let single = format!("export Circle {{ x: 0, y: 0, radius: 10, color: {RED} }}");
+    let single = format!("export Circle(10)");
     let exports = compile_to_svg(&single).expect("compile_to_svg should succeed");
     assert_eq!(exports.len(), 1);
     assert_eq!(exports[0].name, "export_0");
     assert!(exports[0].data.contains("<circle"));
 
-    let multi = format!(
-        "export Circle {{ x: 0, y: 0, radius: 1, color: {RED} }}\nexport Rect {{ x: 0, y: 0, width: 2, height: 3, color: {RED} }}"
-    );
+    let multi = format!("export Circle(1)\nexport Rect(2, 3)");
     let exports = compile_to_svg(&multi).expect("compile_to_svg should succeed");
     assert_eq!(exports.len(), 2);
     assert_eq!(exports[0].name, "export_0");

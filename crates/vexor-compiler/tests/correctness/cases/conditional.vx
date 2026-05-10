@@ -4,14 +4,14 @@ let r = if 5 > 10 { 100 } else { 5 + 1 }
 let cond = true
 let cond2 = r > 10000
 
-export Circle { radius: r, x: 0, y: 0, color: rgb(1, 0, 0, 1) }
+export Circle(r)
 export if cond {
-    Circle { radius: 10, x: 0, y: 0, color: rgb(1, 0, 0, 1) }
+    Circle(10)
 } else {
-    Circle { radius: 0, x: 0, y: 0, color: rgb(1, 0, 0, 1) }
+    Circle(0)
 }
 export if cond2 {
-    Circle { radius: 99, x: 0, y: 0, color: rgb(1, 0, 0, 1) }
+    Circle(99)
 } else {
-    Circle { radius: 5, x: 0, y: 0, color: rgb(1, 0, 0, 1) }
+    Circle(5)
 }

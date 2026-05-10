@@ -1,4 +1,4 @@
-use vexor_compiler::{Graphic, compile};
+use vexor_compiler::{Graphic, GraphicType, compile};
 use winnow::Parser;
 use winnow::ascii::{float, space0};
 use winnow::combinator::{preceded, separated};
@@ -27,7 +27,10 @@ Compilation failed: {name}
     let outputs = graphics
         .into_iter()
         .flat_map(|g| match g {
-            Graphic::Circle { radius, .. } => Some(radius),
+            Graphic {
+                ty: GraphicType::Circle { radius },
+                ..
+            } => Some(radius),
             _ => None,
         })
         .collect::<Vec<_>>();
