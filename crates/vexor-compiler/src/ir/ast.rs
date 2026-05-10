@@ -142,6 +142,20 @@ pub enum Std {
         function: Box<Expr>,
         list: Box<Expr>,
     },
+    // Transformations
+    Move {
+        x: Box<Expr>,
+        y: Box<Expr>,
+        graphic: Box<Expr>,
+    },
+    Scale {
+        scale: Box<Expr>,
+        graphic: Box<Expr>,
+    },
+    Rotate {
+        angle: Box<Expr>,
+        graphic: Box<Expr>,
+    },
 }
 
 #[derive(Debug, Clone, Copy)]

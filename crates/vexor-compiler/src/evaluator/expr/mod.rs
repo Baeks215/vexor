@@ -3,6 +3,8 @@
 use std::f64::consts::PI;
 use std::fmt::Debug;
 
+use kurbo::Affine;
+
 use crate::evaluator::program::eval_assignment;
 use crate::evaluator::{Context, EResult, Function, Value, ty};
 use crate::ir::ast::{self, Expr, Literal, MatchArm, Std, op};
@@ -191,6 +193,22 @@ fn eval_std<T: Evaluable>(context: &Context, std: Std) -> Result<<T as Evaluable
             }
 
             Value::List(acc)
+        }
+        Std::Move { x, y, graphic } => {
+            let x = eval::<ty::Number>(context, *x)?;
+            let y = eval::<ty::Number>(context, *y)?;
+            let graphic = eval::<ty::Graphic>(context, *graphic)?;
+            Value::Graphic(graphic.transform(Affine::translate((x, y))))
+        }
+        Std::Scale { scale, graphic } => {
+            let scale = eval::<ty::Number>(context, *scale)?;
+            let graphic = eval::<ty::Graphic>(context, *graphic)?;
+            Value::Graphic(graphic.transform(Affine::scale(scale)))
+        }
+        Std::Rotate { angle, graphic } => {
+            let angle = eval::<ty::Number>(context, *angle)?;
+            let graphic = eval::<ty::Graphic>(context, *graphic)?;
+            Value::Graphic(graphic.transform(Affine::rotate(angle)))
         }
     };
     T::from_value(result)

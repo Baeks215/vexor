@@ -21,7 +21,16 @@ pub fn p_call<'a>(input: &mut Input<'a>) -> ModalResult<ast::Expr> {
 /// Parses a standard function call.
 pub fn p_std<'a>(input: &mut Input<'a>) -> ModalResult<ast::Std> {
     let (function, args) = (
-        alt((k::pk_rad, k::pk_sin, k::pk_cos, k::pk_tan, k::pk_map)),
+        alt((
+            k::pk_rad,
+            k::pk_sin,
+            k::pk_cos,
+            k::pk_tan,
+            k::pk_map,
+            k::pk_move,
+            k::pk_scale,
+            k::pk_rotate,
+        )),
         bracketed(comma_list(0.., p_expr)),
     )
         .ws()
@@ -72,6 +81,28 @@ fn build_std(function: k::Std, args: Vec<ast::Expr>) -> ModalResult<ast::Std> {
             ast::Std::Map {
                 function: Box::new(function),
                 list: Box::new(list),
+            }
+        }
+        k::Std::Move => {
+            let (x, y, graphic) = unpack!(args)?;
+            ast::Std::Move {
+                x: Box::new(x),
+                y: Box::new(y),
+                graphic: Box::new(graphic),
+            }
+        }
+        k::Std::Scale => {
+            let (scale, graphic) = unpack!(args)?;
+            ast::Std::Scale {
+                scale: Box::new(scale),
+                graphic: Box::new(graphic),
+            }
+        }
+        k::Std::Rotate => {
+            let (angle, graphic) = unpack!(args)?;
+            ast::Std::Rotate {
+                angle: Box::new(angle),
+                graphic: Box::new(graphic),
             }
         }
     })

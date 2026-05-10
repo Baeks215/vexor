@@ -25,11 +25,20 @@ pub struct Graphic {
     pub transform: Affine,
 }
 impl Graphic {
+    /// Creates a new graphic component with default attributes.
     pub fn new(ty: GraphicType) -> Self {
         Self {
             ty,
             style: Style::default(),
             transform: Affine::default(),
+        }
+    }
+
+    /// Applies a transformation to the graphic component.
+    pub fn transform(self, transform: Affine) -> Self {
+        Self {
+            transform: transform * self.transform,
+            ..self
         }
     }
 }
