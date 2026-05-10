@@ -13,6 +13,8 @@ struct Cli {
 enum Commands {
     /// Compile a .vx source file
     Compile(commands::compile::CompileArgs),
+    /// Compile a .vx source file and watch for changes
+    Watch(commands::compile::CompileArgs),
 }
 
 fn main() {
@@ -20,5 +22,6 @@ fn main() {
 
     match cli.command {
         Commands::Compile(args) => commands::compile::run(args),
+        Commands::Watch(args) => commands::watch::run(args),
     }
 }

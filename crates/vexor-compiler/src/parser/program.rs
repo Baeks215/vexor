@@ -78,7 +78,7 @@ pub fn parse_program<'a>(
                 newline1,
             ))
             .map(|u| u.unwrap_or_default()),
-            separated(0.., p_export, newline1),
+            separated(1.., p_export, newline1),
         )
             .map(|(units, exports): (Vec<_>, Vec<_>)| {
                 let (functions, statements) = units.into_iter().partition_map(|u| match u {

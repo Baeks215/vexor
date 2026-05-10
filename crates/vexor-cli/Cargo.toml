@@ -13,4 +13,6 @@ path = "src/main.rs"
 [dependencies]
 vexor-compiler.workspace = true
 vexor-gui.workspace = true
+notify.workspace = true
+notify-debouncer-mini.workspace = true
 clap = { workspace = true, features = ["derive"] }
