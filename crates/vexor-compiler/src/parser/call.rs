@@ -44,7 +44,7 @@ pub fn p_std<'a>(input: &mut Input<'a>) -> ModalResult<ast::Std> {
 ///   Contains fields with expr values
 pub fn p_graphic<'a>(input: &mut Input<'a>) -> ModalResult<ast::Graphic> {
     let (function, args) = (
-        alt((k::pk_circle, k::pk_rect, k::pk_text)).ws(),
+        alt((k::pk_circle, k::pk_rect, k::pk_text, k::pk_group)).ws(),
         bracketed(comma_list(0.., p_expr)),
     )
         .ws()
@@ -144,6 +144,12 @@ fn build_graphic(function: k::Graphic, args: Vec<ast::Expr>) -> ModalResult<ast:
             let content = unpack_one!(args)?;
             Ok(ast::Graphic::Text {
                 content: Box::new(content),
+            })
+        }
+        k::Graphic::Group => {
+            let children = unpack_one!(args)?;
+            Ok(ast::Graphic::Group {
+                children: Box::new(children),
             })
         }
     }

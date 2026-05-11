@@ -17,16 +17,19 @@ enum ProgramUnit {
     Function(ast::Function),
 }
 
-fn p_assignment<'a>(input: &mut Input<'a>) -> ModalResult<ast::Assignment> {
-    (
-        preceded(pk_let.ws(), p_identifier.ws()),
-        preceded("=".ws(), p_expr),
-    )
+/// Parses variable assignment `x = expr`
+fn p_assignment_raw<'a>(input: &mut Input<'a>) -> ModalResult<ast::Assignment> {
+    (p_identifier.ws(), preceded("=".mws(), p_expr))
         .map(|(i, e)| ast::Assignment {
             identifier: i.to_string(),
             value: e,
         })
         .parse_next(input)
+}
+
+/// Parses variable assignment with `let x = expr`
+fn p_assignment<'a>(input: &mut Input<'a>) -> ModalResult<ast::Assignment> {
+    preceded(pk_let.ws(), p_assignment_raw).parse_next(input)
 }
 
 fn p_function<'a>(input: &mut Input<'a>) -> ModalResult<ast::Function> {
@@ -36,10 +39,10 @@ fn p_function<'a>(input: &mut Input<'a>) -> ModalResult<ast::Function> {
             .ws(),
         preceded("=".mws(), p_expr), // return expression
         opt(preceded(
-            pk_where.ws(),
-            braced(comma_list(0.., p_assignment)),
-        ))
-        .ws(), // where scope
+            (p_mws, pk_where.ws()),
+            braced(separated(0.., p_assignment_raw, newline1)),
+        )) // where scope
+        .ws(),
     )
         .map(
             |(name, params, return_expr, scope): (_, Vec<&str>, _, _)| ast::Function {

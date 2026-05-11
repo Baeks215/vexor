@@ -29,6 +29,14 @@ impl Evaluable for ty::Graphic {
             ast::Graphic::Text { content } => scene::GraphicType::Text {
                 content: eval::<ty::String>(context, *content)?,
             },
+            ast::Graphic::Group { children } => {
+                let child_list = eval::<ty::List>(context, *children)?;
+                let children = child_list
+                    .into_iter()
+                    .map(|child| ty::Graphic::from_value(child))
+                    .collect::<Result<Vec<_>, _>>()?;
+                scene::GraphicType::Group { children }
+            }
         }))
     }
     fn match_literal(

@@ -21,8 +21,30 @@ macro_rules! apply_attributes {
     }};
 }
 
+trait Appendable {
+    fn add<T>(self, node: T) -> Self
+    where
+        T: Into<Box<dyn svg::Node>>;
+}
+impl Appendable for svg::Document {
+    fn add<T>(self, node: T) -> Self
+    where
+        T: Into<Box<dyn svg::Node>>,
+    {
+        self.add(node)
+    }
+}
+impl Appendable for svg_el::Group {
+    fn add<T>(self, node: T) -> Self
+    where
+        T: Into<Box<dyn svg::Node>>,
+    {
+        self.add(node)
+    }
+}
+
 /// Translates a graphic to an SVG document node
-fn translate_graphic(current: svg::Document, graphic: Graphic) -> svg::Document {
+fn translate_graphic<T: Appendable>(current: T, graphic: Graphic) -> T {
     let Graphic {
         ty,
         style,
@@ -53,6 +75,13 @@ fn translate_graphic(current: svg::Document, graphic: Graphic) -> svg::Document 
             svg_el::Text::new(content).set("x", 0.0).set("y", 0.0),
             extra
         )),
+        GraphicType::Group { children } => {
+            let mut group_node = svg_el::Group::new();
+            for child in children {
+                group_node = translate_graphic(group_node, child);
+            }
+            current.add(apply_attributes!(group_node, extra))
+        }
     }
 }
 

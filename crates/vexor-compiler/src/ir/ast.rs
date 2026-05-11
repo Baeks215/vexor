@@ -21,6 +21,7 @@ pub enum Graphic {
     Circle { radius: Box<Expr> },
     Rect { width: Box<Expr>, height: Box<Expr> },
     Text { content: Box<Expr> },
+    Group { children: Box<Expr> },
 }
 
 // --- Expressions ---

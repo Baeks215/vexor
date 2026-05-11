@@ -56,6 +56,7 @@ define_keywords! {
     pk_circle => "Circle"; Graphic : Graphic::Circle,
     pk_rect => "Rect"; Graphic : Graphic::Rect,
     pk_text => "Text"; Graphic : Graphic::Text,
+    pk_group => "Group"; Graphic : Graphic::Group,
     // Bool literals
     pk_true => "true",
     pk_false => "false",
@@ -83,6 +84,7 @@ pub enum Graphic {
     Circle,
     Rect,
     Text,
+    Group,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]

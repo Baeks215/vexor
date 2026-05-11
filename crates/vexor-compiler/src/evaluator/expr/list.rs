@@ -9,6 +9,30 @@ pub enum ListNode<T: Clone> {
     Cons(T, Box<ListNode<T>>),
 }
 
+impl<T: Clone> IntoIterator for ListNode<T> {
+    type Item = T;
+    type IntoIter = ListIterator<T>;
+    fn into_iter(self) -> Self::IntoIter {
+        ListIterator { current: self }
+    }
+}
+
+pub struct ListIterator<T: Clone> {
+    current: ListNode<T>,
+}
+impl<T: Clone> Iterator for ListIterator<T> {
+    type Item = T;
+    fn next(&mut self) -> Option<Self::Item> {
+        match std::mem::replace(&mut self.current, ListNode::Nil) {
+            ListNode::Nil => None,
+            ListNode::Cons(item, next) => {
+                self.current = *next;
+                Some(item)
+            }
+        }
+    }
+}
+
 impl Evaluable for ty::List {
     type Output = Box<ListNode<Value>>;
     fn to_value(value: Self::Output) -> Value {
