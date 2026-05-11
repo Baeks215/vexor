@@ -179,16 +179,14 @@ fn eval_std<T: Evaluable>(context: &Context, std: Std) -> Result<<T as Evaluable
                 return Err("Must be a function name".to_string());
             };
             let list = eval::<ty::List>(context, *list)?;
-            let mut items = vec![];
-            let mut curr = *list;
-            while let list::ListNode::Cons(head, tail) = curr {
-                let new_head = eval_call::<ty::Any>(context, function.clone(), vec![head])?;
-                items.push(new_head);
-                curr = *tail;
-            }
-
+            // Evaluate each value
+            let values = list
+                .into_iter()
+                .map(|item| eval_call::<ty::Any>(context, function.clone(), vec![item]))
+                .collect::<Result<Vec<_>, _>>()?;
+            // Rebuild nodes in reverse order
             let mut acc = Box::new(list::ListNode::Nil);
-            for item in items.into_iter().rev() {
+            for item in values.into_iter().rev() {
                 acc = Box::new(list::ListNode::Cons(item, acc));
             }
 
@@ -336,6 +334,11 @@ fn eval_field_access<T: Evaluable>(
                 "x" => Value::Number(0.0),
                 "y" => Value::Number(0.0),
                 "content" => Value::String(content),
+                _ => return Err("Unknown field".to_string()),
+            },
+            scene::GraphicType::Group { .. } => match field.as_str() {
+                "x" => Value::Number(0.0),
+                "y" => Value::Number(0.0),
                 _ => return Err("Unknown field".to_string()),
             },
         },

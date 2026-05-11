@@ -56,6 +56,7 @@ pub enum GraphicType {
     Circle { radius: Number },
     Rect { width: Number, height: Number },
     Text { content: String },
+    Group { children: Vec<Graphic> },
 }
 
 /// Style of a graphic component
