@@ -1,0 +1,3 @@
+// missing let
+r = 10
+export Circle(r)

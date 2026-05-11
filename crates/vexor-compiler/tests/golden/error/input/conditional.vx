@@ -1,0 +1,8 @@
+let r = 100
+let c = Circle(r)
+// no arm matches r = 100
+let scaled = match r {
+    50 => scale(0.5, c),
+    200 => scale(2.0, c)
+}
+export scaled

@@ -1,0 +1,4 @@
+parse error at line 3, column 24
+  |
+3 | let moved = move(50, c)
+  |                        ^

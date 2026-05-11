@@ -1,0 +1,3 @@
+// too many arguments
+let c = Circle(10, 20)
+export c

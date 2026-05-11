@@ -1,0 +1,5 @@
+let r = 100
+let c = Circle(r)
+// missing braces around branches
+let result = if r > 50 c else c
+export result

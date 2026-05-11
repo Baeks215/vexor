@@ -1,0 +1,5 @@
+// missing = body
+fn double(x)
+
+let result = double(10)
+export Circle(result)

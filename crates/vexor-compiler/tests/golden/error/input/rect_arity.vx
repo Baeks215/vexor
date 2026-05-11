@@ -1,0 +1,3 @@
+// too few arguments
+let r = Rect(10)
+export r

@@ -1,0 +1,3 @@
+// unclosed string
+let label = "hello
+export Circle(10)
