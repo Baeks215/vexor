@@ -14,7 +14,7 @@ use crate::ir::ast::op;
 use crate::parser::call::{p_call, p_graphic, p_std};
 use crate::parser::keyword as k;
 use crate::parser::square_braced;
-use crate::parser::{Input, WhiteSpaceParser, braced, bracketed};
+use crate::parser::{Input, ParserExt, braced, bracketed};
 use crate::parser::{comma_list, p_identifier};
 
 // --- Primitives ---

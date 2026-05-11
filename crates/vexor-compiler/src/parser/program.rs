@@ -4,7 +4,7 @@ use crate::ir::ast;
 use crate::parser::expr::p_expr;
 use crate::parser::keyword::{pk_export, pk_fn, pk_let, pk_where};
 use crate::parser::{
-    Input, WhiteSpaceParser, braced, bracketed, comma_list, newline1, p_identifier, p_mws,
+    Input, ParserExt, braced, bracketed, comma_list, newline1, p_identifier, p_mws,
 };
 use itertools::{Either, Itertools};
 use winnow::combinator::{alt, delimited, opt, preceded, separated, terminated};

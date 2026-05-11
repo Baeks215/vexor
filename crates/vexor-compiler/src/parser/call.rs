@@ -4,7 +4,7 @@ use winnow::error::{ContextError, ErrMode};
 use winnow::{ModalResult, Parser};
 
 use crate::ir::ast;
-use crate::parser::{Input, WhiteSpaceParser, keyword as k};
+use crate::parser::{Input, ParserExt, keyword as k};
 use crate::parser::{bracketed, comma_list, expr::p_expr, p_identifier};
 
 /// Parses a function call.

@@ -1,8 +1,8 @@
 //! Common parser utilities.
 
 use winnow::ascii::{line_ending, multispace1, space1, till_line_ending};
-use winnow::combinator::{alt, delimited, repeat, separated, terminated};
-use winnow::error::ContextError;
+use winnow::combinator::{alt, cut_err, delimited, repeat, separated, terminated};
+use winnow::error::{ContextError, StrContext, StrContextValue};
 use winnow::stream::{Accumulate, Range};
 use winnow::token::take_while;
 use winnow::{LocatingSlice, ModalParser, ModalResult, Parser};
@@ -17,23 +17,48 @@ pub use program::*;
 /// Parser input type with location information.
 type Input<'a> = LocatingSlice<&'a str>;
 
-trait WhiteSpaceParser<'a, O>: ModalParser<Input<'a>, O, ContextError> {
+trait ParserExt<'a, O>: ModalParser<Input<'a>, O, ContextError> {
     /// Discard whitespace after the parser.
     fn ws(self) -> impl ModalParser<Input<'a>, O, ContextError>;
     /// Discard whitespace after the parser, including newlines.
     fn mws(self) -> impl ModalParser<Input<'a>, O, ContextError>;
+    /// Add context error label to the parser.
+    fn label(self, label: &'static str) -> impl ModalParser<Input<'a>, O, ContextError>;
+    /// Add context error expected description to the parser.
+    fn expected(self, description: &'static str) -> impl ModalParser<Input<'a>, O, ContextError>;
+    /// Add context error expected string literal to the parser.
+    fn expected_lit(self, literal: &'static str) -> impl ModalParser<Input<'a>, O, ContextError>;
+    /// Add context error expected char literal to the parser.
+    fn expected_char(self, char_literal: char) -> impl ModalParser<Input<'a>, O, ContextError>;
 }
 
-impl<'a, O, P> WhiteSpaceParser<'a, O> for P
+impl<'a, O, P> ParserExt<'a, O> for P
 where
     P: ModalParser<Input<'a>, O, ContextError>,
 {
     fn ws(self) -> impl ModalParser<Input<'a>, O, ContextError> {
         terminated(self, p_ws)
     }
-
     fn mws(self) -> impl ModalParser<Input<'a>, O, ContextError> {
         terminated(self, p_mws)
+    }
+    fn label(self, label: &'static str) -> impl ModalParser<Input<'a>, O, ContextError> {
+        self.context(StrContext::Label(label))
+    }
+    fn expected(self, description: &'static str) -> impl ModalParser<Input<'a>, O, ContextError> {
+        self.context(StrContext::Expected(StrContextValue::Description(
+            description,
+        )))
+    }
+    fn expected_lit(self, literal: &'static str) -> impl ModalParser<Input<'a>, O, ContextError> {
+        self.context(StrContext::Expected(StrContextValue::StringLiteral(
+            literal,
+        )))
+    }
+    fn expected_char(self, char_literal: char) -> impl ModalParser<Input<'a>, O, ContextError> {
+        self.context(StrContext::Expected(StrContextValue::CharLiteral(
+            char_literal,
+        )))
     }
 }
 
@@ -79,7 +104,7 @@ fn bracketed<'a, F, O>(inner: F) -> impl ModalParser<Input<'a>, O, ContextError>
 where
     F: ModalParser<Input<'a>, O, ContextError>,
 {
-    delimited(('(', p_mws), inner, (p_mws, ')'))
+    delimited(('(', p_mws), cut_err(inner), (p_mws, cut_err(')')))
 }
 
 /// Parse between braces "{}"
@@ -88,7 +113,7 @@ fn braced<'a, F, O>(inner: F) -> impl ModalParser<Input<'a>, O, ContextError>
 where
     F: ModalParser<Input<'a>, O, ContextError>,
 {
-    delimited(('{', p_mws), inner, (p_mws, '}'))
+    delimited(('{', p_mws), cut_err(inner), (p_mws, cut_err('}')))
 }
 
 /// Parse between braces "[]"
@@ -97,7 +122,7 @@ fn square_braced<'a, F, O>(inner: F) -> impl ModalParser<Input<'a>, O, ContextEr
 where
     F: ModalParser<Input<'a>, O, ContextError>,
 {
-    delimited(('[', p_mws), inner, (p_mws, ']'))
+    delimited(('[', p_mws), cut_err(inner), (p_mws, cut_err(']')))
 }
 
 /// Parse a comma-separated list of items
