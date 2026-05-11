@@ -108,7 +108,7 @@ impl Context {
     fn get_function(&self, name: &str) -> EResult<&Function> {
         self.functions
             .get(name)
-            .ok_or("Unknown function".to_string())
+            .ok_or(format!("Unknown function: {}", name))
     }
 }
 

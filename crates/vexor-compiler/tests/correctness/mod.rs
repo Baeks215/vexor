@@ -56,7 +56,7 @@ fn test_correctness() {
 
 #[test]
 #[ignore]
-fn test_single_case_debug() {
+fn test_debug() {
     // For debugging a single case
     let name = "conditional";
 

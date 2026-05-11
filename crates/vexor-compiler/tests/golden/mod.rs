@@ -26,6 +26,16 @@ fn test_all_goldens() {
     }
 }
 
+#[test]
+#[ignore]
+fn test_debug() {
+    // For debugging a single case
+    let name = "group";
+
+    let source = fs::read_to_string(format!("tests/golden/compilation/input/{name}.vx")).unwrap();
+    compile_to_svg(&source).unwrap();
+}
+
 fn check_golden(name: &str, output: &str) {
     let path = format!("tests/golden/compilation/output/{name}.svg");
     let path = std::path::Path::new(&path);

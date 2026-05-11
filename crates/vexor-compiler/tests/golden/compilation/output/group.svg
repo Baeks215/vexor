@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg">
+<g fill="rgba(0,0,0,1)">
+<g fill="rgba(0,0,0,1)">
+<circle cx="0" cy="0" fill="rgba(0,0,0,1)" r="10" transform="matrix(1 0 0 1 20 0)" vector-effect="non-scaling-stroke"/>
+<circle cx="0" cy="0" fill="rgba(0,0,0,1)" r="10" transform="matrix(1 0 0 1 40 0)" vector-effect="non-scaling-stroke"/>
+<circle cx="0" cy="0" fill="rgba(0,0,0,1)" r="10" transform="matrix(1 0 0 1 60 0)" vector-effect="non-scaling-stroke"/>
+<circle cx="0" cy="0" fill="rgba(0,0,0,1)" r="10" transform="matrix(1 0 0 1 80 0)" vector-effect="non-scaling-stroke"/>
+<circle cx="0" cy="0" fill="rgba(0,0,0,1)" r="10" transform="matrix(1 0 0 1 100 0)" vector-effect="non-scaling-stroke"/>
+<circle cx="0" cy="0" fill="rgba(0,0,0,1)" r="10" transform="matrix(1 0 0 1 120 0)" vector-effect="non-scaling-stroke"/>
+</g>
+<g fill="rgba(0,0,0,1)" transform="matrix(1 0 0 1 0 50)" vector-effect="non-scaling-stroke">
+<g fill="rgba(0,0,0,1)" transform="matrix(1 0 0 1 20 0)" vector-effect="non-scaling-stroke">
+<rect fill="rgba(0,0,0,1)" height="5" width="5" x="0" y="0"/>
+<rect fill="rgba(0,0,0,1)" height="5" transform="matrix(1 0 0 1 5 5)" vector-effect="non-scaling-stroke" width="5" x="0" y="0"/>
+</g>
+<g fill="rgba(0,0,0,1)" transform="matrix(1 0 0 1 40 0)" vector-effect="non-scaling-stroke">
+<rect fill="rgba(0,0,0,1)" height="5" width="5" x="0" y="0"/>
+<rect fill="rgba(0,0,0,1)" height="5" transform="matrix(1 0 0 1 5 5)" vector-effect="non-scaling-stroke" width="5" x="0" y="0"/>
+</g>
+<g fill="rgba(0,0,0,1)" transform="matrix(1 0 0 1 60 0)" vector-effect="non-scaling-stroke">
+<rect fill="rgba(0,0,0,1)" height="5" width="5" x="0" y="0"/>
+<rect fill="rgba(0,0,0,1)" height="5" transform="matrix(1 0 0 1 5 5)" vector-effect="non-scaling-stroke" width="5" x="0" y="0"/>
+</g>
+<g fill="rgba(0,0,0,1)" transform="matrix(1 0 0 1 80 0)" vector-effect="non-scaling-stroke">
+<rect fill="rgba(0,0,0,1)" height="5" width="5" x="0" y="0"/>
+<rect fill="rgba(0,0,0,1)" height="5" transform="matrix(1 0 0 1 5 5)" vector-effect="non-scaling-stroke" width="5" x="0" y="0"/>
+</g>
+<g fill="rgba(0,0,0,1)" transform="matrix(1 0 0 1 100 0)" vector-effect="non-scaling-stroke">
+<rect fill="rgba(0,0,0,1)" height="5" width="5" x="0" y="0"/>
+<rect fill="rgba(0,0,0,1)" height="5" transform="matrix(1 0 0 1 5 5)" vector-effect="non-scaling-stroke" width="5" x="0" y="0"/>
+</g>
+<g fill="rgba(0,0,0,1)" transform="matrix(1 0 0 1 120 0)" vector-effect="non-scaling-stroke">
+<rect fill="rgba(0,0,0,1)" height="5" width="5" x="0" y="0"/>
+<rect fill="rgba(0,0,0,1)" height="5" transform="matrix(1 0 0 1 5 5)" vector-effect="non-scaling-stroke" width="5" x="0" y="0"/>
+</g>
+</g>
+</g>
+</svg>
