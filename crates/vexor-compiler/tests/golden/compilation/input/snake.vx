@@ -1,0 +1,15 @@
+
+
+fn make_circle(i) = fill(color, move(x, y, Circle(r)))
+where {
+  f = i / 60
+  r = f * f * 100
+  angle = 360 * f
+  x = cos(angle) * f * 400
+  y = sin(angle) * f * 400
+  color = rgb(f, 0, 1 - f, 1)
+}
+
+export move(500, 500, Group(
+  map(make_circle, [1..60])
+))
