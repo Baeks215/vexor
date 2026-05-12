@@ -1,11 +1,9 @@
 use itertools::Itertools;
 use winnow::combinator::{alt, cut_err, peek, terminated};
-use winnow::error::{AddContext, ContextError, ErrMode, StrContext, StrContextValue};
-use winnow::stream::Stream;
 use winnow::{ModalResult, Parser};
 
 use crate::ir::ast;
-use crate::parser::{Input, ParserExt, keyword as k};
+use crate::parser::{Input, ParserExt, expected, keyword as k};
 use crate::parser::{bracketed, comma_list, expr::p_expr, p_identifier};
 
 /// Parses a function call.
@@ -41,7 +39,7 @@ pub fn p_std<'a>(input: &mut Input<'a>) -> ModalResult<ast::Std> {
         .ws()
         .parse_next(input)?;
 
-    build_std(function, args).into_context(input)
+    build_std(function, args).map_err(|e| expected(e, input))
 }
 
 /// Parse an object literal
@@ -57,7 +55,7 @@ pub fn p_graphic<'a>(input: &mut Input<'a>) -> ModalResult<ast::Graphic> {
         .ws()
         .parse_next(input)?;
 
-    build_graphic(function, args).into_context(input)
+    build_graphic(function, args).map_err(|e| expected(e, input))
 }
 
 macro_rules! unpack_1 {
@@ -85,26 +83,10 @@ macro_rules! unpack_3 {
     };
 }
 
-/// Build result for building function arguments
-///   Error is used in expected description
-type BuildResult<T> = Result<T, &'static str>;
-trait IntoContext<T> {
-    fn into_context(self, input: &mut Input<'_>) -> ModalResult<T>;
-}
-impl<T> IntoContext<T> for BuildResult<T> {
-    fn into_context(self, input: &mut Input<'_>) -> ModalResult<T> {
-        self.map_err(|msg| {
-            ErrMode::Cut(ContextError::new().add_context(
-                input,
-                &input.checkpoint(),
-                StrContext::Expected(StrContextValue::Description(msg)),
-            ))
-        })
-    }
-}
+type StrResult<T> = Result<T, &'static str>;
 
 /// Build a standard function call
-fn build_std(function: k::Std, args: Vec<ast::Expr>) -> BuildResult<ast::Std> {
+fn build_std(function: k::Std, args: Vec<ast::Expr>) -> StrResult<ast::Std> {
     Ok(match function {
         k::Std::Rad => ast::Std::Rad(Box::new(unpack_1!(args)?)),
         k::Std::Sin => ast::Std::Sin(Box::new(unpack_1!(args)?)),
@@ -158,7 +140,7 @@ fn build_std(function: k::Std, args: Vec<ast::Expr>) -> BuildResult<ast::Std> {
 }
 
 /// Build a graphic literal call
-fn build_graphic(function: k::Graphic, args: Vec<ast::Expr>) -> BuildResult<ast::Graphic> {
+fn build_graphic(function: k::Graphic, args: Vec<ast::Expr>) -> StrResult<ast::Graphic> {
     match function {
         k::Graphic::Circle => {
             let radius = unpack_1!(args)?;

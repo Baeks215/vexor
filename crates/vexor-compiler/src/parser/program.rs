@@ -1,21 +1,15 @@
 //! Parser: Text -> AST
 
-use crate::ir::ast;
-use crate::parser::expr::p_expr;
-use crate::parser::keyword::{pk_export, pk_fn, pk_let, pk_where};
-use crate::parser::{
-    Input, ParserExt, braced, bracketed, comma_list, newline1, p_identifier, p_mws,
-};
-use itertools::{Either, Itertools};
-use winnow::combinator::{alt, cut_err, delimited, opt, peek, preceded, separated, terminated};
+use winnow::combinator::{alt, cut_err, eof, opt, preceded, separated};
 use winnow::error::{ContextError, ParseError};
 use winnow::{ModalResult, Parser, Result};
 
-#[derive(Debug, Clone)]
-enum ProgramUnit {
-    Assignment(ast::Assignment),
-    Function(ast::Function),
-}
+use crate::ir::ast::{self, ProgramUnit};
+use crate::parser::expr::p_expr;
+use crate::parser::keyword::{pk_export, pk_fn, pk_let, pk_where};
+use crate::parser::{
+    Input, ParserExt, braced, bracketed, comma_list, expected, newline1, p_identifier, p_mws,
+};
 
 /// Parses variable assignment `x = expr`
 fn p_assignment_raw<'a>(input: &mut Input<'a>) -> ModalResult<ast::Assignment> {
@@ -32,6 +26,8 @@ fn p_assignment<'a>(input: &mut Input<'a>) -> ModalResult<ast::Assignment> {
     preceded(pk_let.ws(), cut_err(p_assignment_raw)).parse_next(input)
 }
 
+/// Parses a function definition `fn name(params) = expr`
+///   Optional where clause `where { x = a \n ... }`
 fn p_function<'a>(input: &mut Input<'a>) -> ModalResult<ast::Function> {
     (preceded(
         pk_fn.ws(),
@@ -57,16 +53,41 @@ fn p_function<'a>(input: &mut Input<'a>) -> ModalResult<ast::Function> {
     .parse_next(input)
 }
 
-fn p_program_unit<'a>(input: &mut Input<'a>) -> ModalResult<ProgramUnit> {
-    alt((
-        p_function.map(|f| ProgramUnit::Function(f)),
-        p_assignment.map(|s| ProgramUnit::Assignment(s)),
-    ))
-    .parse_next(input)
-}
-
+/// Parses an export `export expr`
 fn p_export<'a>(input: &mut Input<'a>) -> ModalResult<ast::Expr> {
     preceded(pk_export.ws(), p_expr.label("graphic expression")).parse_next(input)
+}
+
+/// Parses a program `fn ... let x = a ... export ...`
+///   Requires at least one export
+fn p_program<'a>(input: &mut Input<'a>) -> ModalResult<ast::Program> {
+    p_mws.parse_next(input)?; // Discard leading whitespace
+    let mut export_count = 0;
+    let units: Vec<_> = separated(
+        0..,
+        alt((
+            p_function.map(|f| ProgramUnit::Function(f)),
+            p_assignment.map(|s| ProgramUnit::Assignment(s)),
+            p_export.map(|e| {
+                export_count += 1;
+                ProgramUnit::Export(e)
+            }),
+        )),
+        newline1,
+    )
+    .mws() // Discard trailing whitespace
+    .parse_next(input)?;
+
+    eof.expected_lit("fn")
+        .expected_lit("let")
+        .expected_lit("export")
+        .parse_next(input)?;
+
+    if export_count == 0 {
+        return Err(expected("at least one export", input));
+    }
+
+    Ok(ast::Program { units })
 }
 
 /// Parses a program from the given input string.
@@ -75,28 +96,5 @@ pub fn parse_program<'a>(
     input: &'a str,
 ) -> Result<ast::Program, ParseError<Input<'a>, ContextError>> {
     let input = Input::new(input);
-    delimited(
-        p_mws,
-        (
-            opt(terminated(
-                separated(0.., p_program_unit, newline1),
-                newline1,
-            ))
-            .map(|u| u.unwrap_or_default()),
-            separated(1.., p_export, newline1),
-        )
-            .map(|(units, exports): (Vec<_>, Vec<_>)| {
-                let (functions, statements) = units.into_iter().partition_map(|u| match u {
-                    ProgramUnit::Function(f) => Either::Left(f),
-                    ProgramUnit::Assignment(s) => Either::Right(s),
-                });
-                ast::Program {
-                    functions,
-                    scope: statements,
-                    exports,
-                }
-            }),
-        p_mws,
-    )
-    .parse(input)
+    p_program.parse(input)
 }

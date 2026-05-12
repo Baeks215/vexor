@@ -2,7 +2,8 @@
 
 use winnow::ascii::{line_ending, multispace1, space1, till_line_ending};
 use winnow::combinator::{alt, cut_err, delimited, repeat, separated, terminated};
-use winnow::error::{ContextError, StrContext, StrContextValue};
+use winnow::error::{AddContext, ContextError, ErrMode, StrContext, StrContextValue};
+use winnow::stream::Stream;
 use winnow::stream::{Accumulate, Range};
 use winnow::token::take_while;
 use winnow::{LocatingSlice, ModalParser, ModalResult, Parser};
@@ -136,6 +137,15 @@ where
     Accumulator: Accumulate<O>,
 {
     separated(occurrences, inner, (p_mws, ',', p_mws))
+}
+
+/// Created context error for expected input
+fn expected(desc: &'static str, input: &mut Input<'_>) -> ErrMode<ContextError> {
+    ErrMode::Cut(ContextError::new().add_context(
+        input,
+        &input.checkpoint(),
+        StrContext::Expected(StrContextValue::Description(desc)),
+    ))
 }
 
 #[cfg(test)]
