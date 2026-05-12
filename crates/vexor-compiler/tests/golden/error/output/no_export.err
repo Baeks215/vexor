@@ -2,4 +2,4 @@ parse error at line 3, column 14
   |
 3 | // no export
   |              ^
-invalid keyword 'export'
+expected at least one export

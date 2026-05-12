@@ -2,3 +2,4 @@ parse error at line 2, column 23
   |
 2 | let c = Circle(10, 20)
   |                       ^
+expected exactly one argument

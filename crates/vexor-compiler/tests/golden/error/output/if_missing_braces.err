@@ -1,5 +1,5 @@
-parse error at line 4, column 1
+parse error at line 4, column 24
   |
 4 | let result = if r > 50 c else c
-  | ^
-invalid keyword 'export'
+  |                        ^
+expected `{`

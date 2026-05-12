@@ -2,4 +2,4 @@ parse error at line 2, column 1
   |
 2 | r = 10
   | ^
-invalid keyword 'export'
+expected `fn`, `let`, `export`

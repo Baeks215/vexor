@@ -1,4 +1,0 @@
-let c = Circle(10)
-// too few arguments
-let stroked = stroke(2.0, c)
-export stroked

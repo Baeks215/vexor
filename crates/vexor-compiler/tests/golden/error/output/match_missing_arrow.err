@@ -1,5 +1,6 @@
-parse error at line 2, column 1
+parse error at line 4, column 9
   |
-2 | let result = match r {
-  | ^
-invalid keyword 'export'
+4 |     100 Circle(100)
+  |         ^
+invalid match arm
+expected `=>`

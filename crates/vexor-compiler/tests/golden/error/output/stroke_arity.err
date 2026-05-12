@@ -1,4 +1,0 @@
-parse error at line 3, column 29
-  |
-3 | let stroked = stroke(2.0, c)
-  |                             ^

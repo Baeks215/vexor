@@ -1,5 +1,5 @@
-parse error at line 3, column 1
+parse error at line 3, column 24
   |
 3 | let result = match r { }
-  | ^
-invalid keyword 'export'
+  |                        ^
+invalid match arm
