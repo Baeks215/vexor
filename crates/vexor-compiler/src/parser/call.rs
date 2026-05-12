@@ -1,5 +1,5 @@
 use itertools::Itertools;
-use winnow::combinator::alt;
+use winnow::combinator::{alt, cut_err, peek, terminated};
 use winnow::error::{ContextError, ErrMode};
 use winnow::{ModalResult, Parser};
 
@@ -21,18 +21,21 @@ pub fn p_call<'a>(input: &mut Input<'a>) -> ModalResult<ast::Expr> {
 /// Parses a standard function call.
 pub fn p_std<'a>(input: &mut Input<'a>) -> ModalResult<ast::Std> {
     let (function, args) = (
-        alt((
-            alt((k::pk_rad, k::pk_sin, k::pk_cos, k::pk_tan)),
-            k::pk_map,
+        terminated(
             alt((
-                k::pk_move,
-                k::pk_scale,
-                k::pk_rotate,
-                k::pk_fill,
-                k::pk_stroke,
+                alt((k::pk_rad, k::pk_sin, k::pk_cos, k::pk_tan)),
+                k::pk_map,
+                alt((
+                    k::pk_move,
+                    k::pk_scale,
+                    k::pk_rotate,
+                    k::pk_fill,
+                    k::pk_stroke,
+                )),
             )),
-        )),
-        bracketed(comma_list(0.., p_expr)),
+            peek('('),
+        ),
+        cut_err(bracketed(comma_list(0.., p_expr))),
     )
         .ws()
         .parse_next(input)?;
@@ -44,8 +47,11 @@ pub fn p_std<'a>(input: &mut Input<'a>) -> ModalResult<ast::Std> {
 ///   Contains fields with expr values
 pub fn p_graphic<'a>(input: &mut Input<'a>) -> ModalResult<ast::Graphic> {
     let (function, args) = (
-        alt((k::pk_circle, k::pk_rect, k::pk_text, k::pk_group)).ws(),
-        bracketed(comma_list(0.., p_expr)),
+        terminated(
+            alt((k::pk_circle, k::pk_rect, k::pk_text, k::pk_group)),
+            peek('('),
+        ),
+        cut_err(bracketed(comma_list(0.., p_expr))),
     )
         .ws()
         .parse_next(input)?;

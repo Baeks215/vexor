@@ -2,9 +2,9 @@
 
 use winnow::ascii::{dec_int, float};
 use winnow::combinator::{
-    Infix, Prefix, alt, delimited, dispatch, expression, fail, opt, peek, preceded, terminated,
+    Infix, Prefix, alt, cut_err, delimited, dispatch, expression, fail, opt, peek, preceded,
+    terminated,
 };
-use winnow::error::StrContext;
 use winnow::token::take_while;
 use winnow::{ModalResult, Parser};
 
@@ -27,7 +27,7 @@ pub fn p_number<'a>(input: &mut Input<'a>) -> ModalResult<Number> {
         terminated(dec_int, peek("..")).map(|n: i64| n as f64),
         float,
     ))
-    .context(StrContext::Label("number"))
+    .label("number")
     .ws()
     .parse_next(input)
 }
@@ -35,6 +35,7 @@ pub fn p_number<'a>(input: &mut Input<'a>) -> ModalResult<Number> {
 /// Parses a string literal.
 pub fn p_string<'a>(input: &mut Input<'a>) -> ModalResult<&'a str> {
     delimited('"', take_while(0.., |c: char| c != '"'), '"')
+        .label("string")
         .ws()
         .parse_next(input)
 }
@@ -42,6 +43,7 @@ pub fn p_string<'a>(input: &mut Input<'a>) -> ModalResult<&'a str> {
 /// Parses a bool literal.
 pub fn p_bool<'a>(input: &mut Input<'a>) -> ModalResult<bool> {
     alt((k::pk_true.map(|_| true), k::pk_false.map(|_| false)))
+        .label("bool")
         .ws()
         .parse_next(input)
 }
@@ -50,15 +52,16 @@ pub fn p_bool<'a>(input: &mut Input<'a>) -> ModalResult<bool> {
 pub fn p_color<'a>(input: &mut Input<'a>) -> ModalResult<ast::Color> {
     preceded(
         k::pk_rgb,
-        bracketed(
-            comma_list(4, p_expr).map(|mut es: Vec<ast::Expr>| ast::Color::Rgba {
+        cut_err(bracketed(comma_list(4, p_expr).map(
+            |mut es: Vec<ast::Expr>| ast::Color::Rgba {
                 r: Box::new(es.remove(0)),
                 g: Box::new(es.remove(0)),
                 b: Box::new(es.remove(0)),
                 a: Box::new(es.remove(0)),
-            }),
-        ),
+            },
+        ))),
     )
+    .label("color")
     .ws()
     .parse_next(input)
 }
@@ -70,8 +73,8 @@ pub fn p_list<'a>(input: &mut Input<'a>) -> ModalResult<ast::ListLiteral> {
         square_braced(alt((
             (
                 p_expr.mws(),
-                opt(preceded(','.mws(), p_expr.mws())),
-                preceded("..".mws(), p_expr),
+                opt(preceded(','.mws(), cut_err(p_expr).mws())),
+                preceded("..".mws(), cut_err(p_expr)),
             )
                 .map(|(start, second, end)| ast::ListLiteral::Range {
                     start: Box::new(start),
@@ -81,6 +84,7 @@ pub fn p_list<'a>(input: &mut Input<'a>) -> ModalResult<ast::ListLiteral> {
             comma_list(0.., p_expr).map(|es| ast::ListLiteral::List(es)),
         ))),
     ))
+    .label("list")
     .ws()
     .parse_next(input)
 }
@@ -122,7 +126,7 @@ pub fn p_match_arm<'a>(input: &mut Input<'a>) -> ModalResult<ast::MatchArm> {
 pub fn p_match<'a>(input: &mut Input<'a>) -> ModalResult<ast::Expr> {
     preceded(
         k::pk_match.ws(),
-        (p_expr, braced(comma_list(1.., p_match_arm))),
+        cut_err((p_expr, braced(comma_list(1.., p_match_arm)))),
     )
     .ws()
     .map(
@@ -136,22 +140,23 @@ pub fn p_match<'a>(input: &mut Input<'a>) -> ModalResult<ast::Expr> {
 
 /// Parses an if expression: `if <cond> { <then> } else { <else> }`.
 pub fn p_if<'a>(input: &mut Input<'a>) -> ModalResult<ast::Expr> {
-    (
-        preceded(k::pk_if.ws(), p_expr),
-        braced(p_expr).ws(),
-        preceded(k::pk_else.ws(), braced(p_expr)),
+    preceded(
+        k::pk_if.ws(),
+        cut_err((
+            p_expr,
+            braced(p_expr).ws(),
+            preceded(k::pk_else.ws(), braced(p_expr)),
+        )),
     )
-        .ws()
-        .map(
-            |(condition, then_branch, else_branch): (ast::Expr, ast::Expr, ast::Expr)| {
-                ast::Expr::If {
-                    condition: Box::new(condition),
-                    then_branch: Box::new(then_branch),
-                    else_branch: Box::new(else_branch),
-                }
-            },
-        )
-        .parse_next(input)
+    .ws()
+    .map(
+        |(condition, then_branch, else_branch): (ast::Expr, ast::Expr, ast::Expr)| ast::Expr::If {
+            condition: Box::new(condition),
+            then_branch: Box::new(then_branch),
+            else_branch: Box::new(else_branch),
+        },
+    )
+    .parse_next(input)
 }
 
 /// Parses identifier or object field access
@@ -212,5 +217,6 @@ pub fn p_expr<'a>(input: &mut Input<'a>) -> ModalResult<ast::Expr> {
         "!" => Prefix(11, |_, a| Ok(ast::Expr::Unary { operator: op::Unary::Not, operand: Box::new(a) })),
         _ => fail,
     })
+    .label("expression")
     .parse_next(input)
 }

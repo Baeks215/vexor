@@ -7,7 +7,7 @@ use crate::parser::{
     Input, ParserExt, braced, bracketed, comma_list, newline1, p_identifier, p_mws,
 };
 use itertools::{Either, Itertools};
-use winnow::combinator::{alt, delimited, opt, preceded, separated, terminated};
+use winnow::combinator::{alt, cut_err, delimited, opt, preceded, separated, terminated};
 use winnow::error::{ContextError, ParseError};
 use winnow::{ModalResult, Parser, Result};
 
@@ -19,7 +19,7 @@ enum ProgramUnit {
 
 /// Parses variable assignment `x = expr`
 fn p_assignment_raw<'a>(input: &mut Input<'a>) -> ModalResult<ast::Assignment> {
-    (p_identifier.ws(), preceded("=".mws(), p_expr))
+    (p_identifier.ws(), preceded("=".mws(), cut_err(p_expr)))
         .map(|(i, e)| ast::Assignment {
             identifier: i.to_string(),
             value: e,
@@ -29,30 +29,32 @@ fn p_assignment_raw<'a>(input: &mut Input<'a>) -> ModalResult<ast::Assignment> {
 
 /// Parses variable assignment with `let x = expr`
 fn p_assignment<'a>(input: &mut Input<'a>) -> ModalResult<ast::Assignment> {
-    preceded(pk_let.ws(), p_assignment_raw).parse_next(input)
+    preceded(pk_let.ws(), cut_err(p_assignment_raw)).parse_next(input)
 }
 
 fn p_function<'a>(input: &mut Input<'a>) -> ModalResult<ast::Function> {
-    (
-        preceded(pk_fn.ws(), p_identifier), // function name
-        bracketed(comma_list(0.., p_identifier)) // parameters
-            .ws(),
-        preceded("=".mws(), p_expr), // return expression
-        opt(preceded(
-            (p_mws, pk_where.ws()),
-            braced(separated(0.., p_assignment_raw, newline1)),
-        )) // where scope
-        .ws(),
+    (preceded(
+        pk_fn.ws(),
+        cut_err((
+            p_identifier,                                  // function name
+            bracketed(comma_list(0.., p_identifier)).ws(), // parameters
+            preceded("=".mws(), p_expr),                   // return expression
+            opt(preceded(
+                (p_mws, pk_where.ws()),
+                cut_err(braced(separated(0.., p_assignment_raw, newline1))),
+            )), // where scope
+        )),
+    ))
+    .ws()
+    .map(
+        |(name, params, return_expr, scope): (_, Vec<&str>, _, _)| ast::Function {
+            name: name.to_string(),
+            params: params.into_iter().map(str::to_string).collect(),
+            scope: scope.unwrap_or_default(),
+            return_expr: return_expr,
+        },
     )
-        .map(
-            |(name, params, return_expr, scope): (_, Vec<&str>, _, _)| ast::Function {
-                name: name.to_string(),
-                params: params.into_iter().map(str::to_string).collect(),
-                scope: scope.unwrap_or_default(),
-                return_expr: return_expr,
-            },
-        )
-        .parse_next(input)
+    .parse_next(input)
 }
 
 fn p_program_unit<'a>(input: &mut Input<'a>) -> ModalResult<ProgramUnit> {
