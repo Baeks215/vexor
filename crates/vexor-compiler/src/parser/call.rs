@@ -1,6 +1,7 @@
 use itertools::Itertools;
 use winnow::combinator::{alt, cut_err, peek, terminated};
-use winnow::error::{ContextError, ErrMode};
+use winnow::error::{AddContext, ContextError, ErrMode, StrContext, StrContextValue};
+use winnow::stream::Stream;
 use winnow::{ModalResult, Parser};
 
 use crate::ir::ast;
@@ -40,7 +41,7 @@ pub fn p_std<'a>(input: &mut Input<'a>) -> ModalResult<ast::Std> {
         .ws()
         .parse_next(input)?;
 
-    build_std(function, args)
+    build_std(function, args).into_context(input)
 }
 
 /// Parse an object literal
@@ -56,42 +57,68 @@ pub fn p_graphic<'a>(input: &mut Input<'a>) -> ModalResult<ast::Graphic> {
         .ws()
         .parse_next(input)?;
 
-    build_graphic(function, args)
+    build_graphic(function, args).into_context(input)
 }
 
-macro_rules! unpack_one {
+macro_rules! unpack_1 {
     ($iter:expr) => {
         $iter
             .into_iter()
             .exactly_one()
-            .map_err(|_| ErrMode::Cut(ContextError::new()))
+            .map_err(|_| "exactly one argument")
     };
 }
-macro_rules! unpack {
+macro_rules! unpack_2 {
     ($iter:expr) => {
         $iter
             .into_iter()
-            .collect_tuple()
-            .ok_or(ErrMode::Cut(ContextError::new()))
+            .collect_tuple::<(_, _)>()
+            .ok_or("expected two arguments")
+    };
+}
+macro_rules! unpack_3 {
+    ($iter:expr) => {
+        $iter
+            .into_iter()
+            .collect_tuple::<(_, _, _)>()
+            .ok_or("expected three arguments")
     };
 }
 
+/// Build result for building function arguments
+///   Error is used in expected description
+type BuildResult<T> = Result<T, &'static str>;
+trait IntoContext<T> {
+    fn into_context(self, input: &mut Input<'_>) -> ModalResult<T>;
+}
+impl<T> IntoContext<T> for BuildResult<T> {
+    fn into_context(self, input: &mut Input<'_>) -> ModalResult<T> {
+        self.map_err(|msg| {
+            ErrMode::Cut(ContextError::new().add_context(
+                input,
+                &input.checkpoint(),
+                StrContext::Expected(StrContextValue::Description(msg)),
+            ))
+        })
+    }
+}
+
 /// Build a standard function call
-fn build_std(function: k::Std, args: Vec<ast::Expr>) -> ModalResult<ast::Std> {
+fn build_std(function: k::Std, args: Vec<ast::Expr>) -> BuildResult<ast::Std> {
     Ok(match function {
-        k::Std::Rad => ast::Std::Rad(Box::new(unpack_one!(args)?)),
-        k::Std::Sin => ast::Std::Sin(Box::new(unpack_one!(args)?)),
-        k::Std::Cos => ast::Std::Cos(Box::new(unpack_one!(args)?)),
-        k::Std::Tan => ast::Std::Tan(Box::new(unpack_one!(args)?)),
+        k::Std::Rad => ast::Std::Rad(Box::new(unpack_1!(args)?)),
+        k::Std::Sin => ast::Std::Sin(Box::new(unpack_1!(args)?)),
+        k::Std::Cos => ast::Std::Cos(Box::new(unpack_1!(args)?)),
+        k::Std::Tan => ast::Std::Tan(Box::new(unpack_1!(args)?)),
         k::Std::Map => {
-            let (function, list) = unpack!(args)?;
+            let (function, list) = unpack_2!(args)?;
             ast::Std::Map {
                 function: Box::new(function),
                 list: Box::new(list),
             }
         }
         k::Std::Move => {
-            let (x, y, graphic) = unpack!(args)?;
+            let (x, y, graphic) = unpack_3!(args)?;
             ast::Std::Move {
                 x: Box::new(x),
                 y: Box::new(y),
@@ -99,28 +126,28 @@ fn build_std(function: k::Std, args: Vec<ast::Expr>) -> ModalResult<ast::Std> {
             }
         }
         k::Std::Scale => {
-            let (scale, graphic) = unpack!(args)?;
+            let (scale, graphic) = unpack_2!(args)?;
             ast::Std::Scale {
                 scale: Box::new(scale),
                 graphic: Box::new(graphic),
             }
         }
         k::Std::Rotate => {
-            let (angle, graphic) = unpack!(args)?;
+            let (angle, graphic) = unpack_2!(args)?;
             ast::Std::Rotate {
                 angle: Box::new(angle),
                 graphic: Box::new(graphic),
             }
         }
         k::Std::Fill => {
-            let (color, graphic) = unpack!(args)?;
+            let (color, graphic) = unpack_2!(args)?;
             ast::Std::Fill {
                 color: Box::new(color),
                 graphic: Box::new(graphic),
             }
         }
         k::Std::Stroke => {
-            let (width, color, graphic) = unpack!(args)?;
+            let (width, color, graphic) = unpack_3!(args)?;
             ast::Std::Stroke {
                 width: Box::new(width),
                 color: Box::new(color),
@@ -131,29 +158,29 @@ fn build_std(function: k::Std, args: Vec<ast::Expr>) -> ModalResult<ast::Std> {
 }
 
 /// Build a graphic literal call
-fn build_graphic(function: k::Graphic, args: Vec<ast::Expr>) -> ModalResult<ast::Graphic> {
+fn build_graphic(function: k::Graphic, args: Vec<ast::Expr>) -> BuildResult<ast::Graphic> {
     match function {
         k::Graphic::Circle => {
-            let radius = unpack_one!(args)?;
+            let radius = unpack_1!(args)?;
             Ok(ast::Graphic::Circle {
                 radius: Box::new(radius),
             })
         }
         k::Graphic::Rect => {
-            let (width, height) = unpack!(args)?;
+            let (width, height) = unpack_2!(args)?;
             Ok(ast::Graphic::Rect {
                 width: Box::new(width),
                 height: Box::new(height),
             })
         }
         k::Graphic::Text => {
-            let content = unpack_one!(args)?;
+            let content = unpack_1!(args)?;
             Ok(ast::Graphic::Text {
                 content: Box::new(content),
             })
         }
         k::Graphic::Group => {
-            let children = unpack_one!(args)?;
+            let children = unpack_1!(args)?;
             Ok(ast::Graphic::Group {
                 children: Box::new(children),
             })

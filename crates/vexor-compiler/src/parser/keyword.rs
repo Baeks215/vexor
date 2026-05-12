@@ -27,7 +27,6 @@ macro_rules! define_keywords {
         #[doc = concat!("Parses the `", $kw_str, "` keyword.")]
         pub fn $func_name<'a>(input: &mut Input<'a>) -> ModalResult<$type> {
             $kw_str.value($variant)
-                .label("keyword")
                 .expected_lit($kw_str)
                 .parse_next(input)
         }
@@ -38,7 +37,6 @@ macro_rules! define_keywords {
         #[doc = concat!("Parses the `", $kw_str, "` keyword.")]
         pub fn $func_name<'a>(input: &mut Input<'a>) -> ModalResult<&'a str> {
             $kw_str
-                .label("keyword")
                 .expected_lit($kw_str)
                 .parse_next(input)
         }

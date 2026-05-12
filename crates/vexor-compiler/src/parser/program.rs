@@ -7,7 +7,7 @@ use crate::parser::{
     Input, ParserExt, braced, bracketed, comma_list, newline1, p_identifier, p_mws,
 };
 use itertools::{Either, Itertools};
-use winnow::combinator::{alt, cut_err, delimited, opt, preceded, separated, terminated};
+use winnow::combinator::{alt, cut_err, delimited, opt, peek, preceded, separated, terminated};
 use winnow::error::{ContextError, ParseError};
 use winnow::{ModalResult, Parser, Result};
 
@@ -66,7 +66,7 @@ fn p_program_unit<'a>(input: &mut Input<'a>) -> ModalResult<ProgramUnit> {
 }
 
 fn p_export<'a>(input: &mut Input<'a>) -> ModalResult<ast::Expr> {
-    preceded(pk_export.ws(), p_expr).parse_next(input)
+    preceded(pk_export.ws(), p_expr.label("graphic expression")).parse_next(input)
 }
 
 /// Parses a program from the given input string.
