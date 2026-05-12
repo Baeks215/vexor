@@ -92,12 +92,24 @@ fn p_identifier<'a>(input: &mut Input<'a>) -> ModalResult<&'a str> {
         take_while(0.., |c: char| c.is_alphanumeric() || c == '_'),
     )
         .take()
+        .expected("identifier")
         // Ensure the identifier is not a keyword
         .verify(|ident| !keyword::is_keyword(ident))
+        .expected("not a keyword")
         .parse_next(input)
 }
 
 // --- Helpers ---
+
+/// Parse a char literal with expected context
+fn exp_char<'a>(lit: char) -> impl ModalParser<Input<'a>, char, ContextError> {
+    lit.expected_char(lit)
+}
+
+/// Parse a string literal with expected context
+fn exp_string<'a>(lit: &'static str) -> impl ModalParser<Input<'a>, &'a str, ContextError> {
+    lit.expected_lit(lit)
+}
 
 /// Parse between brackets "()"
 ///   Can be across multiple lines
@@ -105,7 +117,11 @@ fn bracketed<'a, F, O>(inner: F) -> impl ModalParser<Input<'a>, O, ContextError>
 where
     F: ModalParser<Input<'a>, O, ContextError>,
 {
-    delimited(('(', p_mws), cut_err(inner), (p_mws, cut_err(')')))
+    delimited(
+        (exp_char('('), p_mws),
+        cut_err(inner),
+        (p_mws, cut_err(exp_char(')'))),
+    )
 }
 
 /// Parse between braces "{}"
@@ -114,7 +130,11 @@ fn braced<'a, F, O>(inner: F) -> impl ModalParser<Input<'a>, O, ContextError>
 where
     F: ModalParser<Input<'a>, O, ContextError>,
 {
-    delimited(('{', p_mws), cut_err(inner), (p_mws, cut_err('}')))
+    delimited(
+        (exp_char('{'), p_mws),
+        cut_err(inner),
+        (p_mws, cut_err(exp_char('}'))),
+    )
 }
 
 /// Parse between braces "[]"
@@ -123,7 +143,11 @@ fn square_braced<'a, F, O>(inner: F) -> impl ModalParser<Input<'a>, O, ContextEr
 where
     F: ModalParser<Input<'a>, O, ContextError>,
 {
-    delimited(('[', p_mws), cut_err(inner), (p_mws, cut_err(']')))
+    delimited(
+        (exp_char('['), p_mws),
+        cut_err(inner),
+        (p_mws, cut_err(exp_char(']'))),
+    )
 }
 
 /// Parse a comma-separated list of items
@@ -136,7 +160,7 @@ where
     F: ModalParser<Input<'a>, O, ContextError>,
     Accumulator: Accumulate<O>,
 {
-    separated(occurrences, inner, (p_mws, ',', p_mws))
+    separated(occurrences, inner, (p_mws, exp_char(','), p_mws))
 }
 
 /// Created context error for expected input

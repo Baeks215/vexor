@@ -32,6 +32,7 @@ pub fn p_std<'a>(input: &mut Input<'a>) -> ModalResult<ast::Std> {
                     k::pk_stroke,
                 )),
             )),
+            // Required to disregard partial matches like `filled`
             peek('('),
         ),
         cut_err(bracketed(comma_list(0.., p_expr))),

@@ -41,7 +41,7 @@ impl Evaluable for ty::List {
     fn from_value(value: Value) -> EResult<Self::Output> {
         match value {
             Value::List(l) => Ok(l),
-            _ => Err("Expected a list".to_string()),
+            _ => Err("expected a list".to_string()),
         }
     }
     fn eval_literal(context: &Context, literal: Literal) -> EResult<Self::Output> {
@@ -81,7 +81,7 @@ impl Evaluable for ty::List {
                     }
                 }
             }
-            _ => Err("Expected a list".to_string()),
+            _ => Err("expected a list".to_string()),
         }
     }
     fn match_literal(
@@ -109,7 +109,7 @@ impl Evaluable for ty::List {
                     ListNode::Cons(_, _) => Ok(false),
                 }
             }
-            _ => Err("Expected a list literal".to_string()),
+            _ => Err("expected a list literal".to_string()),
         }
     }
     fn match_bin(
@@ -125,7 +125,7 @@ impl Evaluable for ty::List {
                 ListNode::Cons(head, tail) => Ok(match_pattern::<ty::Any>(context, head, left)?
                     && match_pattern::<ty::List>(context, tail, right)?),
             },
-            _ => Err("Pattern not supported".to_string()),
+            _ => Err("pattern not supported".to_string()),
         }
     }
 }
@@ -152,10 +152,10 @@ fn build_range_rev(
 
     // Check range step
     if step == 0 {
-        return Err("Range step cannot be zero.".to_string());
+        return Err("range step cannot be zero.".to_string());
     }
     if start != end && total_range.signum() != step.signum() {
-        return Err("Range step direction is inconsistent with end.".to_string());
+        return Err("range step direction is inconsistent with end.".to_string());
     }
 
     // Normalise end to be the last element in the range

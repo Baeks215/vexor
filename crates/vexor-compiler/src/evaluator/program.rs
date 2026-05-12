@@ -9,7 +9,7 @@ pub fn eval_assignment(context: &mut Context, statement: ast::Assignment) -> ERe
             let evaluated = expr::eval::<ty::Any>(context, value)?;
             let old = context.set_var(identifier, evaluated);
             if let Some(_) = old {
-                return Err("Variable already exists".to_string());
+                return Err("variable already exists".to_string());
             }
             Ok(())
         }

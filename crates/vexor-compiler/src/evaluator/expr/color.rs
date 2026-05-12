@@ -11,12 +11,12 @@ impl Evaluable for ty::Color {
     fn from_value(value: Value) -> EResult<Self::Output> {
         match value {
             Value::Color(x) => Ok(x),
-            _ => Err("Expected a color".to_string()),
+            _ => Err("expected a color".to_string()),
         }
     }
     fn eval_literal(context: &Context, literal: Literal) -> EResult<Self::Output> {
         let Literal::Color(ast::Color::Rgba { r, g, b, a }) = literal else {
-            return Err("Expected a color".to_string());
+            return Err("expected a color".to_string());
         };
         Ok(scene::Color::Rgba {
             r: eval::<ty::Number>(context, *r)?,
@@ -44,7 +44,7 @@ impl Evaluable for ty::Color {
                     && match_pattern::<ty::Number>(context, b, *b_expr)?
                     && match_pattern::<ty::Number>(context, a, *a_expr)?)
             }
-            _ => Err("Expected a color literal".to_string()),
+            _ => Err("expected a color literal".to_string()),
         }
     }
     fn match_bin(
@@ -54,6 +54,6 @@ impl Evaluable for ty::Color {
         _: Expr,
         _: Expr,
     ) -> EResult<bool> {
-        Err("Pattern not supported".to_string())
+        Err("pattern not supported".to_string())
     }
 }

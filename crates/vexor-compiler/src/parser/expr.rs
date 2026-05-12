@@ -14,7 +14,7 @@ use crate::ir::ast::op;
 use crate::parser::call::{p_call, p_graphic, p_std};
 use crate::parser::keyword as k;
 use crate::parser::square_braced;
-use crate::parser::{Input, ParserExt, braced, bracketed};
+use crate::parser::{Input, ParserExt, braced, bracketed, exp_string};
 use crate::parser::{comma_list, p_identifier};
 
 // --- Primitives ---
@@ -34,10 +34,14 @@ pub fn p_number<'a>(input: &mut Input<'a>) -> ModalResult<Number> {
 
 /// Parses a string literal.
 pub fn p_string<'a>(input: &mut Input<'a>) -> ModalResult<&'a str> {
-    delimited('"', take_while(0.., |c: char| c != '"'), '"')
-        .label("string")
-        .ws()
-        .parse_next(input)
+    delimited(
+        '"',
+        take_while(0.., |c: char| c != '"'),
+        cut_err('"'.expected("closing `\"`")),
+    )
+    .label("string")
+    .ws()
+    .parse_next(input)
 }
 
 /// Parses a bool literal.
@@ -85,6 +89,9 @@ pub fn p_list<'a>(input: &mut Input<'a>) -> ModalResult<ast::ListLiteral> {
         ))),
     ))
     .label("list")
+    .expected("comma-separated list")
+    .expected("range `[x..y]`")
+    .expected("range `[x,y..z]`")
     .ws()
     .parse_next(input)
 }
@@ -112,13 +119,14 @@ pub fn p_match_arm<'a>(input: &mut Input<'a>) -> ModalResult<ast::MatchArm> {
     (
         p_expr,
         opt(preceded(k::pk_if.ws(), p_expr)),
-        preceded("=>".ws(), p_expr),
+        preceded(exp_string("=>").ws(), p_expr),
     )
         .map(|(pattern, guard, body)| ast::MatchArm {
             pattern,
             guard,
             body,
         })
+        .label("match arm")
         .parse_next(input)
 }
 
@@ -163,7 +171,7 @@ pub fn p_if<'a>(input: &mut Input<'a>) -> ModalResult<ast::Expr> {
 pub fn p_identifier_or_field<'a>(input: &mut Input<'a>) -> ModalResult<ast::Expr> {
     (
         p_identifier.map(str::to_string),
-        opt(preceded(".", p_identifier.map(str::to_string))),
+        opt(preceded('.', p_identifier.map(str::to_string))),
     )
         .ws()
         .map(|(var, field)| match field {
@@ -217,6 +225,5 @@ pub fn p_expr<'a>(input: &mut Input<'a>) -> ModalResult<ast::Expr> {
         "!" => Prefix(11, |_, a| Ok(ast::Expr::Unary { operator: op::Unary::Not, operand: Box::new(a) })),
         _ => fail,
     })
-    .label("expression")
     .parse_next(input)
 }

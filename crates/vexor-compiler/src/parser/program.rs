@@ -1,6 +1,6 @@
 //! Parser: Text -> AST
 
-use winnow::combinator::{alt, cut_err, eof, opt, preceded, separated};
+use winnow::combinator::{alt, cut_err, eof, fail, opt, preceded, separated};
 use winnow::error::{ContextError, ParseError};
 use winnow::{ModalResult, Parser, Result};
 
@@ -8,12 +8,16 @@ use crate::ir::ast::{self, ProgramUnit};
 use crate::parser::expr::p_expr;
 use crate::parser::keyword::{pk_export, pk_fn, pk_let, pk_where};
 use crate::parser::{
-    Input, ParserExt, braced, bracketed, comma_list, expected, newline1, p_identifier, p_mws,
+    Input, ParserExt, braced, bracketed, comma_list, exp_string, expected, newline1, p_identifier,
+    p_mws,
 };
 
 /// Parses variable assignment `x = expr`
 fn p_assignment_raw<'a>(input: &mut Input<'a>) -> ModalResult<ast::Assignment> {
-    (p_identifier.ws(), preceded("=".mws(), cut_err(p_expr)))
+    (
+        p_identifier.ws(),
+        preceded(exp_string("=").mws(), cut_err(p_expr)),
+    )
         .map(|(i, e)| ast::Assignment {
             identifier: i.to_string(),
             value: e,
@@ -34,7 +38,7 @@ fn p_function<'a>(input: &mut Input<'a>) -> ModalResult<ast::Function> {
         cut_err((
             p_identifier,                                  // function name
             bracketed(comma_list(0.., p_identifier)).ws(), // parameters
-            preceded("=".mws(), p_expr),                   // return expression
+            preceded(exp_string("=").mws(), p_expr),       // return expression
             opt(preceded(
                 (p_mws, pk_where.ws()),
                 cut_err(braced(separated(0.., p_assignment_raw, newline1))),
@@ -62,9 +66,10 @@ fn p_export<'a>(input: &mut Input<'a>) -> ModalResult<ast::Expr> {
 ///   Requires at least one export
 fn p_program<'a>(input: &mut Input<'a>) -> ModalResult<ast::Program> {
     p_mws.parse_next(input)?; // Discard leading whitespace
+
     let mut export_count = 0;
     let units: Vec<_> = separated(
-        0..,
+        1..,
         alt((
             p_function.map(|f| ProgramUnit::Function(f)),
             p_assignment.map(|s| ProgramUnit::Assignment(s)),
@@ -72,16 +77,29 @@ fn p_program<'a>(input: &mut Input<'a>) -> ModalResult<ast::Program> {
                 export_count += 1;
                 ProgramUnit::Export(e)
             }),
+            fail.expected_lit("fn")
+                .expected_lit("let")
+                .expected_lit("export"),
         )),
         newline1,
     )
-    .mws() // Discard trailing whitespace
     .parse_next(input)?;
 
-    eof.expected_lit("fn")
-        .expected_lit("let")
-        .expected_lit("export")
-        .parse_next(input)?;
+    // Discard rest of whitespace and expect eof
+    let newlines = opt(newline1).parse_next(input)?;
+    match newlines {
+        Some(_) => {
+            // If separated by newlines, expect more program units
+            eof.expected_lit("fn")
+                .expected_lit("let")
+                .expected_lit("export")
+                .parse_next(input)?;
+        }
+        None => {
+            // Otherwise invalid character
+            eof.label("character").parse_next(input)?;
+        }
+    }
 
     if export_count == 0 {
         return Err(expected("at least one export", input));
