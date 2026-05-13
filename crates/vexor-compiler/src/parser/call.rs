@@ -11,7 +11,7 @@ pub fn p_call<'a>(input: &mut Input<'a>) -> ModalResult<ast::Expr> {
     (p_identifier, bracketed(comma_list(0.., p_expr)))
         .ws()
         .map(|(function, args)| ast::Expr::Call {
-            function: function.to_string(),
+            function: Box::new(ast::Expr::Variable(function.to_string())),
             args,
         })
         .parse_next(input)

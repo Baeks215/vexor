@@ -90,7 +90,6 @@ pub enum Literal {
     Color(Color),
     Graphic(Graphic),
     List(ListLiteral),
-    Function(Function),
 }
 
 /// Expression
@@ -117,7 +116,7 @@ pub enum Expr {
     },
     /// Function call
     Call {
-        function: String,
+        function: Box<Expr>,
         args: Vec<Expr>,
     },
     /// Standard Function call

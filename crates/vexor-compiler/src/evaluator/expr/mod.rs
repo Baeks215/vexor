@@ -51,6 +51,7 @@ pub fn eval<T: Evaluable>(context: &Context, expr: ast::Expr) -> EResult<T::Outp
         }
         Expr::Const(c) => eval_const::<T>(c),
         Expr::Call { function, args } => {
+            let function = eval::<ty::Function>(context, *function)?;
             let args: Vec<Value> = args
                 .into_iter()
                 .map(|arg_expr| eval::<ty::Any>(context, arg_expr))
@@ -176,9 +177,7 @@ fn eval_std<T: Evaluable>(context: &Context, std: Std) -> Result<<T as Evaluable
             Value::Number(x.tan())
         }
         Std::Map { function, list } => {
-            let Expr::Variable(function) = *function else {
-                return Err("must be a function name".to_string());
-            };
+            let function = eval::<ty::Function>(context, *function)?;
             let list = eval::<ty::List>(context, *list)?;
             // Evaluate each value
             let values = list
@@ -233,19 +232,24 @@ fn eval_std<T: Evaluable>(context: &Context, std: Std) -> Result<<T as Evaluable
 /// Evaluates a function call expression.
 fn eval_call<T: Evaluable>(
     context: &Context,
-    func: String,
+    func: Function,
     args: Vec<Value>,
 ) -> EResult<T::Output> {
     let Function {
         params,
         scope,
         return_expr,
-    } = context.get_function(&func)?;
+    } = func;
     // Ensure arguments have correct type
     if params.len() != args.len() {
-        return Err("incorrect number of arguments".to_string());
+        return Err(format!(
+            "expected {} argument{} but got {}",
+            params.len(),
+            if params.len() == 1 { "" } else { "s" },
+            args.len()
+        ));
     }
-    let args: Vec<(String, Value)> = params.into_iter().cloned().zip(args).collect();
+    let args: Vec<(String, Value)> = params.into_iter().zip(args).collect();
 
     // Add arguments to context as variables
     let mut context = context.new_scope_function(args);
@@ -266,10 +270,7 @@ fn match_pattern<T: Evaluable>(
     pattern: Expr,
 ) -> EResult<bool> {
     match pattern {
-        Expr::Variable(name) => {
-            context.set_var(name, T::to_value(scrutinee));
-            Ok(true)
-        }
+        Expr::Variable(name) => context.set_var(name, T::to_value(scrutinee)).map(|_| true),
         Expr::Literal(lit_pattern) => T::match_literal(context, scrutinee, lit_pattern),
         Expr::Binary {
             operator,
@@ -292,7 +293,7 @@ fn eval_match<T: Evaluable>(
         body,
     } in arms
     {
-        let mut arm_ctx = context.clone();
+        let mut arm_ctx = context.child_scope();
         let matched = match_pattern::<ty::Any>(&mut arm_ctx, scrutinee.clone(), pattern)?;
         if !matched {
             continue;
@@ -365,7 +366,6 @@ impl Evaluable for ty::Any {
             Literal::Color(_) => Value::Color(ty::Color::eval_literal(context, literal)?),
             Literal::Graphic(_) => Value::Graphic(ty::Graphic::eval_literal(context, literal)?),
             Literal::List(_) => Value::List(ty::List::eval_literal(context, literal)?),
-            Literal::Function(_) => Value::Function(ty::Function::eval_literal(context, literal)?),
         })
     }
     fn match_literal(

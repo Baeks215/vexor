@@ -1,7 +1,7 @@
 //! Evaluator: Typed AST -> Scene
 
 use crate::evaluator::expr::Evaluable;
-use crate::ir::{Number, ast};
+use crate::ir::Number;
 use std::collections::HashMap;
 
 mod expr;
@@ -50,50 +50,54 @@ pub enum Value {
 /// Context for evaluation
 #[derive(Debug, Clone)]
 pub struct Context {
-    pub functions: HashMap<String, ast::Function>,
-    pub vars: HashMap<String, Value>,
+    pub parent: Option<Box<Context>>,
+    pub scope: HashMap<String, Value>,
 }
 impl Context {
     fn new() -> Self {
         Self {
-            functions: HashMap::new(),
-            vars: HashMap::new(),
+            parent: None,
+            scope: HashMap::new(),
+        }
+    }
+    fn child_scope(&self) -> Self {
+        Self {
+            parent: Some(Box::new(self.clone())),
+            scope: HashMap::new(),
         }
     }
 
     /// Get a variable
     fn get_var(&self, name: &str) -> EResult<Value> {
-        self.vars
-            .get(name)
-            .cloned()
-            .ok_or("Unknown variable".to_string())
+        let current = self.scope.get(name);
+        if let Some(value) = current {
+            return Ok(value.clone());
+        }
+        // Doesn't exist, fetch from parent instead
+        let Some(parent) = &self.parent else {
+            // Parent doesn't exist
+            return Err(format!("`{name}` not in scope"));
+        };
+        parent.get_var(name)
     }
 
-    /// Set a variable
-    fn set_var(&mut self, name: String, value: Value) -> Option<Value> {
-        self.vars.insert(name, value)
+    /// Set a variable, errors if name already exists
+    fn set_var(&mut self, name: String, value: Value) -> EResult<()> {
+        let old = self.scope.insert(name.clone(), value);
+        match old {
+            Some(_) => Err(format!("`{name}` already exists in scope")),
+            None => Ok(()),
+        }
     }
 
     /// Create a new scope with the given variables
     ///   Adds the arguments to the variables scope
     fn new_scope_function(&self, args: Vec<(String, Value)>) -> Self {
-        let mut this = self.clone();
+        let mut this = self.child_scope();
         for (name, arg) in args {
-            this.vars.insert(name.clone(), arg);
+            this.scope.insert(name.clone(), arg);
         }
         this
-    }
-
-    /// Add a function to the context
-    fn add_function(&mut self, name: String, func: ast::Function) {
-        self.functions.insert(name, func);
-    }
-
-    /// Get a function
-    fn get_function(&self, name: &str) -> EResult<&ast::Function> {
-        self.functions
-            .get(name)
-            .ok_or(format!("Unknown function: {}", name))
     }
 }
 

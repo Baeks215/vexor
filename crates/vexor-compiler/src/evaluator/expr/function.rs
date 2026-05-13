@@ -13,11 +13,9 @@ impl Evaluable for ty::Function {
             _ => Err("expected a function".to_string()),
         }
     }
-    fn eval_literal(_: &Context, literal: Literal) -> EResult<Self::Output> {
-        match literal {
-            Literal::Function(f) => Ok(f),
-            _ => Err("expected a function".to_string()),
-        }
+    fn eval_literal(_: &Context, _: Literal) -> EResult<Self::Output> {
+        // Currently no literal functions
+        Err("expected a function".to_string())
     }
     fn match_literal(_: &mut Context, _: Self::Output, _: Literal) -> EResult<bool> {
         Err("cannot pattern match a function".to_string())
