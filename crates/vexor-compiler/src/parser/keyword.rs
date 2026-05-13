@@ -1,9 +1,9 @@
 //! Keyword parsers.
 
-use super::Input;
-use crate::ir::ast::Const;
-use winnow::error::StrContext;
 use winnow::{ModalResult, Parser};
+
+use super::{Input, ParserExt};
+use crate::ir::ast::Const;
 
 /// Macro to define a set of keyword parsers
 macro_rules! define_keywords {
@@ -27,7 +27,7 @@ macro_rules! define_keywords {
         #[doc = concat!("Parses the `", $kw_str, "` keyword.")]
         pub fn $func_name<'a>(input: &mut Input<'a>) -> ModalResult<$type> {
             $kw_str.value($variant)
-                .context(StrContext::Label(concat!("keyword '", $kw_str, "'")))
+                .expected_lit($kw_str)
                 .parse_next(input)
         }
     };
@@ -37,7 +37,7 @@ macro_rules! define_keywords {
         #[doc = concat!("Parses the `", $kw_str, "` keyword.")]
         pub fn $func_name<'a>(input: &mut Input<'a>) -> ModalResult<&'a str> {
             $kw_str
-                .context(StrContext::Label(concat!("keyword '", $kw_str, "'")))
+                .expected_lit($kw_str)
                 .parse_next(input)
         }
     };

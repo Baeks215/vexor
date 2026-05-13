@@ -1,0 +1,5 @@
+// missing function name
+fn (x) = x * 2
+
+let result = double(10)
+export Circle(result)

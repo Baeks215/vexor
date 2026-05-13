@@ -11,12 +11,12 @@ impl Evaluable for ty::Graphic {
     fn from_value(value: Value) -> EResult<Self::Output> {
         match value {
             Value::Graphic(x) => Ok(x),
-            _ => Err("Expected a graphic".to_string()),
+            _ => Err("expected a graphic".to_string()),
         }
     }
     fn eval_literal(context: &Context, literal: Literal) -> EResult<Self::Output> {
         let Literal::Graphic(node) = literal else {
-            return Err("Expected a graphic object".to_string());
+            return Err("expected a graphic object".to_string());
         };
         Ok(scene::Graphic::new(match node {
             ast::Graphic::Circle { radius } => scene::GraphicType::Circle {
@@ -66,7 +66,7 @@ impl Evaluable for ty::Graphic {
                 ) => match_pattern::<ty::String>(context, content, *content_e)?,
                 _ => false,
             }),
-            _ => Err("Expected a graphic literal".to_string()),
+            _ => Err("expected a graphic literal".to_string()),
         }
     }
     fn match_bin(
@@ -76,6 +76,6 @@ impl Evaluable for ty::Graphic {
         _: Expr,
         _: Expr,
     ) -> EResult<bool> {
-        Err("Pattern not supported".to_string())
+        Err("pattern not supported".to_string())
     }
 }

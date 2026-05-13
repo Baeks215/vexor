@@ -1,0 +1,5 @@
+parse error at line 2, column 5
+  |
+2 | let match = 100
+  |     ^
+expected not a keyword

@@ -1,0 +1,6 @@
+let r = 100
+let result = match r {
+    // missing =>
+    100 Circle(100)
+}
+export result

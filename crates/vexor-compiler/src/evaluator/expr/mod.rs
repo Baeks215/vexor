@@ -176,7 +176,7 @@ fn eval_std<T: Evaluable>(context: &Context, std: Std) -> Result<<T as Evaluable
         }
         Std::Map { function, list } => {
             let Expr::Variable(function) = *function else {
-                return Err("Must be a function name".to_string());
+                return Err("must be a function name".to_string());
             };
             let list = eval::<ty::List>(context, *list)?;
             // Evaluate each value
@@ -242,7 +242,7 @@ fn eval_call<T: Evaluable>(
     } = context.get_function(&func)?;
     // Ensure arguments have correct type
     if params.len() != args.len() {
-        return Err("Incorrect number of arguments".to_string());
+        return Err("incorrect number of arguments".to_string());
     }
     let args: Vec<(String, Value)> = params.into_iter().cloned().zip(args).collect();
 
@@ -275,7 +275,7 @@ fn match_pattern<T: Evaluable>(
             left,
             right,
         } => T::match_bin(context, scrutinee, operator, *left, *right),
-        _ => Err("Pattern not supported".to_string()),
+        _ => Err("pattern not supported".to_string()),
     }
 }
 
@@ -304,7 +304,7 @@ fn eval_match<T: Evaluable>(
         }
         return eval::<T>(&arm_ctx, body);
     }
-    Err("No match arm matched".to_string())
+    Err("no arm matched".to_string())
 }
 
 /// Evaluates a field access expression.
@@ -321,28 +321,28 @@ fn eval_field_access<T: Evaluable>(
                 "x" => Value::Number(0.0),
                 "y" => Value::Number(0.0),
                 "radius" => Value::Number(radius),
-                _ => return Err("Unknown field".to_string()),
+                _ => return Err("unknown field".to_string()),
             },
             scene::GraphicType::Rect { width, height } => match field.as_str() {
                 "x" => Value::Number(0.0),
                 "y" => Value::Number(0.0),
                 "width" => Value::Number(width),
                 "height" => Value::Number(height),
-                _ => return Err("Unknown field".to_string()),
+                _ => return Err("unknown field".to_string()),
             },
             scene::GraphicType::Text { content } => match field.as_str() {
                 "x" => Value::Number(0.0),
                 "y" => Value::Number(0.0),
                 "content" => Value::String(content),
-                _ => return Err("Unknown field".to_string()),
+                _ => return Err("unknown field".to_string()),
             },
             scene::GraphicType::Group { .. } => match field.as_str() {
                 "x" => Value::Number(0.0),
                 "y" => Value::Number(0.0),
-                _ => return Err("Unknown field".to_string()),
+                _ => return Err("unknown field".to_string()),
             },
         },
-        _ => return Err("Can not access field of this value".to_string()),
+        _ => return Err("can not access field of this value".to_string()),
     };
     T::from_value(result)
 }

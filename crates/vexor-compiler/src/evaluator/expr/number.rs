@@ -11,13 +11,13 @@ impl Evaluable for ty::Number {
     fn from_value(value: Value) -> EResult<Self::Output> {
         match value {
             Value::Number(x) => Ok(x),
-            _ => Err("Expected a number".to_string()),
+            _ => Err("expected a number".to_string()),
         }
     }
     fn eval_literal(_: &Context, literal: Literal) -> EResult<Self::Output> {
         match literal {
             Literal::Number(n) => Ok(n),
-            _ => Err("Expected a number".to_string()),
+            _ => Err("expected a number".to_string()),
         }
     }
     fn match_literal(
@@ -27,7 +27,7 @@ impl Evaluable for ty::Number {
     ) -> EResult<bool> {
         match literal_pattern {
             Literal::Number(n) => Ok(scrutinee == n),
-            _ => Err("Expected a number literal".to_string()),
+            _ => Err("expected a number literal".to_string()),
         }
     }
     fn match_bin(
@@ -37,6 +37,6 @@ impl Evaluable for ty::Number {
         _: Expr,
         _: Expr,
     ) -> EResult<bool> {
-        Err("Pattern not supported".to_string())
+        Err("pattern not supported".to_string())
     }
 }

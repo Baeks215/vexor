@@ -15,7 +15,7 @@ type CResult<O> = Result<O, CError>;
 /// Compiles the given input string into [`Scene`] IR.
 pub fn compile(input: &str) -> CResult<Scene> {
     let ast = parser::parse_program(input).map_err(|e| e.to_string())?;
-    let scene = evaluator::eval_program(ast).map_err(|e| format!("Evaluation error: {}", e))?;
+    let scene = evaluator::eval_program(ast).map_err(|e| format!("evaluation error: {}", e))?;
     Ok(scene)
 }
 

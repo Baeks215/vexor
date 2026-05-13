@@ -9,7 +9,7 @@ pub fn eval_assignment(context: &mut Context, statement: ast::Assignment) -> ERe
             let evaluated = expr::eval::<ty::Any>(context, value)?;
             let old = context.set_var(identifier, evaluated);
             if let Some(_) = old {
-                return Err("Variable already exists".to_string());
+                return Err("variable already exists".to_string());
             }
             Ok(())
         }
@@ -19,24 +19,23 @@ pub fn eval_assignment(context: &mut Context, statement: ast::Assignment) -> ERe
 /// Evaluates a program, returns the result of the last expression.
 pub fn eval_program(program: ast::Program) -> EResult<scene::Scene> {
     let mut context = Context::new();
+    let ast::Program { units } = program;
+
     let mut exported: Vec<scene::Graphic> = Vec::new();
-
-    let ast::Program {
-        functions,
-        scope,
-        exports,
-    } = program;
-
-    for func in functions {
-        context.add_function(func);
+    for unit in units {
+        match unit {
+            ast::ProgramUnit::Function(func) => {
+                context.add_function(func);
+            }
+            ast::ProgramUnit::Assignment(assignment) => {
+                eval_assignment(&mut context, assignment)?;
+            }
+            ast::ProgramUnit::Export(export) => {
+                let evaluated = expr::eval::<ty::Graphic>(&context, export)?;
+                exported.push(evaluated);
+            }
+        }
     }
 
-    for assignment in scope {
-        eval_assignment(&mut context, assignment)?;
-    }
-    for export in exports {
-        let evaluated = expr::eval::<ty::Graphic>(&context, export)?;
-        exported.push(evaluated);
-    }
     Ok(scene::Scene { exports: exported })
 }

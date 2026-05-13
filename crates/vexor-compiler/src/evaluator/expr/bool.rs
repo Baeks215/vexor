@@ -10,13 +10,13 @@ impl Evaluable for ty::Bool {
     fn from_value(value: Value) -> EResult<Self::Output> {
         match value {
             Value::Bool(x) => Ok(x),
-            _ => Err("Expected a bool".to_string()),
+            _ => Err("expected a bool".to_string()),
         }
     }
     fn eval_literal(_: &Context, literal: Literal) -> EResult<Self::Output> {
         match literal {
             Literal::Bool(b) => Ok(b),
-            _ => Err("Expected a bool".to_string()),
+            _ => Err("expected a bool".to_string()),
         }
     }
     fn match_literal(
@@ -26,7 +26,7 @@ impl Evaluable for ty::Bool {
     ) -> EResult<bool> {
         match literal_pattern {
             Literal::Bool(b) => Ok(scrutinee == b),
-            _ => Err("Expected a bool literal".to_string()),
+            _ => Err("expected a bool literal".to_string()),
         }
     }
     fn match_bin(
@@ -36,6 +36,6 @@ impl Evaluable for ty::Bool {
         _: Expr,
         _: Expr,
     ) -> EResult<bool> {
-        Err("Pattern not supported".to_string())
+        Err("pattern not supported".to_string())
     }
 }

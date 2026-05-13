@@ -1,0 +1,5 @@
+parse error at line 2, column 12
+  |
+2 | let x = 10 % 3
+  |            ^
+invalid character

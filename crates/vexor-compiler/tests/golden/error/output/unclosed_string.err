@@ -1,0 +1,6 @@
+parse error at line 3, column 19
+  |
+3 | export Circle(10)
+  |                   ^
+invalid string
+expected closing `"`

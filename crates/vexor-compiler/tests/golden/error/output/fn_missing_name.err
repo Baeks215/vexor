@@ -1,0 +1,5 @@
+parse error at line 2, column 4
+  |
+2 | fn (x) = x * 2
+  |    ^
+expected identifier, not a keyword

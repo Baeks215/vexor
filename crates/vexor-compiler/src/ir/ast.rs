@@ -200,8 +200,13 @@ pub struct Function {
 }
 
 #[derive(Debug, Clone)]
+pub enum ProgramUnit {
+    Assignment(Assignment),
+    Function(Function),
+    Export(Expr),
+}
+
+#[derive(Debug, Clone)]
 pub struct Program {
-    pub functions: Vec<Function>,
-    pub scope: Vec<Assignment>,
-    pub exports: Vec<Expr>,
+    pub units: Vec<ProgramUnit>,
 }

@@ -1,0 +1,5 @@
+let r = 100
+// duplicate variable r
+let r = 200
+let c = Circle(r)
+export c

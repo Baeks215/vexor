@@ -1,0 +1,5 @@
+let r = 100
+let c = Circle(r)
+// missing else
+let result = if r > 50 { c }
+export result

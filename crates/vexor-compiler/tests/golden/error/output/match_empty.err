@@ -1,0 +1,5 @@
+parse error at line 3, column 24
+  |
+3 | let result = match r { }
+  |                        ^
+invalid match arm

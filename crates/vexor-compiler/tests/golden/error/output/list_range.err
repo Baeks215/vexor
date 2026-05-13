@@ -1,0 +1,6 @@
+parse error at line 4, column 16
+  |
+4 | let zs = [1,2,3..10]
+  |                ^
+invalid list
+expected `]`, comma-separated list, range `[x..y]`, range `[x,y..z]`

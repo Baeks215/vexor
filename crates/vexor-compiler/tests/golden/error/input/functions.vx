@@ -1,0 +1,5 @@
+fn double(x) = x * 2
+
+// too many arguments
+let result = double(1, 2, 3)
+export Circle(result)
