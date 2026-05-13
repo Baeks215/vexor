@@ -31,6 +31,8 @@ mod ty {
     pub struct Graphic;
     #[derive(Debug, Clone, Copy)]
     pub struct List;
+    #[derive(Debug, Clone, Copy)]
+    pub struct Function;
 }
 
 /// Literal value types
@@ -42,19 +44,13 @@ pub enum Value {
     Color(<ty::Color as Evaluable>::Output),
     Graphic(<ty::Graphic as Evaluable>::Output),
     List(<ty::List as Evaluable>::Output),
-}
-
-#[derive(Debug, Clone)]
-pub struct Function {
-    pub params: Vec<String>,
-    pub scope: Vec<ast::Assignment>,
-    pub return_expr: ast::Expr,
+    Function(<ty::Function as Evaluable>::Output),
 }
 
 /// Context for evaluation
 #[derive(Debug, Clone)]
 pub struct Context {
-    pub functions: HashMap<String, Function>,
+    pub functions: HashMap<String, ast::Function>,
     pub vars: HashMap<String, Value>,
 }
 impl Context {
@@ -89,23 +85,12 @@ impl Context {
     }
 
     /// Add a function to the context
-    fn add_function(&mut self, func: ast::Function) {
-        let ast::Function {
-            name,
-            params,
-            scope,
-            return_expr,
-        } = func;
-        let func = Function {
-            params,
-            scope,
-            return_expr,
-        };
+    fn add_function(&mut self, name: String, func: ast::Function) {
         self.functions.insert(name, func);
     }
 
     /// Get a function
-    fn get_function(&self, name: &str) -> EResult<&Function> {
+    fn get_function(&self, name: &str) -> EResult<&ast::Function> {
         self.functions
             .get(name)
             .ok_or(format!("Unknown function: {}", name))

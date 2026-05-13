@@ -76,6 +76,13 @@ pub enum ListLiteral {
 }
 
 #[derive(Debug, Clone)]
+pub struct Function {
+    pub params: Vec<String>,
+    pub scope: Vec<(String, Expr)>,
+    pub return_expr: Box<Expr>,
+}
+
+#[derive(Debug, Clone)]
 pub enum Literal {
     Number(Number),
     String(String),
@@ -83,6 +90,7 @@ pub enum Literal {
     Color(Color),
     Graphic(Graphic),
     List(ListLiteral),
+    Function(Function),
 }
 
 /// Expression
@@ -186,23 +194,9 @@ pub struct MatchArm {
 // --- Program ---
 
 #[derive(Debug, Clone)]
-pub struct Assignment {
-    pub identifier: String,
-    pub value: Expr,
-}
-
-#[derive(Debug, Clone)]
-pub struct Function {
-    pub name: String,
-    pub params: Vec<String>,
-    pub scope: Vec<Assignment>,
-    pub return_expr: Expr,
-}
-
-#[derive(Debug, Clone)]
 pub enum ProgramUnit {
-    Assignment(Assignment),
-    Function(Function),
+    Assignment { identifier: String, value: Expr },
+    Function { identifier: String, func: Function },
     Export(Expr),
 }
 

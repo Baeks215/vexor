@@ -6,12 +6,13 @@ use std::fmt::Debug;
 use kurbo::Affine;
 
 use crate::evaluator::program::eval_assignment;
-use crate::evaluator::{Context, EResult, Function, Value, ty};
-use crate::ir::ast::{self, Expr, Literal, MatchArm, Std, op};
+use crate::evaluator::{Context, EResult, Value, ty};
+use crate::ir::ast::{self, Expr, Function, Literal, MatchArm, Std, op};
 use crate::ir::scene;
 
 mod bool;
 mod color;
+mod function;
 mod graphic;
 mod list;
 mod number;
@@ -250,12 +251,12 @@ fn eval_call<T: Evaluable>(
     let mut context = context.new_scope_function(args);
 
     // Evaluate "where" scope of variables
-    for assignment in scope {
-        eval_assignment(&mut context, assignment.clone())?;
+    for (id, value) in scope {
+        eval_assignment(&mut context, id.clone(), value.clone())?;
     }
 
     // Evaluate return expression as the overall expression type
-    eval::<T>(&context, return_expr.clone())
+    eval::<T>(&context, *return_expr.clone())
 }
 
 /// Matches a scrutinee to a expression pattern.
@@ -347,6 +348,7 @@ fn eval_field_access<T: Evaluable>(
     T::from_value(result)
 }
 
+// Controller for any type, branches to the appropriate functions of the runtime value
 impl Evaluable for ty::Any {
     type Output = Value;
     fn to_value(value: Self::Output) -> Value {
@@ -363,6 +365,7 @@ impl Evaluable for ty::Any {
             Literal::Color(_) => Value::Color(ty::Color::eval_literal(context, literal)?),
             Literal::Graphic(_) => Value::Graphic(ty::Graphic::eval_literal(context, literal)?),
             Literal::List(_) => Value::List(ty::List::eval_literal(context, literal)?),
+            Literal::Function(_) => Value::Function(ty::Function::eval_literal(context, literal)?),
         })
     }
     fn match_literal(
@@ -377,6 +380,7 @@ impl Evaluable for ty::Any {
             Value::Color(s) => ty::Color::match_literal(context, s, literal_pattern),
             Value::Graphic(s) => ty::Graphic::match_literal(context, s, literal_pattern),
             Value::List(s) => ty::List::match_literal(context, s, literal_pattern),
+            Value::Function(s) => ty::Function::match_literal(context, s, literal_pattern),
         }
     }
     fn match_bin(
@@ -393,6 +397,7 @@ impl Evaluable for ty::Any {
             Value::Color(s) => ty::Color::match_bin(context, s, operator, left, right),
             Value::Graphic(s) => ty::Graphic::match_bin(context, s, operator, left, right),
             Value::List(s) => ty::List::match_bin(context, s, operator, left, right),
+            Value::Function(s) => ty::Function::match_bin(context, s, operator, left, right),
         }
     }
 }

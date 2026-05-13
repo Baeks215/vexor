@@ -13,26 +13,22 @@ use crate::parser::{
 };
 
 /// Parses variable assignment `x = expr`
-fn p_assignment_raw<'a>(input: &mut Input<'a>) -> ModalResult<ast::Assignment> {
+fn p_assignment_raw<'a>(input: &mut Input<'a>) -> ModalResult<(String, ast::Expr)> {
     (
-        p_identifier.ws(),
+        p_identifier.map(str::to_string).ws(),
         preceded(exp_string("=").mws(), cut_err(p_expr)),
     )
-        .map(|(i, e)| ast::Assignment {
-            identifier: i.to_string(),
-            value: e,
-        })
         .parse_next(input)
 }
 
 /// Parses variable assignment with `let x = expr`
-fn p_assignment<'a>(input: &mut Input<'a>) -> ModalResult<ast::Assignment> {
+fn p_assignment<'a>(input: &mut Input<'a>) -> ModalResult<(String, ast::Expr)> {
     preceded(pk_let.ws(), cut_err(p_assignment_raw)).parse_next(input)
 }
 
 /// Parses a function definition `fn name(params) = expr`
 ///   Optional where clause `where { x = a \n ... }`
-fn p_function<'a>(input: &mut Input<'a>) -> ModalResult<ast::Function> {
+fn p_function_def<'a>(input: &mut Input<'a>) -> ModalResult<(String, ast::Function)> {
     (preceded(
         pk_fn.ws(),
         cut_err((
@@ -46,14 +42,16 @@ fn p_function<'a>(input: &mut Input<'a>) -> ModalResult<ast::Function> {
         )),
     ))
     .ws()
-    .map(
-        |(name, params, return_expr, scope): (_, Vec<&str>, _, _)| ast::Function {
-            name: name.to_string(),
-            params: params.into_iter().map(str::to_string).collect(),
-            scope: scope.unwrap_or_default(),
-            return_expr: return_expr,
-        },
-    )
+    .map(|(name, params, return_expr, scope): (_, Vec<&str>, _, _)| {
+        (
+            name.to_string(),
+            ast::Function {
+                params: params.into_iter().map(str::to_string).collect(),
+                scope: scope.unwrap_or_default(),
+                return_expr: Box::new(return_expr),
+            },
+        )
+    })
     .parse_next(input)
 }
 
@@ -71,8 +69,8 @@ fn p_program<'a>(input: &mut Input<'a>) -> ModalResult<ast::Program> {
     let units: Vec<_> = separated(
         1..,
         alt((
-            p_function.map(|f| ProgramUnit::Function(f)),
-            p_assignment.map(|s| ProgramUnit::Assignment(s)),
+            p_function_def.map(|(identifier, func)| ProgramUnit::Function { identifier, func }),
+            p_assignment.map(|(identifier, value)| ProgramUnit::Assignment { identifier, value }),
             p_export.map(|e| {
                 export_count += 1;
                 ProgramUnit::Export(e)
