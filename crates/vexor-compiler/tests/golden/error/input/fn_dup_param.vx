@@ -1,0 +1,5 @@
+// duplicate x param
+fn sq(x, x) = x * x
+
+let result = sq(10)
+export Circle(result)
