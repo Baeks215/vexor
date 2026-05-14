@@ -1,7 +1,7 @@
 //! Evaluator: Typed AST -> Scene
 
 use crate::evaluator::expr::Evaluable;
-use crate::ir::Number;
+use crate::ir::{Number, ast};
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -49,20 +49,31 @@ pub enum Value {
     Function(<ty::Function as Evaluable>::Output),
 }
 
+#[derive(Debug, Clone)]
+enum Thunk {
+    Unevaluated(ast::Expr),
+    Evaluating,
+    Evaluated(Value),
+}
+
 /// Environment: Stores variable bindings
 #[derive(Debug, Clone)]
 pub struct Env {
-    pub parent: Option<Rc<RefCell<Env>>>,
-    pub scope: HashMap<String, Value>,
+    /// Parent environment for nested scopes
+    parent: Option<Rc<RefCell<Env>>>,
+    /// Variables in the current scope
+    scope: HashMap<String, Thunk>,
 }
 trait EnvExt {
     /// Create an empty environment
     fn empty() -> Self;
     /// Create a child scope
     fn child_scope(&self) -> Self;
-    /// Get a variable
+    /// Get a variable, forces evaluation if stored as lazy expression
     fn get_var(&self, name: &str) -> EResult<Value>;
-    /// Set a variable, errors if name already exists
+    /// Set a variable as an unevaluated expression, errors if it already exists
+    fn set_var_lazy(&self, name: String, expr: ast::Expr) -> EResult<()>;
+    /// Set a variable as an evaluated value, errors if it already exists
     fn set_var(&self, name: String, value: Value) -> EResult<()>;
     /// Create a new scope with the given variables
     ///   Adds the arguments to the variables scope
@@ -84,22 +95,63 @@ impl EnvExt for EnvRef {
         }))
     }
     fn get_var(&self, name: &str) -> EResult<Value> {
-        let env = self.borrow();
-
-        let current = env.scope.get(name);
-        if let Some(value) = current {
-            return Ok(value.clone());
+        {
+            let env = self.borrow();
+            match env.scope.get(name) {
+                None => {
+                    // Doesn't exist, fetch from parent instead
+                    let Some(parent) = &env.parent else {
+                        // Parent doesn't exist
+                        return Err(format!("`{name}` not in scope"));
+                    };
+                    return parent.get_var(name);
+                }
+                Some(Thunk::Evaluating) => {
+                    return Err(format!(
+                        "circular dependency detected while evaluating `{name}`"
+                    ));
+                }
+                Some(Thunk::Evaluated(val)) => {
+                    return Ok(val.clone());
+                }
+                Some(Thunk::Unevaluated(_)) => {
+                    // Need to evaluate, but we can't while immutably borrowed
+                }
+            }
+            // Env ref is dropped
         }
-        // Doesn't exist, fetch from parent instead
-        let Some(parent) = &env.parent else {
-            // Parent doesn't exist
-            return Err(format!("`{name}` not in scope"));
+        // Need to evaluate the deferred expression
+        let e = {
+            let mut env = self.borrow_mut();
+            let thunk = env.scope.get_mut(name).unwrap(); // Must be Some from match above
+            // Replace with evaluating to prevent circular dependencies
+            let Thunk::Unevaluated(e) = std::mem::replace(thunk, Thunk::Evaluating) else {
+                // Must be unevaluated from match above
+                unreachable!()
+            };
+            e
+
+            // Env ref is dropped
         };
-        parent.get_var(name)
+
+        // Evaluate and set in scope
+        let val = expr::eval::<ty::Any>(self, e.clone())?;
+        self.borrow_mut()
+            .scope
+            .insert(name.to_string(), Thunk::Evaluated(val.clone()));
+        Ok(val)
+    }
+    fn set_var_lazy(&self, name: String, e: ast::Expr) -> EResult<()> {
+        let mut env = self.borrow_mut();
+        let old = env.scope.insert(name.clone(), Thunk::Unevaluated(e));
+        match old {
+            Some(_) => Err(format!("`{name}` already exists in scope")),
+            None => Ok(()),
+        }
     }
     fn set_var(&self, name: String, value: Value) -> EResult<()> {
         let mut env = self.borrow_mut();
-        let old = env.scope.insert(name.clone(), value);
+        let old = env.scope.insert(name.clone(), Thunk::Evaluated(value));
         match old {
             Some(_) => Err(format!("`{name}` already exists in scope")),
             None => Ok(()),
@@ -111,7 +163,7 @@ impl EnvExt for EnvRef {
             // Borrow in scope, RAII ensures drop
             let mut env = child.borrow_mut();
             for (name, arg) in args {
-                env.scope.insert(name.clone(), arg);
+                env.scope.insert(name.clone(), Thunk::Evaluated(arg));
             }
         }
         child

@@ -3,7 +3,6 @@ use kurbo::Affine;
 
 use crate::evaluator::expr::list::ListNode;
 use crate::evaluator::expr::{Evaluable, eval};
-use crate::evaluator::program::eval_assignment;
 use crate::evaluator::{EResult, EnvExt, EnvRef, Value, ty};
 use crate::ir::ast::{self, Expr, Function, Literal, Std, op};
 use crate::ir::{Number, scene};
@@ -273,7 +272,7 @@ fn eval_user_call<T: Evaluable>(
 
     // Evaluate "where" scope of variables
     for (id, value) in scope {
-        eval_assignment(&call_env, id.clone(), value.clone())?;
+        call_env.set_var_lazy(id, value)?;
     }
 
     // Evaluate return expression as the overall expression type

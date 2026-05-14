@@ -6,17 +6,12 @@ use crate::evaluator::expr::Callable;
 use crate::evaluator::{EResult, EnvExt, EnvRef, Value, expr, ty};
 use crate::ir::{ast, scene};
 
-pub fn eval_assignment(env: &EnvRef, identifier: String, value: ast::Expr) -> EResult<()> {
-    let evaluated = expr::eval::<ty::Any>(env, value)?;
-    env.set_var(identifier, evaluated)
-}
-
 /// Evaluates a program, returns the result of the last expression.
 pub fn eval_program(program: ast::Program) -> EResult<scene::Scene> {
     let env = EnvRef::empty();
     let ast::Program { units } = program;
 
-    let mut exported: Vec<scene::Graphic> = Vec::new();
+    let mut exports: Vec<ast::Expr> = Vec::new();
     for unit in units {
         match unit {
             ast::ProgramUnit::Function { identifier, func } => {
@@ -28,14 +23,18 @@ pub fn eval_program(program: ast::Program) -> EResult<scene::Scene> {
                 env.set_var(identifier, Value::Function(Callable::User(func)))?;
             }
             ast::ProgramUnit::Assignment { identifier, value } => {
-                eval_assignment(&env, identifier, value)?;
+                env.set_var_lazy(identifier, value)?;
             }
-            ast::ProgramUnit::Export(export) => {
-                let evaluated = expr::eval::<ty::Graphic>(&env, export)?;
-                exported.push(evaluated);
+            ast::ProgramUnit::Export(e) => {
+                exports.push(e);
             }
         }
     }
+
+    let exported: Vec<_> = exports
+        .into_iter()
+        .map(|e| expr::eval::<ty::Graphic>(&env, e))
+        .collect::<Result<Vec<_>, _>>()?;
 
     Ok(scene::Scene { exports: exported })
 }
