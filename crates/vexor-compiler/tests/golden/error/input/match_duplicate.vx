@@ -1,5 +1,5 @@
-let xs = [1..5]
-let result = match xs {
+val xs = [1..5]
+val result = match xs {
   // Duplicate x variable
   x : x : tail => x * x
 }

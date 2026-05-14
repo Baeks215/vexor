@@ -47,7 +47,7 @@ macro_rules! define_keywords {
 
 define_keywords! {
     // Defined keywords
-    pk_let => "let",
+    pk_val => "val",
     pk_export => "export",
     pk_fn => "fn",
     pk_where => "where",
@@ -86,7 +86,7 @@ mod tests {
 
     #[test]
     fn test_is_keyword() {
-        assert!(is_keyword("let"));
+        assert!(is_keyword("val"));
         assert!(is_keyword("export"));
         assert!(is_keyword("true"));
         assert!(is_keyword("false"));
@@ -95,8 +95,8 @@ mod tests {
 
     #[test]
     fn test_keyword_parsers() {
-        let mut input = Input::new("let  ");
-        assert_eq!(pk_let.parse_next(&mut input).unwrap(), "let");
+        let mut input = Input::new("val  ");
+        assert_eq!(pk_val.parse_next(&mut input).unwrap(), "val");
         assert_eq!(*input, "  ");
 
         let mut input = Input::new("export\n");
@@ -104,6 +104,6 @@ mod tests {
         assert_eq!(*input, "\n");
 
         let mut input = Input::new("not_a_keyword");
-        assert!(pk_let.parse_next(&mut input).is_err());
+        assert!(pk_val.parse_next(&mut input).is_err());
     }
 }

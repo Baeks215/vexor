@@ -1,5 +1,5 @@
-let r = 100
-let c = Circle(r)
+val r = 100
+val c = Circle(r)
 // missing braces around branches
-let result = if r > 50 c else c
+val result = if r > 50 c else c
 export result

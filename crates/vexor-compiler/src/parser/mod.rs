@@ -193,7 +193,7 @@ mod tests {
         assert!(p_identifier.parse_next(&mut input).is_err());
 
         // Invalid identifier starts is a keyword
-        let mut input = Input::new("let");
+        let mut input = Input::new("val");
         assert!(p_identifier.parse_next(&mut input).is_err());
 
         let mut input = Input::new("export");

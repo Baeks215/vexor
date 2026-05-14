@@ -1,13 +1,13 @@
 // OUTPUT: 1, 10
 
-let xs = [1..3]
+val xs = [1..3]
 
-let x = 10
-let r1 = match xs {
+val x = 10
+val r1 = match xs {
   x : _ => x // Should shadow x
 }
 
-let r2 = match xs {
+val r2 = match xs {
   y : _ => x // Should not shadow x
 }
 

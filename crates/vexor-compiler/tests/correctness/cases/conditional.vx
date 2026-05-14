@@ -1,6 +1,6 @@
 // OUTPUT: 6, 10, 5
 
-let r = if 5 > 10 { 100 } else { 5 + 1 }
+val r = if 5 > 10 { 100 } else { 5 + 1 }
 export Circle(r)
 
 export if true {
@@ -9,7 +9,7 @@ export if true {
     Circle(0)
 }
 
-let cond2 = r > 10000
+val cond2 = r > 10000
 export if cond2 {
     Circle(99)
 } else {

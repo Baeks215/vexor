@@ -6,7 +6,7 @@ use winnow::{ModalResult, Parser, Result};
 
 use crate::ir::ast::{self, ProgramUnit};
 use crate::parser::expr::p_expr;
-use crate::parser::keyword::{pk_export, pk_fn, pk_let, pk_where};
+use crate::parser::keyword::{pk_export, pk_fn, pk_val, pk_where};
 use crate::parser::{
     Input, ParserExt, braced, bracketed, comma_list, exp_string, expected, newline1, p_identifier,
     p_mws,
@@ -23,7 +23,7 @@ fn p_assignment_raw<'a>(input: &mut Input<'a>) -> ModalResult<(String, ast::Expr
 
 /// Parses variable assignment with `let x = expr`
 fn p_assignment<'a>(input: &mut Input<'a>) -> ModalResult<(String, ast::Expr)> {
-    preceded(pk_let.ws(), cut_err(p_assignment_raw)).parse_next(input)
+    preceded(pk_val.ws(), cut_err(p_assignment_raw)).parse_next(input)
 }
 
 /// Parses a function definition `fn name(params) = expr`

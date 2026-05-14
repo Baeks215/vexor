@@ -1,5 +1,5 @@
 parse error at line 4, column 29
   |
-4 | let result = if r > 50 { c }
+4 | val result = if r > 50 { c }
   |                             ^
 expected `else`

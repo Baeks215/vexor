@@ -1,5 +1,5 @@
-let circle = Circle(10)
-let group = Group([
+val circle = Circle(10)
+val group = Group([
     Rect(5, 5),
     Rect(5, 5) >> move(5, 5)
 ])
@@ -8,10 +8,10 @@ fn line(i) = move(i * 20, 0)
 fn circle_line(i) = line(i)(circle)
 fn group_line(i) = line(i)(group)
 
-let circles = [1..6] >> map(circle_line)
-let groups = map(group_line)([1..6])
+val circles = [1..6] >> map(circle_line)
+val groups = map(group_line)([1..6])
 
-let final = Group([
+val final = Group([
     Group(circles),
     Group(groups) >> move(0, 50)
 ])

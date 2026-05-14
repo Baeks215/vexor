@@ -1,7 +1,7 @@
-let r = 100
-let c = Circle(r)
-let scaled = scale(0.5)(c)
-let moved = move(500, 100)(scaled)
-let rotated = rotate(rad(45))(moved)
+val r = 100
+val c = Circle(r)
+val scaled = scale(0.5)(c)
+val moved = move(500, 100)(scaled)
+val rotated = rotate(rad(45))(moved)
 
 export rotated

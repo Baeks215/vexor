@@ -1,5 +1,5 @@
-let r = 100
-let result = match r {
+val r = 100
+val result = match r {
     // missing =>
     100 Circle(100)
 }

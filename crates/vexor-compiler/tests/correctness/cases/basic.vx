@@ -1,5 +1,5 @@
 // OUTPUT: 10
 
-let r = 10
+val r = 10
 
 export Circle(r)
