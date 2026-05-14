@@ -15,15 +15,6 @@ pub enum Color {
     },
 }
 
-/// Graphic Object
-#[derive(Debug, Clone)]
-pub enum Graphic {
-    Circle { radius: Box<Expr> },
-    Rect { width: Box<Expr>, height: Box<Expr> },
-    Text { content: Box<Expr> },
-    Group { children: Box<Expr> },
-}
-
 // --- Expressions ---
 
 pub mod op {
@@ -88,7 +79,6 @@ pub enum Literal {
     String(String),
     Bool(bool),
     Color(Color),
-    Graphic(Graphic),
     List(ListLiteral),
 }
 
@@ -119,7 +109,7 @@ pub enum Expr {
         function: Box<Expr>,
         args: Vec<Expr>,
     },
-    /// Standard Function call
+    /// Standard Function Reference
     Std(Std),
     /// Constant
     Const(Const),
@@ -138,47 +128,31 @@ pub enum Expr {
 
 // --- Standard Functions ---
 
-#[derive(Debug, Clone)]
-pub enum Std {
-    // Trigonometric functions
-    Rad(Box<Expr>),
-    Sin(Box<Expr>),
-    Cos(Box<Expr>),
-    Tan(Box<Expr>),
-    // List utilities
-    Map {
-        function: Box<Expr>,
-        list: Box<Expr>,
-    },
-    // Transformations
-    Move {
-        x: Box<Expr>,
-        y: Box<Expr>,
-        graphic: Box<Expr>,
-    },
-    Scale {
-        scale: Box<Expr>,
-        graphic: Box<Expr>,
-    },
-    Rotate {
-        angle: Box<Expr>,
-        graphic: Box<Expr>,
-    },
-    // Style
-    Fill {
-        color: Box<Expr>,
-        graphic: Box<Expr>,
-    },
-    Stroke {
-        width: Box<Expr>,
-        color: Box<Expr>,
-        graphic: Box<Expr>,
-    },
-}
-
 #[derive(Debug, Clone, Copy)]
 pub enum Const {
     Pi,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum Std {
+    // Trig functions
+    Rad,
+    Sin,
+    Cos,
+    Tan,
+    // List
+    Map,
+    // Graphic constructors
+    Circle,
+    Rect,
+    Text,
+    Group,
+    // Graphic functions
+    Move,
+    Scale,
+    Rotate,
+    Fill,
+    Stroke,
 }
 
 // --- Match ---

@@ -2,6 +2,7 @@
 
 use itertools::Itertools;
 
+use crate::evaluator::expr::Callable;
 use crate::evaluator::{Context, EResult, Value, expr, ty};
 use crate::ir::{ast, scene};
 
@@ -24,7 +25,7 @@ pub fn eval_program(program: ast::Program) -> EResult<scene::Scene> {
                         "function {identifier} has duplicate parameter names"
                     ));
                 }
-                context.set_var(identifier, Value::Function(func))?;
+                context.set_var(identifier, Value::Function(Callable::User(func)))?;
             }
             ast::ProgramUnit::Assignment { identifier, value } => {
                 eval_assignment(&mut context, identifier, value)?;

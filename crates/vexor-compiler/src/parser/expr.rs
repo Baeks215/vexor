@@ -2,8 +2,8 @@
 
 use winnow::ascii::{dec_int, float};
 use winnow::combinator::{
-    Infix, Prefix, alt, cut_err, delimited, dispatch, expression, fail, opt, peek, preceded,
-    terminated,
+    Infix, Postfix, Prefix, alt, cut_err, delimited, dispatch, expression, fail, opt, peek,
+    preceded, terminated,
 };
 use winnow::token::take_while;
 use winnow::{ModalResult, Parser};
@@ -11,7 +11,6 @@ use winnow::{ModalResult, Parser};
 use crate::ir::Number;
 use crate::ir::ast;
 use crate::ir::ast::op;
-use crate::parser::call::{p_call, p_graphic, p_std};
 use crate::parser::keyword as k;
 use crate::parser::square_braced;
 use crate::parser::{Input, ParserExt, braced, bracketed, exp_string};
@@ -101,6 +100,28 @@ pub fn p_constant<'a>(input: &mut Input<'a>) -> ModalResult<ast::Const> {
     k::pk_pi.ws().parse_next(input)
 }
 
+/// Parses a std function.
+pub fn p_std<'a>(input: &mut Input<'a>) -> ModalResult<ast::Std> {
+    alt((
+        // Trig functions
+        alt((k::pk_rad, k::pk_sin, k::pk_cos, k::pk_tan)),
+        // List
+        k::pk_map,
+        // Graphic constructors
+        alt((k::pk_circle, k::pk_rect, k::pk_text, k::pk_group)),
+        // Graphic functions
+        alt((
+            k::pk_move,
+            k::pk_scale,
+            k::pk_rotate,
+            k::pk_fill,
+            k::pk_stroke,
+        )),
+    ))
+    .ws()
+    .parse_next(input)
+}
+
 /// Parses a literal expression.
 pub fn p_literal<'a>(input: &mut Input<'a>) -> ModalResult<ast::Literal> {
     alt((
@@ -108,7 +129,6 @@ pub fn p_literal<'a>(input: &mut Input<'a>) -> ModalResult<ast::Literal> {
         p_string.map(|s| ast::Literal::String(s.to_string())),
         p_bool.map(ast::Literal::Bool),
         p_color.map(ast::Literal::Color),
-        p_graphic.map(ast::Literal::Graphic),
         p_list.map(ast::Literal::List),
     ))
     .parse_next(input)
@@ -186,11 +206,10 @@ pub fn p_atom<'a>(input: &mut Input<'a>) -> ModalResult<ast::Expr> {
     alt((
         bracketed(p_expr).ws(),
         p_constant.map(ast::Expr::Const),
+        p_std.map(ast::Expr::Std),
         p_literal.map(ast::Expr::Literal),
         p_if,
         p_match,
-        p_std.map(ast::Expr::Std),
-        p_call,
         p_identifier_or_field,
     ))
     .parse_next(input)
@@ -223,6 +242,18 @@ pub fn p_expr<'a>(input: &mut Input<'a>) -> ModalResult<ast::Expr> {
     })
     .prefix(dispatch! {"!";
         "!" => Prefix(11, |_, a| Ok(ast::Expr::Unary { operator: op::Unary::Not, operand: Box::new(a) })),
+        _ => fail,
+    })
+    .postfix(dispatch! { peek("(");
+        "(" => Postfix(12, |input, e| {
+            let args: Vec<_> = bracketed(comma_list(0.., p_expr))
+                    .ws()
+                    .parse_next(input)?;
+            Ok(ast::Expr::Call {
+                function: Box::new(e),
+                args,
+            })
+        }),
         _ => fail,
     })
     .parse_next(input)

@@ -56,4 +56,7 @@ impl Evaluable for ty::Color {
     ) -> EResult<bool> {
         Err("pattern not supported".to_string())
     }
+    fn match_call(_: &mut Context, _: Self::Output, _: Expr, _: Vec<Expr>) -> EResult<bool> {
+        Err("pattern not supported".to_string())
+    }
 }

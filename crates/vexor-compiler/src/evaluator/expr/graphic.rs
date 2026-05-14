@@ -1,7 +1,26 @@
-use crate::evaluator::expr::{Evaluable, eval, match_pattern};
+use itertools::Itertools;
+
+use crate::evaluator::expr::{Evaluable, match_pattern};
 use crate::evaluator::{Context, EResult, Value, ty};
-use crate::ir::ast::{self, Expr, Literal, op};
+use crate::ir::ast::{Expr, Literal, Std, op};
 use crate::ir::scene;
+
+macro_rules! unpack_1 {
+    ($iter:expr) => {
+        $iter
+            .into_iter()
+            .exactly_one()
+            .map_err(|_| "expected one argument")
+    };
+}
+macro_rules! unpack_2 {
+    ($iter:expr) => {
+        $iter
+            .into_iter()
+            .collect_tuple::<(_, _)>()
+            .ok_or("expected two arguments")
+    };
+}
 
 impl Evaluable for ty::Graphic {
     type Output = scene::Graphic;
@@ -14,60 +33,12 @@ impl Evaluable for ty::Graphic {
             _ => Err("expected a graphic".to_string()),
         }
     }
-    fn eval_literal(context: &Context, literal: Literal) -> EResult<Self::Output> {
-        let Literal::Graphic(node) = literal else {
-            return Err("expected a graphic object".to_string());
-        };
-        Ok(scene::Graphic::new(match node {
-            ast::Graphic::Circle { radius } => scene::GraphicType::Circle {
-                radius: eval::<ty::Number>(context, *radius)?,
-            },
-            ast::Graphic::Rect { width, height } => scene::GraphicType::Rect {
-                width: eval::<ty::Number>(context, *width)?,
-                height: eval::<ty::Number>(context, *height)?,
-            },
-            ast::Graphic::Text { content } => scene::GraphicType::Text {
-                content: eval::<ty::String>(context, *content)?,
-            },
-            ast::Graphic::Group { children } => {
-                let child_list = eval::<ty::List>(context, *children)?;
-                let children = child_list
-                    .into_iter()
-                    .map(|child| ty::Graphic::from_value(child))
-                    .collect::<Result<Vec<_>, _>>()?;
-                scene::GraphicType::Group { children }
-            }
-        }))
+    fn eval_literal(_: &Context, _: Literal) -> EResult<Self::Output> {
+        // No graphic literals, they are created through Std functions
+        Err("expected a graphic".to_string())
     }
-    fn match_literal(
-        context: &mut Context,
-        scrutinee: Self::Output,
-        literal_pattern: Literal,
-    ) -> EResult<bool> {
-        match literal_pattern {
-            Literal::Graphic(pattern) => Ok(match (scrutinee.ty, pattern) {
-                (
-                    scene::GraphicType::Circle { radius },
-                    ast::Graphic::Circle { radius: radius_e },
-                ) => match_pattern::<ty::Number>(context, radius, *radius_e)?,
-                (
-                    scene::GraphicType::Rect { width, height },
-                    ast::Graphic::Rect {
-                        width: width_e,
-                        height: height_e,
-                    },
-                ) => {
-                    match_pattern::<ty::Number>(context, width, *width_e)?
-                        && match_pattern::<ty::Number>(context, height, *height_e)?
-                }
-                (
-                    scene::GraphicType::Text { content },
-                    ast::Graphic::Text { content: content_e },
-                ) => match_pattern::<ty::String>(context, content, *content_e)?,
-                _ => false,
-            }),
-            _ => Err("expected a graphic literal".to_string()),
-        }
+    fn match_literal(_: &mut Context, _: Self::Output, _: Literal) -> EResult<bool> {
+        Err("pattern not supported".to_string())
     }
     fn match_bin(
         _: &mut Context,
@@ -77,5 +48,32 @@ impl Evaluable for ty::Graphic {
         _: Expr,
     ) -> EResult<bool> {
         Err("pattern not supported".to_string())
+    }
+    fn match_call(
+        context: &mut Context,
+        scrutinee: Self::Output,
+        function: Expr,
+        args: Vec<Expr>,
+    ) -> EResult<bool> {
+        let Expr::Std(func_pattern) = function else {
+            return Err("pattern not supported".to_string());
+        };
+
+        match (scrutinee.ty, func_pattern) {
+            (scene::GraphicType::Circle { radius }, Std::Circle) => {
+                let radius_p = unpack_1!(args)?;
+                match_pattern::<ty::Number>(context, radius, radius_p)
+            }
+            (scene::GraphicType::Rect { width, height }, Std::Rect) => {
+                let (width_p, height_p) = unpack_2!(args)?;
+                Ok(match_pattern::<ty::Number>(context, width, width_p)?
+                    && match_pattern::<ty::Number>(context, height, height_p)?)
+            }
+            (scene::GraphicType::Text { content }, Std::Text) => {
+                let content_p = unpack_1!(args)?;
+                match_pattern::<ty::String>(context, content, content_p)
+            }
+            _ => Ok(false),
+        }
     }
 }

@@ -3,11 +3,8 @@
 use std::f64::consts::PI;
 use std::fmt::Debug;
 
-use kurbo::Affine;
-
-use crate::evaluator::program::eval_assignment;
 use crate::evaluator::{Context, EResult, Value, ty};
-use crate::ir::ast::{self, Expr, Function, Literal, MatchArm, Std, op};
+use crate::ir::ast::{self, Expr, Literal, MatchArm, op};
 use crate::ir::scene;
 
 mod bool;
@@ -17,6 +14,9 @@ mod graphic;
 mod list;
 mod number;
 mod string;
+
+pub use function::Callable;
+use function::eval_call;
 
 pub trait Evaluable {
     type Output: Debug + Clone;
@@ -40,6 +40,13 @@ pub trait Evaluable {
         left: Expr,
         right: Expr,
     ) -> EResult<bool>;
+    /// Matches an evaluated value to a function call
+    fn match_call(
+        context: &mut Context,
+        scrutinee: Self::Output,
+        function: Expr,
+        args: Vec<Expr>,
+    ) -> EResult<bool>;
 }
 
 pub fn eval<T: Evaluable>(context: &Context, expr: ast::Expr) -> EResult<T::Output> {
@@ -59,7 +66,7 @@ pub fn eval<T: Evaluable>(context: &Context, expr: ast::Expr) -> EResult<T::Outp
 
             eval_call::<T>(context, function, args)
         }
-        Expr::Std(std) => eval_std::<T>(context, std),
+        Expr::Std(func) => T::from_value(Value::Function(Callable::Std(func))),
         Expr::Binary {
             operator,
             left,
@@ -157,112 +164,6 @@ fn eval_const<T: Evaluable>(c: ast::Const) -> Result<<T as Evaluable>::Output, S
     })
 }
 
-/// Evaluates a standard function call.
-fn eval_std<T: Evaluable>(context: &Context, std: Std) -> Result<<T as Evaluable>::Output, String> {
-    let result = match std {
-        Std::Rad(expr) => {
-            let x = eval::<ty::Number>(context, *expr)?;
-            Value::Number(x.to_radians())
-        }
-        Std::Sin(expr) => {
-            let x = eval::<ty::Number>(context, *expr)?;
-            Value::Number(x.sin())
-        }
-        Std::Cos(expr) => {
-            let x = eval::<ty::Number>(context, *expr)?;
-            Value::Number(x.cos())
-        }
-        Std::Tan(expr) => {
-            let x = eval::<ty::Number>(context, *expr)?;
-            Value::Number(x.tan())
-        }
-        Std::Map { function, list } => {
-            let function = eval::<ty::Function>(context, *function)?;
-            let list = eval::<ty::List>(context, *list)?;
-            // Evaluate each value
-            let values = list
-                .into_iter()
-                .map(|item| eval_call::<ty::Any>(context, function.clone(), vec![item]))
-                .collect::<Result<Vec<_>, _>>()?;
-            // Rebuild nodes in reverse order
-            let mut acc = Box::new(list::ListNode::Nil);
-            for item in values.into_iter().rev() {
-                acc = Box::new(list::ListNode::Cons(item, acc));
-            }
-
-            Value::List(acc)
-        }
-        Std::Move { x, y, graphic } => {
-            let x = eval::<ty::Number>(context, *x)?;
-            let y = eval::<ty::Number>(context, *y)?;
-            let graphic = eval::<ty::Graphic>(context, *graphic)?;
-            Value::Graphic(graphic.transform(Affine::translate((x, y))))
-        }
-        Std::Scale { scale, graphic } => {
-            let scale = eval::<ty::Number>(context, *scale)?;
-            let graphic = eval::<ty::Graphic>(context, *graphic)?;
-            Value::Graphic(graphic.transform(Affine::scale(scale)))
-        }
-        Std::Rotate { angle, graphic } => {
-            let angle = eval::<ty::Number>(context, *angle)?;
-            let graphic = eval::<ty::Graphic>(context, *graphic)?;
-            Value::Graphic(graphic.transform(Affine::rotate(angle)))
-        }
-        Std::Fill { color, graphic } => {
-            let color = eval::<ty::Color>(context, *color)?;
-            let graphic = eval::<ty::Graphic>(context, *graphic)?;
-            Value::Graphic(graphic.transform_style(|s| s.with_fill(color)))
-        }
-        Std::Stroke {
-            color,
-            width,
-            graphic,
-        } => {
-            let width = eval::<ty::Number>(context, *width)?;
-            let color = eval::<ty::Color>(context, *color)?;
-            let graphic = eval::<ty::Graphic>(context, *graphic)?;
-            Value::Graphic(
-                graphic.transform_style(|s| s.with_stroke(scene::Stroke { width, color })),
-            )
-        }
-    };
-    T::from_value(result)
-}
-
-/// Evaluates a function call expression.
-fn eval_call<T: Evaluable>(
-    context: &Context,
-    func: Function,
-    args: Vec<Value>,
-) -> EResult<T::Output> {
-    let Function {
-        params,
-        scope,
-        return_expr,
-    } = func;
-    // Ensure arguments have correct type
-    if params.len() != args.len() {
-        return Err(format!(
-            "expected {} argument{} but got {}",
-            params.len(),
-            if params.len() == 1 { "" } else { "s" },
-            args.len()
-        ));
-    }
-    let args: Vec<(String, Value)> = params.into_iter().zip(args).collect();
-
-    // Add arguments to context as variables
-    let mut context = context.new_scope_function(args);
-
-    // Evaluate "where" scope of variables
-    for (id, value) in scope {
-        eval_assignment(&mut context, id.clone(), value.clone())?;
-    }
-
-    // Evaluate return expression as the overall expression type
-    eval::<T>(&context, *return_expr.clone())
-}
-
 /// Matches a scrutinee to a expression pattern.
 fn match_pattern<T: Evaluable>(
     context: &mut Context,
@@ -277,6 +178,7 @@ fn match_pattern<T: Evaluable>(
             left,
             right,
         } => T::match_bin(context, scrutinee, operator, *left, *right),
+        Expr::Call { function, args } => T::match_call(context, scrutinee, *function, args),
         _ => Err("pattern not supported".to_string()),
     }
 }
@@ -364,7 +266,6 @@ impl Evaluable for ty::Any {
             Literal::String(s) => Value::String(s),
             Literal::Bool(b) => Value::Bool(b),
             Literal::Color(_) => Value::Color(ty::Color::eval_literal(context, literal)?),
-            Literal::Graphic(_) => Value::Graphic(ty::Graphic::eval_literal(context, literal)?),
             Literal::List(_) => Value::List(ty::List::eval_literal(context, literal)?),
         })
     }
@@ -398,6 +299,22 @@ impl Evaluable for ty::Any {
             Value::Graphic(s) => ty::Graphic::match_bin(context, s, operator, left, right),
             Value::List(s) => ty::List::match_bin(context, s, operator, left, right),
             Value::Function(s) => ty::Function::match_bin(context, s, operator, left, right),
+        }
+    }
+    fn match_call(
+        context: &mut Context,
+        scrutinee: Self::Output,
+        function: Expr,
+        args: Vec<Expr>,
+    ) -> EResult<bool> {
+        match scrutinee {
+            Value::Number(s) => ty::Number::match_call(context, s, function, args),
+            Value::String(s) => ty::String::match_call(context, s, function, args),
+            Value::Bool(s) => ty::Bool::match_call(context, s, function, args),
+            Value::Color(s) => ty::Color::match_call(context, s, function, args),
+            Value::Graphic(s) => ty::Graphic::match_call(context, s, function, args),
+            Value::List(s) => ty::List::match_call(context, s, function, args),
+            Value::Function(s) => ty::Function::match_call(context, s, function, args),
         }
     }
 }

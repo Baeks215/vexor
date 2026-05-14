@@ -8,7 +8,6 @@ use winnow::stream::{Accumulate, Range};
 use winnow::token::take_while;
 use winnow::{LocatingSlice, ModalParser, ModalResult, Parser};
 
-mod call;
 mod expr;
 mod keyword;
 mod program;
