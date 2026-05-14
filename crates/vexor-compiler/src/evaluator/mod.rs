@@ -49,11 +49,11 @@ pub enum Value {
 
 /// Context for evaluation
 #[derive(Debug, Clone)]
-pub struct Context {
-    pub parent: Option<Box<Context>>,
+pub struct Env {
+    pub parent: Option<Box<Env>>,
     pub scope: HashMap<String, Value>,
 }
-impl Context {
+impl Env {
     fn new() -> Self {
         Self {
             parent: None,

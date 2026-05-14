@@ -4,7 +4,7 @@ use kurbo::Affine;
 use crate::evaluator::expr::list::ListNode;
 use crate::evaluator::expr::{Evaluable, eval};
 use crate::evaluator::program::eval_assignment;
-use crate::evaluator::{Context, EResult, Value, ty};
+use crate::evaluator::{EResult, Env, Value, ty};
 use crate::ir::ast::{self, Expr, Function, Literal, Std, op};
 use crate::ir::{Number, scene};
 use crate::{Graphic, GraphicType};
@@ -44,37 +44,27 @@ impl Evaluable for ty::Function {
             _ => Err("expected a function".to_string()),
         }
     }
-    fn eval_literal(_: &Context, _: Literal) -> EResult<Self::Output> {
+    fn eval_literal(_: &Env, _: Literal) -> EResult<Self::Output> {
         // Currently no literal functions
         Err("expected a function".to_string())
     }
-    fn match_literal(_: &mut Context, _: Self::Output, _: Literal) -> EResult<bool> {
+    fn match_literal(_: &mut Env, _: Self::Output, _: Literal) -> EResult<bool> {
         Err("cannot pattern match a function".to_string())
     }
-    fn match_bin(
-        _: &mut Context,
-        _: Self::Output,
-        _: op::Binary,
-        _: Expr,
-        _: Expr,
-    ) -> EResult<bool> {
+    fn match_bin(_: &mut Env, _: Self::Output, _: op::Binary, _: Expr, _: Expr) -> EResult<bool> {
         Err("cannot pattern match a function".to_string())
     }
-    fn match_call(_: &mut Context, _: Self::Output, _: Expr, _: Vec<Expr>) -> EResult<bool> {
+    fn match_call(_: &mut Env, _: Self::Output, _: Expr, _: Vec<Expr>) -> EResult<bool> {
         Err("pattern not supported".to_string())
     }
 }
 
 /// Evaluates a function call expression.
-pub fn eval_call<T: Evaluable>(
-    context: &Context,
-    func: Callable,
-    args: Vec<Value>,
-) -> EResult<T::Output> {
+pub fn eval_call<T: Evaluable>(env: &Env, func: Callable, args: Vec<Value>) -> EResult<T::Output> {
     match func {
-        Callable::Std(func) => eval_std_call::<T>(context, func, args),
-        Callable::StdLambda(func) => eval_std_lambda::<T>(context, func, args),
-        Callable::User(func) => eval_user_call::<T>(context, func, args),
+        Callable::Std(func) => eval_std_call::<T>(env, func, args),
+        Callable::StdLambda(func) => eval_std_lambda::<T>(env, func, args),
+        Callable::User(func) => eval_user_call::<T>(env, func, args),
     }
 }
 
@@ -97,7 +87,7 @@ macro_rules! unpack_2 {
 
 /// Evaluates a standard function call.
 fn eval_std_call<T: Evaluable>(
-    _: &Context,
+    _: &Env,
     function: Std,
     args: Vec<Value>,
 ) -> Result<<T as Evaluable>::Output, String> {
@@ -194,7 +184,7 @@ fn eval_std_call<T: Evaluable>(
 
 /// Evaluates a standard lambda call.
 fn eval_std_lambda<T: Evaluable>(
-    context: &Context,
+    env: &Env,
     function: StdLambda,
     args: Vec<Value>,
 ) -> Result<<T as Evaluable>::Output, String> {
@@ -207,7 +197,7 @@ fn eval_std_lambda<T: Evaluable>(
             // Evaluate and map each item
             let values = list
                 .into_iter()
-                .map(|item| eval_call::<ty::Any>(context, func.clone(), vec![item]))
+                .map(|item| eval_call::<ty::Any>(env, func.clone(), vec![item]))
                 .collect::<Result<Vec<_>, _>>()?;
 
             // Rebuild nodes in reverse order
@@ -252,11 +242,7 @@ fn eval_std_lambda<T: Evaluable>(
 }
 
 /// Evaluates a function call expression.
-fn eval_user_call<T: Evaluable>(
-    context: &Context,
-    func: Function,
-    args: Vec<Value>,
-) -> EResult<T::Output> {
+fn eval_user_call<T: Evaluable>(env: &Env, func: Function, args: Vec<Value>) -> EResult<T::Output> {
     let Function {
         params,
         scope,
@@ -274,14 +260,14 @@ fn eval_user_call<T: Evaluable>(
     // Pair param name with arg values
     let param_args: Vec<(String, Value)> = params.into_iter().zip(args).collect();
 
-    // Add arguments to context as variables
-    let mut context = context.new_scope_function(param_args);
+    // Add arguments to env as variables
+    let mut env = env.new_scope_function(param_args);
 
     // Evaluate "where" scope of variables
     for (id, value) in scope {
-        eval_assignment(&mut context, id.clone(), value.clone())?;
+        eval_assignment(&mut env, id.clone(), value.clone())?;
     }
 
     // Evaluate return expression as the overall expression type
-    eval::<T>(&context, *return_expr.clone())
+    eval::<T>(&env, *return_expr.clone())
 }

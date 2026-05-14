@@ -3,7 +3,7 @@
 use std::f64::consts::PI;
 use std::fmt::Debug;
 
-use crate::evaluator::{Context, EResult, Value, ty};
+use crate::evaluator::{EResult, Env, Value, ty};
 use crate::ir::ast::{self, Expr, Literal, MatchArm, op};
 use crate::ir::scene;
 
@@ -25,16 +25,16 @@ pub trait Evaluable {
     /// Converts a [`Value`] to an evaluated output
     fn from_value(value: Value) -> EResult<Self::Output>;
     /// Evaluates a literal expression
-    fn eval_literal(context: &Context, literal: Literal) -> EResult<Self::Output>;
+    fn eval_literal(env: &Env, literal: Literal) -> EResult<Self::Output>;
     /// Matches an evaluated value to a literal ast value
     fn match_literal(
-        context: &mut Context,
+        env: &mut Env,
         scrutinee: Self::Output,
         literal_pattern: Literal,
     ) -> EResult<bool>;
     /// Matches an evaluated value to a binary operator pattern
     fn match_bin(
-        context: &mut Context,
+        env: &mut Env,
         scrutinee: Self::Output,
         operator: op::Binary,
         left: Expr,
@@ -42,59 +42,59 @@ pub trait Evaluable {
     ) -> EResult<bool>;
     /// Matches an evaluated value to a function call
     fn match_call(
-        context: &mut Context,
+        env: &mut Env,
         scrutinee: Self::Output,
         function: Expr,
         args: Vec<Expr>,
     ) -> EResult<bool>;
 }
 
-pub fn eval<T: Evaluable>(context: &Context, expr: ast::Expr) -> EResult<T::Output> {
+pub fn eval<T: Evaluable>(env: &Env, expr: ast::Expr) -> EResult<T::Output> {
     match expr {
-        Expr::Literal(literal) => T::eval_literal(context, literal),
+        Expr::Literal(literal) => T::eval_literal(env, literal),
         Expr::Variable(name) => {
-            let value = context.get_var(&name)?;
+            let value = env.get_var(&name)?;
             T::from_value(value)
         }
         Expr::Const(c) => eval_const::<T>(c),
         Expr::Call { function, args } => {
-            let function = eval::<ty::Function>(context, *function)?;
+            let function = eval::<ty::Function>(env, *function)?;
             let args: Vec<Value> = args
                 .into_iter()
-                .map(|arg_expr| eval::<ty::Any>(context, arg_expr))
+                .map(|arg_expr| eval::<ty::Any>(env, arg_expr))
                 .collect::<Result<Vec<_>, _>>()?;
 
-            eval_call::<T>(context, function, args)
+            eval_call::<T>(env, function, args)
         }
         Expr::Std(func) => T::from_value(Value::Function(Callable::Std(func))),
         Expr::Binary {
             operator,
             left,
             right,
-        } => eval_op_bin::<T>(context, operator, *left, *right),
-        Expr::Unary { operator, operand } => eval_op_un::<T>(context, operator, *operand),
+        } => eval_op_bin::<T>(env, operator, *left, *right),
+        Expr::Unary { operator, operand } => eval_op_un::<T>(env, operator, *operand),
         Expr::Match { scrutinee, arms } => {
-            let s = eval::<ty::Any>(context, *scrutinee)?;
-            eval_match::<T>(context, arms, s)
+            let s = eval::<ty::Any>(env, *scrutinee)?;
+            eval_match::<T>(env, arms, s)
         }
         Expr::If {
             condition,
             then_branch,
             else_branch,
         } => {
-            if eval::<ty::Bool>(context, *condition)? {
-                eval::<T>(context, *then_branch)
+            if eval::<ty::Bool>(env, *condition)? {
+                eval::<T>(env, *then_branch)
             } else {
-                eval::<T>(context, *else_branch)
+                eval::<T>(env, *else_branch)
             }
         }
-        Expr::Field { object, field } => eval_field_access::<T>(context, object, field),
+        Expr::Field { object, field } => eval_field_access::<T>(env, object, field),
     }
 }
 
 /// Evaluates a binary operator expression
 fn eval_op_bin<T: Evaluable>(
-    context: &Context,
+    env: &Env,
     operator: op::Binary,
     left: Expr,
     right: Expr,
@@ -103,8 +103,8 @@ fn eval_op_bin<T: Evaluable>(
     let result = match operator {
         op::Binary::Arithmetic(operator) => {
             // Force evaluate as expected types
-            let left = eval::<ty::Number>(context, left)?;
-            let right = eval::<ty::Number>(context, right)?;
+            let left = eval::<ty::Number>(env, left)?;
+            let right = eval::<ty::Number>(env, right)?;
             Value::Number(match operator {
                 op::Arithmetic::Add => left + right,
                 op::Arithmetic::Sub => left - right,
@@ -113,16 +113,16 @@ fn eval_op_bin<T: Evaluable>(
             })
         }
         op::Binary::Logic(operator) => {
-            let l = eval::<ty::Bool>(context, left)?;
-            let r = eval::<ty::Bool>(context, right)?;
+            let l = eval::<ty::Bool>(env, left)?;
+            let r = eval::<ty::Bool>(env, right)?;
             Value::Bool(match operator {
                 op::Logic::And => l && r,
                 op::Logic::Or => l || r,
             })
         }
         op::Binary::Compare(operator) => {
-            let l = eval::<ty::Number>(context, left)?;
-            let r = eval::<ty::Number>(context, right)?;
+            let l = eval::<ty::Number>(env, left)?;
+            let r = eval::<ty::Number>(env, right)?;
             Value::Bool(match operator {
                 op::Compare::Gt => l > r,
                 op::Compare::Gte => l >= r,
@@ -133,8 +133,8 @@ fn eval_op_bin<T: Evaluable>(
             })
         }
         op::Binary::Cons => {
-            let head = eval::<ty::Any>(context, left)?;
-            let tail = eval::<ty::List>(context, right)?;
+            let head = eval::<ty::Any>(env, left)?;
+            let tail = eval::<ty::List>(env, right)?;
             Value::List(Box::new(list::ListNode::Cons(head, tail)))
         }
     };
@@ -143,14 +143,10 @@ fn eval_op_bin<T: Evaluable>(
 }
 
 /// Evaluates a unary operator expression
-fn eval_op_un<T: Evaluable>(
-    context: &Context,
-    operator: op::Unary,
-    expr: Expr,
-) -> EResult<T::Output> {
+fn eval_op_un<T: Evaluable>(env: &Env, operator: op::Unary, expr: Expr) -> EResult<T::Output> {
     let result = match operator {
         op::Unary::Not => {
-            let value = eval::<ty::Bool>(context, expr)?;
+            let value = eval::<ty::Bool>(env, expr)?;
             Value::Bool(!value)
         }
     };
@@ -166,26 +162,26 @@ fn eval_const<T: Evaluable>(c: ast::Const) -> Result<<T as Evaluable>::Output, S
 
 /// Matches a scrutinee to a expression pattern.
 fn match_pattern<T: Evaluable>(
-    context: &mut Context,
+    env: &mut Env,
     scrutinee: T::Output,
     pattern: Expr,
 ) -> EResult<bool> {
     match pattern {
-        Expr::Variable(name) => context.set_var(name, T::to_value(scrutinee)).map(|_| true),
-        Expr::Literal(lit_pattern) => T::match_literal(context, scrutinee, lit_pattern),
+        Expr::Variable(name) => env.set_var(name, T::to_value(scrutinee)).map(|_| true),
+        Expr::Literal(lit_pattern) => T::match_literal(env, scrutinee, lit_pattern),
         Expr::Binary {
             operator,
             left,
             right,
-        } => T::match_bin(context, scrutinee, operator, *left, *right),
-        Expr::Call { function, args } => T::match_call(context, scrutinee, *function, args),
+        } => T::match_bin(env, scrutinee, operator, *left, *right),
+        Expr::Call { function, args } => T::match_call(env, scrutinee, *function, args),
         _ => Err("pattern not supported".to_string()),
     }
 }
 
 /// Generic match-arm evaluation.
 fn eval_match<T: Evaluable>(
-    context: &Context,
+    env: &Env,
     arms: Vec<MatchArm>,
     scrutinee: Value,
 ) -> EResult<T::Output> {
@@ -195,29 +191,25 @@ fn eval_match<T: Evaluable>(
         body,
     } in arms
     {
-        let mut arm_ctx = context.child_scope();
-        let matched = match_pattern::<ty::Any>(&mut arm_ctx, scrutinee.clone(), pattern)?;
+        let mut arm_env = env.child_scope();
+        let matched = match_pattern::<ty::Any>(&mut arm_env, scrutinee.clone(), pattern)?;
         if !matched {
             continue;
         }
 
         if let Some(condition) = guard {
-            if !eval::<ty::Bool>(&arm_ctx, condition)? {
+            if !eval::<ty::Bool>(&arm_env, condition)? {
                 continue;
             }
         }
-        return eval::<T>(&arm_ctx, body);
+        return eval::<T>(&arm_env, body);
     }
     Err("no arm matched".to_string())
 }
 
 /// Evaluates a field access expression.
-fn eval_field_access<T: Evaluable>(
-    context: &Context,
-    object: String,
-    field: String,
-) -> EResult<T::Output> {
-    let object_value = context.get_var(&object)?;
+fn eval_field_access<T: Evaluable>(env: &Env, object: String, field: String) -> EResult<T::Output> {
+    let object_value = env.get_var(&object)?;
     let result = match object_value {
         Value::Graphic(g) => match g.ty {
             scene::GraphicType::Circle { radius } => match field.as_str() {
@@ -260,61 +252,61 @@ impl Evaluable for ty::Any {
     fn from_value(value: Value) -> EResult<Self::Output> {
         Ok(value)
     }
-    fn eval_literal(context: &Context, literal: Literal) -> EResult<Self::Output> {
+    fn eval_literal(env: &Env, literal: Literal) -> EResult<Self::Output> {
         Ok(match literal {
             Literal::Number(n) => Value::Number(n),
             Literal::String(s) => Value::String(s),
             Literal::Bool(b) => Value::Bool(b),
-            Literal::Color(_) => Value::Color(ty::Color::eval_literal(context, literal)?),
-            Literal::List(_) => Value::List(ty::List::eval_literal(context, literal)?),
+            Literal::Color(_) => Value::Color(ty::Color::eval_literal(env, literal)?),
+            Literal::List(_) => Value::List(ty::List::eval_literal(env, literal)?),
         })
     }
     fn match_literal(
-        context: &mut Context,
+        env: &mut Env,
         scrutinee: Self::Output,
         literal_pattern: Literal,
     ) -> EResult<bool> {
         match scrutinee {
-            Value::Number(s) => ty::Number::match_literal(context, s, literal_pattern),
-            Value::String(s) => ty::String::match_literal(context, s, literal_pattern),
-            Value::Bool(s) => ty::Bool::match_literal(context, s, literal_pattern),
-            Value::Color(s) => ty::Color::match_literal(context, s, literal_pattern),
-            Value::Graphic(s) => ty::Graphic::match_literal(context, s, literal_pattern),
-            Value::List(s) => ty::List::match_literal(context, s, literal_pattern),
-            Value::Function(s) => ty::Function::match_literal(context, s, literal_pattern),
+            Value::Number(s) => ty::Number::match_literal(env, s, literal_pattern),
+            Value::String(s) => ty::String::match_literal(env, s, literal_pattern),
+            Value::Bool(s) => ty::Bool::match_literal(env, s, literal_pattern),
+            Value::Color(s) => ty::Color::match_literal(env, s, literal_pattern),
+            Value::Graphic(s) => ty::Graphic::match_literal(env, s, literal_pattern),
+            Value::List(s) => ty::List::match_literal(env, s, literal_pattern),
+            Value::Function(s) => ty::Function::match_literal(env, s, literal_pattern),
         }
     }
     fn match_bin(
-        context: &mut Context,
+        env: &mut Env,
         scrutinee: Self::Output,
         operator: op::Binary,
         left: Expr,
         right: Expr,
     ) -> EResult<bool> {
         match scrutinee {
-            Value::Number(s) => ty::Number::match_bin(context, s, operator, left, right),
-            Value::String(s) => ty::String::match_bin(context, s, operator, left, right),
-            Value::Bool(s) => ty::Bool::match_bin(context, s, operator, left, right),
-            Value::Color(s) => ty::Color::match_bin(context, s, operator, left, right),
-            Value::Graphic(s) => ty::Graphic::match_bin(context, s, operator, left, right),
-            Value::List(s) => ty::List::match_bin(context, s, operator, left, right),
-            Value::Function(s) => ty::Function::match_bin(context, s, operator, left, right),
+            Value::Number(s) => ty::Number::match_bin(env, s, operator, left, right),
+            Value::String(s) => ty::String::match_bin(env, s, operator, left, right),
+            Value::Bool(s) => ty::Bool::match_bin(env, s, operator, left, right),
+            Value::Color(s) => ty::Color::match_bin(env, s, operator, left, right),
+            Value::Graphic(s) => ty::Graphic::match_bin(env, s, operator, left, right),
+            Value::List(s) => ty::List::match_bin(env, s, operator, left, right),
+            Value::Function(s) => ty::Function::match_bin(env, s, operator, left, right),
         }
     }
     fn match_call(
-        context: &mut Context,
+        env: &mut Env,
         scrutinee: Self::Output,
         function: Expr,
         args: Vec<Expr>,
     ) -> EResult<bool> {
         match scrutinee {
-            Value::Number(s) => ty::Number::match_call(context, s, function, args),
-            Value::String(s) => ty::String::match_call(context, s, function, args),
-            Value::Bool(s) => ty::Bool::match_call(context, s, function, args),
-            Value::Color(s) => ty::Color::match_call(context, s, function, args),
-            Value::Graphic(s) => ty::Graphic::match_call(context, s, function, args),
-            Value::List(s) => ty::List::match_call(context, s, function, args),
-            Value::Function(s) => ty::Function::match_call(context, s, function, args),
+            Value::Number(s) => ty::Number::match_call(env, s, function, args),
+            Value::String(s) => ty::String::match_call(env, s, function, args),
+            Value::Bool(s) => ty::Bool::match_call(env, s, function, args),
+            Value::Color(s) => ty::Color::match_call(env, s, function, args),
+            Value::Graphic(s) => ty::Graphic::match_call(env, s, function, args),
+            Value::List(s) => ty::List::match_call(env, s, function, args),
+            Value::Function(s) => ty::Function::match_call(env, s, function, args),
         }
     }
 }

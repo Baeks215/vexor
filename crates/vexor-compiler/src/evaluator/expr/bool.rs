@@ -1,5 +1,5 @@
 use crate::evaluator::expr::Evaluable;
-use crate::evaluator::{Context, EResult, Value, ty};
+use crate::evaluator::{EResult, Env, Value, ty};
 use crate::ir::ast::{Expr, Literal, op};
 
 impl Evaluable for ty::Bool {
@@ -13,14 +13,14 @@ impl Evaluable for ty::Bool {
             _ => Err("expected a bool".to_string()),
         }
     }
-    fn eval_literal(_: &Context, literal: Literal) -> EResult<Self::Output> {
+    fn eval_literal(_: &Env, literal: Literal) -> EResult<Self::Output> {
         match literal {
             Literal::Bool(b) => Ok(b),
             _ => Err("expected a bool".to_string()),
         }
     }
     fn match_literal(
-        _: &mut Context,
+        _: &mut Env,
         scrutinee: Self::Output,
         literal_pattern: Literal,
     ) -> EResult<bool> {
@@ -29,16 +29,10 @@ impl Evaluable for ty::Bool {
             _ => Err("expected a bool literal".to_string()),
         }
     }
-    fn match_bin(
-        _: &mut Context,
-        _: Self::Output,
-        _: op::Binary,
-        _: Expr,
-        _: Expr,
-    ) -> EResult<bool> {
+    fn match_bin(_: &mut Env, _: Self::Output, _: op::Binary, _: Expr, _: Expr) -> EResult<bool> {
         Err("pattern not supported".to_string())
     }
-    fn match_call(_: &mut Context, _: Self::Output, _: Expr, _: Vec<Expr>) -> EResult<bool> {
+    fn match_call(_: &mut Env, _: Self::Output, _: Expr, _: Vec<Expr>) -> EResult<bool> {
         Err("pattern not supported".to_string())
     }
 }

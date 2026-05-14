@@ -1,5 +1,5 @@
 use crate::evaluator::expr::{Evaluable, eval, match_pattern};
-use crate::evaluator::{Context, EResult, Value, to_int, ty};
+use crate::evaluator::{EResult, Env, Value, to_int, ty};
 use crate::ir::ast::{Expr, ListLiteral, Literal, op};
 
 /// Linked List node
@@ -44,7 +44,7 @@ impl Evaluable for ty::List {
             _ => Err("expected a list".to_string()),
         }
     }
-    fn eval_literal(context: &Context, literal: Literal) -> EResult<Self::Output> {
+    fn eval_literal(env: &Env, literal: Literal) -> EResult<Self::Output> {
         match literal {
             Literal::List(list) => {
                 match list {
@@ -54,7 +54,7 @@ impl Evaluable for ty::List {
 
                         // Iterate in reverse to build linked list
                         for e in exprs.into_iter().rev() {
-                            let e = eval::<ty::Any>(context, e)?;
+                            let e = eval::<ty::Any>(env, e)?;
                             acc = Box::new(ListNode::Cons(e, acc));
                         }
                         Ok(acc)
@@ -62,11 +62,11 @@ impl Evaluable for ty::List {
                     // Build Linked List from stepped range
                     ListLiteral::Range { start, second, end } => {
                         // Evaluate range bounds and convert to integers
-                        let start = eval::<ty::Number>(context, *start).and_then(to_int)?;
+                        let start = eval::<ty::Number>(env, *start).and_then(to_int)?;
                         let second = second
-                            .map(|e| eval::<ty::Number>(context, *e).and_then(to_int))
+                            .map(|e| eval::<ty::Number>(env, *e).and_then(to_int))
                             .transpose()?;
-                        let end = eval::<ty::Number>(context, *end).and_then(to_int)?;
+                        let end = eval::<ty::Number>(env, *end).and_then(to_int)?;
 
                         let mut acc = Box::new(ListNode::Nil);
 
@@ -85,7 +85,7 @@ impl Evaluable for ty::List {
         }
     }
     fn match_literal(
-        context: &mut Context,
+        env: &mut Env,
         scrutinee: Self::Output,
         literal_pattern: Literal,
     ) -> EResult<bool> {
@@ -97,7 +97,7 @@ impl Evaluable for ty::List {
                         // Scrutinee is Nil, pattern is too long
                         return Ok(false);
                     };
-                    let matched = match_pattern::<ty::Any>(context, head, item_pattern)?;
+                    let matched = match_pattern::<ty::Any>(env, head, item_pattern)?;
                     if !matched {
                         return Ok(false);
                     }
@@ -113,7 +113,7 @@ impl Evaluable for ty::List {
         }
     }
     fn match_bin(
-        context: &mut Context,
+        env: &mut Env,
         scrutinee: Self::Output,
         operator: op::Binary,
         left: Expr,
@@ -122,13 +122,13 @@ impl Evaluable for ty::List {
         match operator {
             op::Binary::Cons => match *scrutinee {
                 ListNode::Nil => Ok(false),
-                ListNode::Cons(head, tail) => Ok(match_pattern::<ty::Any>(context, head, left)?
-                    && match_pattern::<ty::List>(context, tail, right)?),
+                ListNode::Cons(head, tail) => Ok(match_pattern::<ty::Any>(env, head, left)?
+                    && match_pattern::<ty::List>(env, tail, right)?),
             },
             _ => Err("pattern not supported".to_string()),
         }
     }
-    fn match_call(_: &mut Context, _: Self::Output, _: Expr, _: Vec<Expr>) -> EResult<bool> {
+    fn match_call(_: &mut Env, _: Self::Output, _: Expr, _: Vec<Expr>) -> EResult<bool> {
         Err("pattern not supported".to_string())
     }
 }
