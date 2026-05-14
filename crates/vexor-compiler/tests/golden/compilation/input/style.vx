@@ -1,6 +1,6 @@
 let r = 100
 let c = Circle(r)
-let filled = fill(rgb(0.5, 0, 0, 1), c)
-let stroked = stroke(3, rgb(0, 0, 0, 1), filled)
+let filled = c >> fill(rgb(0.5, 0, 0, 1))
+let stroked = filled >> stroke(3, rgb(0, 0, 0, 1))
 
 export stroked

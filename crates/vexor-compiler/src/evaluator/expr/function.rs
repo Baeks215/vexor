@@ -6,13 +6,31 @@ use crate::evaluator::expr::{Evaluable, eval};
 use crate::evaluator::program::eval_assignment;
 use crate::evaluator::{Context, EResult, Value, ty};
 use crate::ir::ast::{self, Expr, Function, Literal, Std, op};
-use crate::ir::scene;
+use crate::ir::{Number, scene};
 use crate::{Graphic, GraphicType};
 
 #[derive(Debug, Clone)]
 pub enum Callable {
     Std(ast::Std),
+    StdLambda(StdLambda),
     User(Function),
+}
+
+#[derive(Debug, Clone)]
+pub enum StdLambda {
+    // List
+    Map { func: Box<Callable> },
+    // Graphic transforms
+    Move { x: Number, y: Number },
+    Scale { scale: Number },
+    Rotate { angle: Number },
+    Fill { color: scene::Color },
+    Stroke { width: Number, color: scene::Color },
+}
+impl From<StdLambda> for Callable {
+    fn from(value: StdLambda) -> Self {
+        Callable::StdLambda(value)
+    }
 }
 
 impl Evaluable for ty::Function {
@@ -55,6 +73,7 @@ pub fn eval_call<T: Evaluable>(
 ) -> EResult<T::Output> {
     match func {
         Callable::Std(func) => eval_std_call::<T>(context, func, args),
+        Callable::StdLambda(func) => eval_std_lambda::<T>(context, func, args),
         Callable::User(func) => eval_user_call::<T>(context, func, args),
     }
 }
@@ -75,18 +94,10 @@ macro_rules! unpack_2 {
             .ok_or("expected two arguments")
     };
 }
-macro_rules! unpack_3 {
-    ($iter:expr) => {
-        $iter
-            .into_iter()
-            .collect_tuple::<(_, _, _)>()
-            .ok_or("expected three arguments")
-    };
-}
 
 /// Evaluates a standard function call.
 fn eval_std_call<T: Evaluable>(
-    context: &Context,
+    _: &Context,
     function: Std,
     args: Vec<Value>,
 ) -> Result<<T as Evaluable>::Output, String> {
@@ -114,21 +125,10 @@ fn eval_std_call<T: Evaluable>(
         }
         // List
         Std::Map => {
-            let (function, list) = unpack_2!(args)?;
-            let function = ty::Function::from_value(function)?;
-            let list = ty::List::from_value(list)?;
-            // Evaluate each item
-            let values = list
-                .into_iter()
-                .map(|item| eval_call::<ty::Any>(context, function.clone(), vec![item]))
-                .collect::<Result<Vec<_>, _>>()?;
-            // Rebuild nodes in reverse order
-            let mut acc = Box::new(ListNode::Nil);
-            for item in values.into_iter().rev() {
-                acc = Box::new(ListNode::Cons(item, acc));
-            }
-
-            Value::List(acc)
+            let func = unpack_1!(args)?;
+            let func = Box::new(ty::Function::from_value(func)?);
+            // Lambda that takes in a list and applies map
+            Value::Function(StdLambda::Map { func }.into())
         }
         // Graphic constructors
         Std::Circle => {
@@ -159,36 +159,89 @@ fn eval_std_call<T: Evaluable>(
                 .collect::<Result<Vec<_>, _>>()?;
             Value::Graphic(Graphic::new(GraphicType::Group { children }))
         }
-        // Graphic functions
+        // Graphic functions, as lambdas
         Std::Move => {
-            let (x, y, graphic) = unpack_3!(args)?;
+            let (x, y) = unpack_2!(args)?;
             let x = ty::Number::from_value(x)?;
             let y = ty::Number::from_value(y)?;
-            let graphic = ty::Graphic::from_value(graphic)?;
-            Value::Graphic(graphic.transform(Affine::translate((x, y))))
+            // Lambda takes in a graphic and returns transformed
+            Value::Function(StdLambda::Move { x, y }.into())
         }
         Std::Scale => {
-            let (scale, graphic) = unpack_2!(args)?;
+            let scale = unpack_1!(args)?;
             let scale = ty::Number::from_value(scale)?;
+            Value::Function(StdLambda::Scale { scale }.into())
+        }
+        Std::Rotate => {
+            let angle = unpack_1!(args)?;
+            let angle = ty::Number::from_value(angle)?;
+            Value::Function(StdLambda::Rotate { angle }.into())
+        }
+        Std::Fill => {
+            let color = unpack_1!(args)?;
+            let color = ty::Color::from_value(color)?;
+            Value::Function(StdLambda::Fill { color }.into())
+        }
+        Std::Stroke => {
+            let (width, color) = unpack_2!(args)?;
+            let width = ty::Number::from_value(width)?;
+            let color = ty::Color::from_value(color)?;
+            Value::Function(StdLambda::Stroke { width, color }.into())
+        }
+    };
+    T::from_value(result)
+}
+
+/// Evaluates a standard lambda call.
+fn eval_std_lambda<T: Evaluable>(
+    context: &Context,
+    function: StdLambda,
+    args: Vec<Value>,
+) -> Result<<T as Evaluable>::Output, String> {
+    let result = match function {
+        StdLambda::Map { func } => {
+            let func = *func;
+            let list = unpack_1!(args)?;
+            let list = ty::List::from_value(list)?;
+
+            // Evaluate and map each item
+            let values = list
+                .into_iter()
+                .map(|item| eval_call::<ty::Any>(context, func.clone(), vec![item]))
+                .collect::<Result<Vec<_>, _>>()?;
+
+            // Rebuild nodes in reverse order
+            let mut acc = Box::new(ListNode::Nil);
+            for item in values.into_iter().rev() {
+                acc = Box::new(ListNode::Cons(item, acc));
+            }
+
+            Value::List(acc)
+        }
+        // Graphic transforms
+        StdLambda::Move { x, y } => {
+            let graphic = unpack_1!(args)?;
+            let graphic = ty::Graphic::from_value(graphic)?;
+            let result = graphic.transform(Affine::translate((x, y)));
+            Value::Graphic(result)
+        }
+        StdLambda::Scale { scale } => {
+            let graphic = unpack_1!(args)?;
             let graphic = ty::Graphic::from_value(graphic)?;
             Value::Graphic(graphic.transform(Affine::scale(scale)))
         }
-        Std::Rotate => {
-            let (angle, graphic) = unpack_2!(args)?;
-            let angle = ty::Number::from_value(angle)?;
+        StdLambda::Rotate { angle } => {
+            let graphic = unpack_1!(args)?;
             let graphic = ty::Graphic::from_value(graphic)?;
             Value::Graphic(graphic.transform(Affine::rotate(angle)))
         }
-        Std::Fill => {
-            let (color, graphic) = unpack_2!(args)?;
-            let color = ty::Color::from_value(color)?;
+        StdLambda::Fill { color } => {
+            let graphic = unpack_1!(args)?;
             let graphic = ty::Graphic::from_value(graphic)?;
             Value::Graphic(graphic.transform_style(|s| s.with_fill(color)))
         }
-        Std::Stroke => {
-            let (width, color, graphic) = unpack_3!(args)?;
-            let width = ty::Number::from_value(width)?;
-            let color = ty::Color::from_value(color)?;
+        StdLambda::Stroke { width, color } => {
+            let graphic = unpack_1!(args)?;
             let graphic = ty::Graphic::from_value(graphic)?;
             Value::Graphic(
                 graphic.transform_style(|s| s.with_stroke(scene::Stroke { width, color })),

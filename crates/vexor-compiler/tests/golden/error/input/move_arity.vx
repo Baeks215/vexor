@@ -1,4 +1,4 @@
 let c = Circle(10)
 // too few arguments
-let moved = move(50, c)
+let moved = move(50)(c)
 export moved

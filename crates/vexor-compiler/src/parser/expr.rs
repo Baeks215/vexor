@@ -218,10 +218,11 @@ pub fn p_atom<'a>(input: &mut Input<'a>) -> ModalResult<ast::Expr> {
 /// Parses an expression.
 pub fn p_expr<'a>(input: &mut Input<'a>) -> ModalResult<ast::Expr> {
     expression(p_atom).infix(dispatch! {alt((
-        alt(("&&", "||")),
+        alt((">>", "&&", "||")),
         alt(("==", "!=", ">=", "<=")),
         alt(("+", "-", "*", "/", ">", "<", ":")),
     )).ws();
+        ">>" => Infix::Left(0, |_, arg, func| Ok(ast::Expr::Call { function: Box::new(func), args: vec![arg] })),
         "||" => Infix::Left(1, |_, a, b| Ok(ast::Expr::Binary { operator: op::Binary::Logic(op::Logic::Or), left: Box::new(a), right: Box::new(b) })),
         "&&" => Infix::Left(2, |_, a, b| Ok(ast::Expr::Binary { operator: op::Binary::Logic(op::Logic::And), left: Box::new(a), right: Box::new(b) })),
         // Comparisons

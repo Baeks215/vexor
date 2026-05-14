@@ -1,6 +1,6 @@
 
 
-fn make_circle(i) = fill(color, move(x, y, Circle(r)))
+fn make_circle(i) = Circle(r) >> fill(color) >> move(x, y)
 where {
   f = i / 60
   r = f * f * 100
@@ -10,6 +10,6 @@ where {
   color = rgb(f, 0, 1 - f, 1)
 }
 
-export move(500, 500, Group(
-  map(make_circle, [1..60])
+export move(500, 500)(Group(
+  map(make_circle)([1..60])
 ))
