@@ -109,6 +109,8 @@ pub enum Expr {
         function: Box<Expr>,
         args: Vec<Expr>,
     },
+    /// Anonymous function
+    Function(Function),
     /// Standard Function Reference
     Std(Std),
     /// Constant

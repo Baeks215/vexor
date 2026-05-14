@@ -66,6 +66,14 @@ pub fn eval<T: Evaluable>(env: &EnvRef, expr: ast::Expr) -> EResult<T::Output> {
 
             eval_call::<T>(env, function, args)
         }
+        Expr::Function(func) => {
+            let func_value = Value::Function(Callable::User {
+                func,
+                // Capture the current environment
+                closure_env: env.clone(), // Cloned reference
+            });
+            T::from_value(func_value)
+        }
         Expr::Std(func) => T::from_value(Value::Function(Callable::Std(func))),
         Expr::Binary {
             operator,

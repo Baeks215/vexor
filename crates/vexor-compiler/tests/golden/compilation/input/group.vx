@@ -5,11 +5,9 @@ val group = Group([
 ])
 
 fn line(i) = move(i * 20, 0)
-fn circle_line(i) = line(i)(circle)
-fn group_line(i) = line(i)(group)
 
-val circles = [1..6] >> map(circle_line)
-val groups = map(group_line)([1..6])
+val circles = [1..6] >> map((i) -> line(i)(circle))
+val groups = map(i -> line(i)(group))([1..6])
 
 val final = Group([
     Group(circles),

@@ -6,10 +6,12 @@ val factor = 3
 // This should capture factor in the closure
 fn timesFactor(x) = x * factor
 
-fn doubleTimesFactor(x) = timesFactor(x) * factor
+fn doubleTimesFactor(x) = times2(timesFactor(x))
 where {
   // Local scope should not affect the call of timesFactor
   factor = 2
+  // This should capture the local factor, not the top level one
+  times2 = (x) -> x * factor
 }
 
 val r1 = timesFactor(10)

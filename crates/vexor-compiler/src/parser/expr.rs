@@ -201,9 +201,30 @@ pub fn p_identifier_or_field<'a>(input: &mut Input<'a>) -> ModalResult<ast::Expr
         .parse_next(input)
 }
 
+/// Parses a lambda expression
+pub fn p_lambda<'a>(input: &mut Input<'a>) -> ModalResult<ast::Expr> {
+    (
+        alt((
+            p_identifier.map(|id| vec![id.to_string()]),
+            bracketed(comma_list(0.., p_identifier.map(str::to_string))),
+        ))
+        .mws(),
+        preceded("->".mws(), cut_err(p_expr).label("lambda body")),
+    )
+        .map(|(params, e)| {
+            ast::Expr::Function(ast::Function {
+                params,
+                scope: vec![],
+                return_expr: Box::new(e),
+            })
+        })
+        .parse_next(input)
+}
+
 /// Parses an atom.
 pub fn p_atom<'a>(input: &mut Input<'a>) -> ModalResult<ast::Expr> {
     alt((
+        p_lambda,
         bracketed(p_expr).ws(),
         p_constant.map(ast::Expr::Const),
         p_std.map(ast::Expr::Std),

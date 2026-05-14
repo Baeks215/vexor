@@ -1,10 +1,14 @@
-// OUTPUT: 10, 6, 7
+// OUTPUT: 10, 10, 6, 7
 
 fn double(x) = x + x
 fn area(w, h) = w * h
-fn add_one(x) = x + 1
 fn triple(x) = x * 3
+val add = (x, y) -> x + y
+val add_one = x -> add(x, 1)
+
+val also_double = double
 
 export Circle(double(5))
+export Circle(also_double(5))
 export Circle(area(2, 3))
 export Circle(add_one(triple(2)))
