@@ -1,0 +1,18 @@
+// OUTPUT: 30, 60
+
+// Top level factor
+val factor = 3
+
+// This should capture factor in the closure
+fn timesFactor(x) = x * factor
+
+fn doubleTimesFactor(x) = timesFactor(x) * factor
+where {
+  // Local scope should not affect the call of timesFactor
+  factor = 2
+}
+
+val r1 = timesFactor(10)
+val r2 = doubleTimesFactor(10)
+export Circle(r1)
+export Circle(r2)

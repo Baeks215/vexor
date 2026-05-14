@@ -20,7 +20,11 @@ pub fn eval_program(program: ast::Program) -> EResult<scene::Scene> {
                         "function {identifier} has duplicate parameter names"
                     ));
                 }
-                env.set_var(identifier, Value::Function(Callable::User(func)))?;
+                let func = Callable::User {
+                    func,
+                    closure_env: env.clone(), // Clone reference,
+                };
+                env.set_var(identifier, Value::Function(func))?;
             }
             ast::ProgramUnit::Assignment { identifier, value } => {
                 env.set_var_lazy(identifier, value)?;

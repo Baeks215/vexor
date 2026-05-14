@@ -12,7 +12,7 @@ use crate::{Graphic, GraphicType};
 pub enum Callable {
     Std(ast::Std),
     StdLambda(StdLambda),
-    User(Function),
+    User { func: Function, closure_env: EnvRef },
 }
 
 #[derive(Debug, Clone)]
@@ -67,7 +67,7 @@ pub fn eval_call<T: Evaluable>(
     match func {
         Callable::Std(func) => eval_std_call::<T>(env, func, args),
         Callable::StdLambda(func) => eval_std_lambda::<T>(env, func, args),
-        Callable::User(func) => eval_user_call::<T>(env, func, args),
+        Callable::User { func, closure_env } => eval_user_call::<T>(&closure_env, func, args),
     }
 }
 
