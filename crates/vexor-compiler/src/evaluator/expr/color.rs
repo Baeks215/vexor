@@ -1,5 +1,5 @@
 use crate::evaluator::expr::{Evaluable, eval, match_pattern};
-use crate::evaluator::{EResult, Env, Value, ty};
+use crate::evaluator::{EResult, EnvRef, Value, ty};
 use crate::ir::ast::{self, Expr, Literal, op};
 use crate::ir::scene;
 
@@ -14,7 +14,7 @@ impl Evaluable for ty::Color {
             _ => Err("expected a color".to_string()),
         }
     }
-    fn eval_literal(env: &Env, literal: Literal) -> EResult<Self::Output> {
+    fn eval_literal(env: &EnvRef, literal: Literal) -> EResult<Self::Output> {
         let Literal::Color(ast::Color::Rgba { r, g, b, a }) = literal else {
             return Err("expected a color".to_string());
         };
@@ -26,7 +26,7 @@ impl Evaluable for ty::Color {
         })
     }
     fn match_literal(
-        env: &mut Env,
+        env: &EnvRef,
         scrutinee: Self::Output,
         literal_pattern: Literal,
     ) -> EResult<bool> {
@@ -47,10 +47,10 @@ impl Evaluable for ty::Color {
             _ => Err("expected a color literal".to_string()),
         }
     }
-    fn match_bin(_: &mut Env, _: Self::Output, _: op::Binary, _: Expr, _: Expr) -> EResult<bool> {
+    fn match_bin(_: &EnvRef, _: Self::Output, _: op::Binary, _: Expr, _: Expr) -> EResult<bool> {
         Err("pattern not supported".to_string())
     }
-    fn match_call(_: &mut Env, _: Self::Output, _: Expr, _: Vec<Expr>) -> EResult<bool> {
+    fn match_call(_: &EnvRef, _: Self::Output, _: Expr, _: Vec<Expr>) -> EResult<bool> {
         Err("pattern not supported".to_string())
     }
 }

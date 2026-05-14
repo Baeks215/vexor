@@ -1,5 +1,5 @@
 use crate::evaluator::expr::{Evaluable, eval, match_pattern};
-use crate::evaluator::{EResult, Env, Value, to_int, ty};
+use crate::evaluator::{EResult, EnvRef, Value, to_int, ty};
 use crate::ir::ast::{Expr, ListLiteral, Literal, op};
 
 /// Linked List node
@@ -44,7 +44,7 @@ impl Evaluable for ty::List {
             _ => Err("expected a list".to_string()),
         }
     }
-    fn eval_literal(env: &Env, literal: Literal) -> EResult<Self::Output> {
+    fn eval_literal(env: &EnvRef, literal: Literal) -> EResult<Self::Output> {
         match literal {
             Literal::List(list) => {
                 match list {
@@ -85,7 +85,7 @@ impl Evaluable for ty::List {
         }
     }
     fn match_literal(
-        env: &mut Env,
+        env: &EnvRef,
         scrutinee: Self::Output,
         literal_pattern: Literal,
     ) -> EResult<bool> {
@@ -113,7 +113,7 @@ impl Evaluable for ty::List {
         }
     }
     fn match_bin(
-        env: &mut Env,
+        env: &EnvRef,
         scrutinee: Self::Output,
         operator: op::Binary,
         left: Expr,
@@ -128,7 +128,7 @@ impl Evaluable for ty::List {
             _ => Err("pattern not supported".to_string()),
         }
     }
-    fn match_call(_: &mut Env, _: Self::Output, _: Expr, _: Vec<Expr>) -> EResult<bool> {
+    fn match_call(_: &EnvRef, _: Self::Output, _: Expr, _: Vec<Expr>) -> EResult<bool> {
         Err("pattern not supported".to_string())
     }
 }

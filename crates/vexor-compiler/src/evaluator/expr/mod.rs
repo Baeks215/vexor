@@ -3,7 +3,7 @@
 use std::f64::consts::PI;
 use std::fmt::Debug;
 
-use crate::evaluator::{EResult, Env, Value, ty};
+use crate::evaluator::{EResult, EnvExt, EnvRef, Value, ty};
 use crate::ir::ast::{self, Expr, Literal, MatchArm, op};
 use crate::ir::scene;
 
@@ -25,16 +25,16 @@ pub trait Evaluable {
     /// Converts a [`Value`] to an evaluated output
     fn from_value(value: Value) -> EResult<Self::Output>;
     /// Evaluates a literal expression
-    fn eval_literal(env: &Env, literal: Literal) -> EResult<Self::Output>;
+    fn eval_literal(env: &EnvRef, literal: Literal) -> EResult<Self::Output>;
     /// Matches an evaluated value to a literal ast value
     fn match_literal(
-        env: &mut Env,
+        env: &EnvRef,
         scrutinee: Self::Output,
         literal_pattern: Literal,
     ) -> EResult<bool>;
     /// Matches an evaluated value to a binary operator pattern
     fn match_bin(
-        env: &mut Env,
+        env: &EnvRef,
         scrutinee: Self::Output,
         operator: op::Binary,
         left: Expr,
@@ -42,14 +42,14 @@ pub trait Evaluable {
     ) -> EResult<bool>;
     /// Matches an evaluated value to a function call
     fn match_call(
-        env: &mut Env,
+        env: &EnvRef,
         scrutinee: Self::Output,
         function: Expr,
         args: Vec<Expr>,
     ) -> EResult<bool>;
 }
 
-pub fn eval<T: Evaluable>(env: &Env, expr: ast::Expr) -> EResult<T::Output> {
+pub fn eval<T: Evaluable>(env: &EnvRef, expr: ast::Expr) -> EResult<T::Output> {
     match expr {
         Expr::Literal(literal) => T::eval_literal(env, literal),
         Expr::Variable(name) => {
@@ -94,7 +94,7 @@ pub fn eval<T: Evaluable>(env: &Env, expr: ast::Expr) -> EResult<T::Output> {
 
 /// Evaluates a binary operator expression
 fn eval_op_bin<T: Evaluable>(
-    env: &Env,
+    env: &EnvRef,
     operator: op::Binary,
     left: Expr,
     right: Expr,
@@ -143,7 +143,7 @@ fn eval_op_bin<T: Evaluable>(
 }
 
 /// Evaluates a unary operator expression
-fn eval_op_un<T: Evaluable>(env: &Env, operator: op::Unary, expr: Expr) -> EResult<T::Output> {
+fn eval_op_un<T: Evaluable>(env: &EnvRef, operator: op::Unary, expr: Expr) -> EResult<T::Output> {
     let result = match operator {
         op::Unary::Not => {
             let value = eval::<ty::Bool>(env, expr)?;
@@ -161,11 +161,7 @@ fn eval_const<T: Evaluable>(c: ast::Const) -> Result<<T as Evaluable>::Output, S
 }
 
 /// Matches a scrutinee to a expression pattern.
-fn match_pattern<T: Evaluable>(
-    env: &mut Env,
-    scrutinee: T::Output,
-    pattern: Expr,
-) -> EResult<bool> {
+fn match_pattern<T: Evaluable>(env: &EnvRef, scrutinee: T::Output, pattern: Expr) -> EResult<bool> {
     match pattern {
         Expr::Variable(name) => env.set_var(name, T::to_value(scrutinee)).map(|_| true),
         Expr::Literal(lit_pattern) => T::match_literal(env, scrutinee, lit_pattern),
@@ -181,7 +177,7 @@ fn match_pattern<T: Evaluable>(
 
 /// Generic match-arm evaluation.
 fn eval_match<T: Evaluable>(
-    env: &Env,
+    env: &EnvRef,
     arms: Vec<MatchArm>,
     scrutinee: Value,
 ) -> EResult<T::Output> {
@@ -208,7 +204,11 @@ fn eval_match<T: Evaluable>(
 }
 
 /// Evaluates a field access expression.
-fn eval_field_access<T: Evaluable>(env: &Env, object: String, field: String) -> EResult<T::Output> {
+fn eval_field_access<T: Evaluable>(
+    env: &EnvRef,
+    object: String,
+    field: String,
+) -> EResult<T::Output> {
     let object_value = env.get_var(&object)?;
     let result = match object_value {
         Value::Graphic(g) => match g.ty {
@@ -252,7 +252,7 @@ impl Evaluable for ty::Any {
     fn from_value(value: Value) -> EResult<Self::Output> {
         Ok(value)
     }
-    fn eval_literal(env: &Env, literal: Literal) -> EResult<Self::Output> {
+    fn eval_literal(env: &EnvRef, literal: Literal) -> EResult<Self::Output> {
         Ok(match literal {
             Literal::Number(n) => Value::Number(n),
             Literal::String(s) => Value::String(s),
@@ -262,7 +262,7 @@ impl Evaluable for ty::Any {
         })
     }
     fn match_literal(
-        env: &mut Env,
+        env: &EnvRef,
         scrutinee: Self::Output,
         literal_pattern: Literal,
     ) -> EResult<bool> {
@@ -277,7 +277,7 @@ impl Evaluable for ty::Any {
         }
     }
     fn match_bin(
-        env: &mut Env,
+        env: &EnvRef,
         scrutinee: Self::Output,
         operator: op::Binary,
         left: Expr,
@@ -294,7 +294,7 @@ impl Evaluable for ty::Any {
         }
     }
     fn match_call(
-        env: &mut Env,
+        env: &EnvRef,
         scrutinee: Self::Output,
         function: Expr,
         args: Vec<Expr>,

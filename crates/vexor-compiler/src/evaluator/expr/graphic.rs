@@ -1,7 +1,7 @@
 use itertools::Itertools;
 
 use crate::evaluator::expr::{Evaluable, match_pattern};
-use crate::evaluator::{EResult, Env, Value, ty};
+use crate::evaluator::{EResult, EnvRef, Value, ty};
 use crate::ir::ast::{Expr, Literal, Std, op};
 use crate::ir::scene;
 
@@ -33,18 +33,18 @@ impl Evaluable for ty::Graphic {
             _ => Err("expected a graphic".to_string()),
         }
     }
-    fn eval_literal(_: &Env, _: Literal) -> EResult<Self::Output> {
+    fn eval_literal(_: &EnvRef, _: Literal) -> EResult<Self::Output> {
         // No graphic literals, they are created through Std functions
         Err("expected a graphic".to_string())
     }
-    fn match_literal(_: &mut Env, _: Self::Output, _: Literal) -> EResult<bool> {
+    fn match_literal(_: &EnvRef, _: Self::Output, _: Literal) -> EResult<bool> {
         Err("pattern not supported".to_string())
     }
-    fn match_bin(_: &mut Env, _: Self::Output, _: op::Binary, _: Expr, _: Expr) -> EResult<bool> {
+    fn match_bin(_: &EnvRef, _: Self::Output, _: op::Binary, _: Expr, _: Expr) -> EResult<bool> {
         Err("pattern not supported".to_string())
     }
     fn match_call(
-        env: &mut Env,
+        env: &EnvRef,
         scrutinee: Self::Output,
         function: Expr,
         args: Vec<Expr>,

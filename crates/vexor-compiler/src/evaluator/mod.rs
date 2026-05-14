@@ -2,7 +2,9 @@
 
 use crate::evaluator::expr::Evaluable;
 use crate::ir::Number;
+use std::cell::RefCell;
 use std::collections::HashMap;
+use std::rc::Rc;
 
 mod expr;
 mod program;
@@ -47,57 +49,72 @@ pub enum Value {
     Function(<ty::Function as Evaluable>::Output),
 }
 
-/// Context for evaluation
+/// Environment: Stores variable bindings
 #[derive(Debug, Clone)]
 pub struct Env {
-    pub parent: Option<Box<Env>>,
+    pub parent: Option<Rc<RefCell<Env>>>,
     pub scope: HashMap<String, Value>,
 }
-impl Env {
-    fn new() -> Self {
-        Self {
+trait EnvExt {
+    /// Create an empty environment
+    fn empty() -> Self;
+    /// Create a child scope
+    fn child_scope(&self) -> Self;
+    /// Get a variable
+    fn get_var(&self, name: &str) -> EResult<Value>;
+    /// Set a variable, errors if name already exists
+    fn set_var(&self, name: String, value: Value) -> EResult<()>;
+    /// Create a new scope with the given variables
+    ///   Adds the arguments to the variables scope
+    fn new_scope_function(&self, args: Vec<(String, Value)>) -> Self;
+}
+
+type EnvRef = Rc<RefCell<Env>>;
+impl EnvExt for EnvRef {
+    fn empty() -> Self {
+        Rc::new(RefCell::new(Env {
             parent: None,
             scope: HashMap::new(),
-        }
+        }))
     }
     fn child_scope(&self) -> Self {
-        Self {
-            parent: Some(Box::new(self.clone())),
+        Rc::new(RefCell::new(Env {
+            parent: Some(Rc::clone(self)),
             scope: HashMap::new(),
-        }
+        }))
     }
-
-    /// Get a variable
     fn get_var(&self, name: &str) -> EResult<Value> {
-        let current = self.scope.get(name);
+        let env = self.borrow();
+
+        let current = env.scope.get(name);
         if let Some(value) = current {
             return Ok(value.clone());
         }
         // Doesn't exist, fetch from parent instead
-        let Some(parent) = &self.parent else {
+        let Some(parent) = &env.parent else {
             // Parent doesn't exist
             return Err(format!("`{name}` not in scope"));
         };
         parent.get_var(name)
     }
-
-    /// Set a variable, errors if name already exists
-    fn set_var(&mut self, name: String, value: Value) -> EResult<()> {
-        let old = self.scope.insert(name.clone(), value);
+    fn set_var(&self, name: String, value: Value) -> EResult<()> {
+        let mut env = self.borrow_mut();
+        let old = env.scope.insert(name.clone(), value);
         match old {
             Some(_) => Err(format!("`{name}` already exists in scope")),
             None => Ok(()),
         }
     }
-
-    /// Create a new scope with the given variables
-    ///   Adds the arguments to the variables scope
     fn new_scope_function(&self, args: Vec<(String, Value)>) -> Self {
-        let mut this = self.child_scope();
-        for (name, arg) in args {
-            this.scope.insert(name.clone(), arg);
+        let child = self.child_scope();
+        {
+            // Borrow in scope, RAII ensures drop
+            let mut env = child.borrow_mut();
+            for (name, arg) in args {
+                env.scope.insert(name.clone(), arg);
+            }
         }
-        this
+        child
     }
 }
 

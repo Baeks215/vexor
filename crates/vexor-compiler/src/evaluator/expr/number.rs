@@ -1,5 +1,5 @@
 use crate::evaluator::expr::Evaluable;
-use crate::evaluator::{EResult, Env, Value, ty};
+use crate::evaluator::{EResult, EnvRef, Value, ty};
 use crate::ir::Number;
 use crate::ir::ast::{Expr, Literal, op};
 
@@ -14,14 +14,14 @@ impl Evaluable for ty::Number {
             _ => Err("expected a number".to_string()),
         }
     }
-    fn eval_literal(_: &Env, literal: Literal) -> EResult<Self::Output> {
+    fn eval_literal(_: &EnvRef, literal: Literal) -> EResult<Self::Output> {
         match literal {
             Literal::Number(n) => Ok(n),
             _ => Err("expected a number".to_string()),
         }
     }
     fn match_literal(
-        _: &mut Env,
+        _: &EnvRef,
         scrutinee: Self::Output,
         literal_pattern: Literal,
     ) -> EResult<bool> {
@@ -30,10 +30,10 @@ impl Evaluable for ty::Number {
             _ => Err("expected a number literal".to_string()),
         }
     }
-    fn match_bin(_: &mut Env, _: Self::Output, _: op::Binary, _: Expr, _: Expr) -> EResult<bool> {
+    fn match_bin(_: &EnvRef, _: Self::Output, _: op::Binary, _: Expr, _: Expr) -> EResult<bool> {
         Err("pattern not supported".to_string())
     }
-    fn match_call(_: &mut Env, _: Self::Output, _: Expr, _: Vec<Expr>) -> EResult<bool> {
+    fn match_call(_: &EnvRef, _: Self::Output, _: Expr, _: Vec<Expr>) -> EResult<bool> {
         Err("pattern not supported".to_string())
     }
 }
