@@ -1,10 +1,11 @@
 //! Evaluator: Typed AST -> Scene
 
-use crate::evaluator::expr::Evaluable;
-use crate::ir::{Number, ast};
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
+
+use crate::evaluator::expr::{Value, ty};
+use crate::ir::{Number, ast};
 
 mod expr;
 mod program;
@@ -16,38 +17,6 @@ type EError = String;
 
 /// Result type for evaluation
 type EResult<O> = Result<O, EError>;
-
-/// Marker Types used to annotate generics
-mod ty {
-    #[derive(Debug, Clone, Copy)]
-    pub struct Any;
-    #[derive(Debug, Clone, Copy)]
-    pub struct Number;
-    #[derive(Debug, Clone, Copy)]
-    pub struct String;
-    #[derive(Debug, Clone, Copy)]
-    pub struct Bool;
-    #[derive(Debug, Clone, Copy)]
-    pub struct Color;
-    #[derive(Debug, Clone, Copy)]
-    pub struct Graphic;
-    #[derive(Debug, Clone, Copy)]
-    pub struct List;
-    #[derive(Debug, Clone, Copy)]
-    pub struct Function;
-}
-
-/// Literal value types
-#[derive(Debug, Clone)]
-pub enum Value {
-    Number(<ty::Number as Evaluable>::Output),
-    String(<ty::String as Evaluable>::Output),
-    Bool(<ty::Bool as Evaluable>::Output),
-    Color(<ty::Color as Evaluable>::Output),
-    Graphic(<ty::Graphic as Evaluable>::Output),
-    List(<ty::List as Evaluable>::Output),
-    Function(<ty::Function as Evaluable>::Output),
-}
 
 #[derive(Debug, Clone)]
 enum Thunk {

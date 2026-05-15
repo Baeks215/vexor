@@ -24,7 +24,7 @@ pub fn eval_program(program: ast::Program) -> EResult<scene::Scene> {
                     func,
                     closure_env: env.clone(), // Clone reference,
                 };
-                env.set_var(identifier, Value::Function(func))?;
+                env.set_var(identifier, Value::from(func))?;
             }
             ast::ProgramUnit::Assignment { identifier, value } => {
                 env.set_var_lazy(identifier, value)?;

@@ -7,7 +7,7 @@ use crate::ir::Number;
 // --- Primitives ---
 
 /// Color Literal, typed
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Color {
     Rgba {
         r: Number,

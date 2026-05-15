@@ -1,6 +1,6 @@
-use crate::evaluator::expr::{Evaluable, eval, match_pattern};
-use crate::evaluator::{EResult, EnvRef, Value, to_int, ty};
-use crate::ir::ast::{Expr, ListLiteral, Literal, op};
+use crate::evaluator::expr::{Evaluable, Value, eval, ty};
+use crate::evaluator::{EResult, EnvRef, to_int};
+use crate::ir::ast::ListLiteral;
 
 /// Linked List node
 #[derive(Debug, Clone)]
@@ -33,103 +33,42 @@ impl<T: Clone> Iterator for ListIterator<T> {
     }
 }
 
-impl Evaluable for ty::List {
-    type Output = Box<ListNode<Value>>;
-    fn to_value(value: Self::Output) -> Value {
-        Value::List(value)
-    }
-    fn from_value(value: Value) -> EResult<Self::Output> {
-        match value {
-            Value::List(l) => Ok(l),
-            _ => Err("expected a list".to_string()),
-        }
-    }
-    fn eval_literal(env: &EnvRef, literal: Literal) -> EResult<Self::Output> {
-        match literal {
-            Literal::List(list) => {
-                match list {
-                    // Build Linked List from vector literal
-                    ListLiteral::List(exprs) => {
-                        let mut acc = Box::new(ListNode::Nil);
+pub fn eval_literal(
+    env: &EnvRef,
+    literal: ListLiteral,
+) -> EResult<<ty::List as Evaluable>::Output> {
+    match literal {
+        // Build Linked List from vector literal
+        ListLiteral::List(exprs) => {
+            let mut acc = Box::new(ListNode::Nil);
 
-                        // Iterate in reverse to build linked list
-                        for e in exprs.into_iter().rev() {
-                            let e = eval::<ty::Any>(env, e)?;
-                            acc = Box::new(ListNode::Cons(e, acc));
-                        }
-                        Ok(acc)
-                    }
-                    // Build Linked List from stepped range
-                    ListLiteral::Range { start, second, end } => {
-                        // Evaluate range bounds and convert to integers
-                        let start = eval::<ty::Number>(env, *start).and_then(to_int)?;
-                        let second = second
-                            .map(|e| eval::<ty::Number>(env, *e).and_then(to_int))
-                            .transpose()?;
-                        let end = eval::<ty::Number>(env, *end).and_then(to_int)?;
-
-                        let mut acc = Box::new(ListNode::Nil);
-
-                        // Iterate in reverse to build linked list
-                        let iter_rev = build_range_rev(start, second, end)?;
-                        for n in iter_rev {
-                            // Loss of precision for large numbers
-                            let value = Value::Number(n as f64);
-                            acc = Box::new(ListNode::Cons(value, acc));
-                        }
-                        Ok(acc)
-                    }
-                }
+            // Iterate in reverse to build linked list
+            for e in exprs.into_iter().rev() {
+                let e = eval::<ty::Any>(env, e)?;
+                acc = Box::new(ListNode::Cons(e, acc));
             }
-            _ => Err("expected a list".to_string()),
+            Ok(acc)
         }
-    }
-    fn match_literal(
-        env: &EnvRef,
-        scrutinee: Self::Output,
-        literal_pattern: Literal,
-    ) -> EResult<bool> {
-        match literal_pattern {
-            Literal::List(ListLiteral::List(ps)) => {
-                let mut node = scrutinee;
-                for item_pattern in ps.into_iter() {
-                    let ListNode::Cons(head, tail) = *node else {
-                        // Scrutinee is Nil, pattern is too long
-                        return Ok(false);
-                    };
-                    let matched = match_pattern::<ty::Any>(env, head, item_pattern)?;
-                    if !matched {
-                        return Ok(false);
-                    }
-                    node = tail;
-                }
-                match *node {
-                    ListNode::Nil => Ok(true),
-                    // Scrutinee still has items left, pattern is too short
-                    ListNode::Cons(_, _) => Ok(false),
-                }
+        // Build Linked List from stepped range
+        ListLiteral::Range { start, second, end } => {
+            // Evaluate range bounds and convert to integers
+            let start = eval::<ty::Number>(env, *start).and_then(to_int)?;
+            let second = second
+                .map(|e| eval::<ty::Number>(env, *e).and_then(to_int))
+                .transpose()?;
+            let end = eval::<ty::Number>(env, *end).and_then(to_int)?;
+
+            let mut acc = Box::new(ListNode::Nil);
+
+            // Iterate in reverse to build linked list
+            let iter_rev = build_range_rev(start, second, end)?;
+            for n in iter_rev {
+                // Loss of precision for large numbers
+                let value = Value::from(n as f64);
+                acc = Box::new(ListNode::Cons(value, acc));
             }
-            _ => Err("expected a list literal".to_string()),
+            Ok(acc)
         }
-    }
-    fn match_bin(
-        env: &EnvRef,
-        scrutinee: Self::Output,
-        operator: op::Binary,
-        left: Expr,
-        right: Expr,
-    ) -> EResult<bool> {
-        match operator {
-            op::Binary::Cons => match *scrutinee {
-                ListNode::Nil => Ok(false),
-                ListNode::Cons(head, tail) => Ok(match_pattern::<ty::Any>(env, head, left)?
-                    && match_pattern::<ty::List>(env, tail, right)?),
-            },
-            _ => Err("pattern not supported".to_string()),
-        }
-    }
-    fn match_call(_: &EnvRef, _: Self::Output, _: Expr, _: Vec<Expr>) -> EResult<bool> {
-        Err("pattern not supported".to_string())
     }
 }
 
