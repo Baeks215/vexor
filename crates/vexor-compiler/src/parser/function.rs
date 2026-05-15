@@ -13,7 +13,27 @@ pub fn p_std<'a>(input: &mut Input<'a>) -> ModalResult<ast::Std> {
         // Trig functions
         alt((k::pk_rad, k::pk_sin, k::pk_cos, k::pk_tan)),
         // List
-        k::pk_map,
+        alt((
+            k::pk_map,
+            k::pk_filter,
+            k::pk_flat_map,
+            k::pk_drop_while,
+            k::pk_drop,
+            k::pk_take_while,
+            k::pk_take,
+            k::pk_foldl,
+            k::pk_foldr,
+        )),
+        alt((
+            k::pk_zip_with,
+            k::pk_zip,
+            k::pk_enumerate,
+            k::pk_len,
+            k::pk_reverse,
+            k::pk_find,
+            k::pk_sort_by,
+            k::pk_sort,
+        )),
         // Graphic constructors
         alt((k::pk_circle, k::pk_rect, k::pk_text, k::pk_group)),
         // Graphic functions
