@@ -1,55 +1,23 @@
+use im_rc::Vector;
+
 use crate::evaluator::expr::{Evaluable, Value, eval, ty};
 use crate::evaluator::{EResult, EnvRef, to_int};
 use crate::ir::ast::ListLiteral;
 
-/// Linked List node
-#[derive(Debug, Clone)]
-pub enum ListNode<T: Clone> {
-    Nil,
-    Cons(T, Box<ListNode<T>>),
-}
-
-impl<T: Clone> IntoIterator for ListNode<T> {
-    type Item = T;
-    type IntoIter = ListIterator<T>;
-    fn into_iter(self) -> Self::IntoIter {
-        ListIterator { current: self }
-    }
-}
-
-pub struct ListIterator<T: Clone> {
-    current: ListNode<T>,
-}
-impl<T: Clone> Iterator for ListIterator<T> {
-    type Item = T;
-    fn next(&mut self) -> Option<Self::Item> {
-        match std::mem::replace(&mut self.current, ListNode::Nil) {
-            ListNode::Nil => None,
-            ListNode::Cons(item, next) => {
-                self.current = *next;
-                Some(item)
-            }
-        }
-    }
-}
+/// Internal list representation
+///   Persistent vector from im crate.
+///   Efficient prepending and iteration.
+pub type List = Vector<Value>;
 
 pub fn eval_literal(
     env: &EnvRef,
     literal: ListLiteral,
 ) -> EResult<<ty::List as Evaluable>::Output> {
     match literal {
-        // Build Linked List from vector literal
-        ListLiteral::List(exprs) => {
-            let mut acc = Box::new(ListNode::Nil);
-
-            // Iterate in reverse to build linked list
-            for e in exprs.into_iter().rev() {
-                let e = eval::<ty::Any>(env, e)?;
-                acc = Box::new(ListNode::Cons(e, acc));
-            }
-            Ok(acc)
-        }
-        // Build Linked List from stepped range
+        ListLiteral::List(exprs) => exprs
+            .into_iter()
+            .map(|e| eval::<ty::Any>(env, e))
+            .collect::<Result<List, _>>(),
         ListLiteral::Range { start, second, end } => {
             // Evaluate range bounds and convert to integers
             let start = eval::<ty::Number>(env, *start).and_then(to_int)?;
@@ -58,28 +26,22 @@ pub fn eval_literal(
                 .transpose()?;
             let end = eval::<ty::Number>(env, *end).and_then(to_int)?;
 
-            let mut acc = Box::new(ListNode::Nil);
-
             // Iterate in reverse to build linked list
-            let iter_rev = build_range_rev(start, second, end)?;
-            for n in iter_rev {
-                // Loss of precision for large numbers
-                let value = Value::from(n as f64);
-                acc = Box::new(ListNode::Cons(value, acc));
-            }
-            Ok(acc)
+            let range = build_range(start, second, end)?;
+            Ok(range
+                .map(|n| {
+                    // Accept loss of precision at extremes by casting
+                    Value::from(n as f64)
+                })
+                .collect::<List>())
         }
     }
 }
 
 // --- Helpers --- //
 
-/// Builds a range of integers in reverse
-fn build_range_rev(
-    start: i64,
-    second: Option<i64>,
-    end: i64,
-) -> EResult<impl Iterator<Item = i64>> {
+/// Builds a range of integers
+fn build_range(start: i64, second: Option<i64>, end: i64) -> EResult<impl Iterator<Item = i64>> {
     let step = match second {
         Some(s) => s - start,
         None => {
@@ -102,9 +64,6 @@ fn build_range_rev(
 
     // Normalise end to be the last element in the range
     let end = total_range / step * step + start;
-
-    // Switch to reverse
-    let (start, end, step) = (end, start, -step);
 
     Ok(std::iter::successors(Some(start), move |&prev| {
         let next = prev + step;

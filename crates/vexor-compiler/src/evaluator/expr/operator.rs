@@ -1,4 +1,4 @@
-use crate::evaluator::expr::{Evaluable, Value, eval, list, ty};
+use crate::evaluator::expr::{Evaluable, Value, eval, ty};
 use crate::evaluator::{EResult, EnvRef};
 use crate::ir::ast::{Expr, op};
 
@@ -43,8 +43,9 @@ pub fn eval_op_bin<T: Evaluable>(
         }
         op::Binary::Cons => {
             let head = eval::<ty::Any>(env, left)?;
-            let tail = eval::<ty::List>(env, right)?;
-            Value::from(Box::new(list::ListNode::Cons(head, tail)))
+            let mut tail = eval::<ty::List>(env, right)?;
+            tail.push_front(head); // Effective O(1)
+            Value::from(tail)
         }
     };
     T::expect(result)

@@ -1,7 +1,7 @@
 use itertools::Itertools;
 use kurbo::Affine;
 
-use crate::evaluator::expr::list::ListNode;
+use crate::evaluator::expr::list::List;
 use crate::evaluator::expr::{Evaluable, Value, eval, ty};
 use crate::evaluator::{EResult, EnvExt, EnvRef};
 use crate::ir::ast::{self, Function, Std};
@@ -175,15 +175,9 @@ fn eval_std_lambda<T: Evaluable>(
             let values = list
                 .into_iter()
                 .map(|item| eval_call::<ty::Any>(env, func.clone(), vec![item]))
-                .collect::<Result<Vec<_>, _>>()?;
+                .collect::<Result<List, _>>()?;
 
-            // Rebuild nodes in reverse order
-            let mut acc = Box::new(ListNode::Nil);
-            for item in values.into_iter().rev() {
-                acc = Box::new(ListNode::Cons(item, acc));
-            }
-
-            Value::List(acc)
+            Value::List(values)
         }
         // Graphic transforms
         StdLambda::Move { x, y } => {

@@ -2,7 +2,7 @@ use std::fmt::Debug;
 
 use crate::evaluator::EResult;
 use crate::evaluator::expr::Callable;
-use crate::evaluator::expr::list::ListNode;
+use crate::evaluator::expr::list::List;
 use crate::ir::{Number, scene};
 
 pub trait Evaluable {
@@ -69,6 +69,6 @@ define_value_types! {
     Bool(bool),
     Color(scene::Color),
     Graphic(scene::Graphic),
-    List(Box<ListNode<Value>>),
+    List(List),
     Function(Callable),
 }
