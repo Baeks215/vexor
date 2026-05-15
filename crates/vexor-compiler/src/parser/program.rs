@@ -6,14 +6,12 @@ use winnow::{ModalResult, Parser, Result};
 
 use crate::ir::ast::{self, ProgramUnit};
 use crate::parser::expr::p_expr;
-use crate::parser::keyword::{pk_export, pk_fn, pk_val, pk_where};
-use crate::parser::{
-    Input, ParserExt, braced, bracketed, comma_list, exp_string, expected, newline1, p_identifier,
-    p_mws,
-};
+use crate::parser::function::p_function_def;
+use crate::parser::keyword::{pk_export, pk_val};
+use crate::parser::{Input, ParserExt, exp_string, expected, newline1, p_identifier, p_mws};
 
 /// Parses variable assignment `x = expr`
-fn p_assignment_raw<'a>(input: &mut Input<'a>) -> ModalResult<(String, ast::Expr)> {
+pub fn p_assignment_raw<'a>(input: &mut Input<'a>) -> ModalResult<(String, ast::Expr)> {
     (
         p_identifier.map(str::to_string).ws(),
         preceded(exp_string("=").mws(), cut_err(p_expr)),
@@ -24,35 +22,6 @@ fn p_assignment_raw<'a>(input: &mut Input<'a>) -> ModalResult<(String, ast::Expr
 /// Parses variable assignment with `let x = expr`
 fn p_assignment<'a>(input: &mut Input<'a>) -> ModalResult<(String, ast::Expr)> {
     preceded(pk_val.ws(), cut_err(p_assignment_raw)).parse_next(input)
-}
-
-/// Parses a function definition `fn name(params) = expr`
-///   Optional where clause `where { x = a \n ... }`
-fn p_function_def<'a>(input: &mut Input<'a>) -> ModalResult<(String, ast::Function)> {
-    (preceded(
-        pk_fn.ws(),
-        cut_err((
-            p_identifier,                                  // function name
-            bracketed(comma_list(0.., p_identifier)).ws(), // parameters
-            preceded(exp_string("=").mws(), p_expr),       // return expression
-            opt(preceded(
-                (p_mws, pk_where.ws()),
-                cut_err(braced(separated(0.., p_assignment_raw, newline1))),
-            )), // where scope
-        )),
-    ))
-    .ws()
-    .map(|(name, params, return_expr, scope): (_, Vec<&str>, _, _)| {
-        (
-            name.to_string(),
-            ast::Function {
-                params: params.into_iter().map(str::to_string).collect(),
-                scope: scope.unwrap_or_default(),
-                return_expr: Box::new(return_expr),
-            },
-        )
-    })
-    .parse_next(input)
 }
 
 /// Parses an export `export expr`

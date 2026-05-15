@@ -11,10 +11,10 @@ use winnow::{ModalResult, Parser};
 use crate::ir::Number;
 use crate::ir::ast;
 use crate::ir::ast::op;
-use crate::parser::keyword as k;
-use crate::parser::square_braced;
-use crate::parser::{Input, ParserExt, braced, bracketed, exp_string};
-use crate::parser::{comma_list, p_identifier};
+use crate::parser::function::{p_lambda, p_std};
+use crate::parser::{
+    Input, ParserExt, comma_list, delim, delim_cut, exp_string, keyword as k, p_identifier,
+};
 
 // --- Primitives ---
 
@@ -55,14 +55,16 @@ pub fn p_bool<'a>(input: &mut Input<'a>) -> ModalResult<bool> {
 pub fn p_color<'a>(input: &mut Input<'a>) -> ModalResult<ast::Color> {
     preceded(
         k::pk_rgb,
-        cut_err(bracketed(comma_list(4, p_expr).map(
-            |mut es: Vec<ast::Expr>| ast::Color::Rgba {
+        cut_err(delim(
+            '(',
+            comma_list(4, p_expr).map(|mut es: Vec<ast::Expr>| ast::Color::Rgba {
                 r: Box::new(es.remove(0)),
                 g: Box::new(es.remove(0)),
                 b: Box::new(es.remove(0)),
                 a: Box::new(es.remove(0)),
-            },
-        ))),
+            }),
+            ')',
+        )),
     )
     .label("color")
     .ws()
@@ -73,19 +75,23 @@ pub fn p_color<'a>(input: &mut Input<'a>) -> ModalResult<ast::Color> {
 pub fn p_list<'a>(input: &mut Input<'a>) -> ModalResult<ast::ListLiteral> {
     alt((
         k::pk_nil.map(|_| ast::ListLiteral::List(vec![])),
-        square_braced(alt((
-            (
-                p_expr.mws(),
-                opt(preceded(','.mws(), cut_err(p_expr).mws())),
-                preceded("..".mws(), cut_err(p_expr)),
-            )
-                .map(|(start, second, end)| ast::ListLiteral::Range {
-                    start: Box::new(start),
-                    second: second.map(|s| Box::new(s)),
-                    end: Box::new(end),
-                }),
-            comma_list(0.., p_expr).map(|es| ast::ListLiteral::List(es)),
-        ))),
+        delim_cut(
+            '[',
+            alt((
+                (
+                    p_expr.mws(),
+                    opt(preceded(','.mws(), cut_err(p_expr).mws())),
+                    preceded("..".mws(), cut_err(p_expr)),
+                )
+                    .map(|(start, second, end)| ast::ListLiteral::Range {
+                        start: Box::new(start),
+                        second: second.map(|s| Box::new(s)),
+                        end: Box::new(end),
+                    }),
+                comma_list(0.., p_expr).map(|es| ast::ListLiteral::List(es)),
+            )),
+            ']',
+        ),
     ))
     .label("list")
     .expected("comma-separated list")
@@ -98,28 +104,6 @@ pub fn p_list<'a>(input: &mut Input<'a>) -> ModalResult<ast::ListLiteral> {
 /// Parses a constant.
 pub fn p_constant<'a>(input: &mut Input<'a>) -> ModalResult<ast::Const> {
     k::pk_pi.ws().parse_next(input)
-}
-
-/// Parses a std function.
-pub fn p_std<'a>(input: &mut Input<'a>) -> ModalResult<ast::Std> {
-    alt((
-        // Trig functions
-        alt((k::pk_rad, k::pk_sin, k::pk_cos, k::pk_tan)),
-        // List
-        k::pk_map,
-        // Graphic constructors
-        alt((k::pk_circle, k::pk_rect, k::pk_text, k::pk_group)),
-        // Graphic functions
-        alt((
-            k::pk_move,
-            k::pk_scale,
-            k::pk_rotate,
-            k::pk_fill,
-            k::pk_stroke,
-        )),
-    ))
-    .ws()
-    .parse_next(input)
 }
 
 /// Parses a literal expression.
@@ -154,7 +138,7 @@ pub fn p_match_arm<'a>(input: &mut Input<'a>) -> ModalResult<ast::MatchArm> {
 pub fn p_match<'a>(input: &mut Input<'a>) -> ModalResult<ast::Expr> {
     preceded(
         k::pk_match.ws(),
-        cut_err((p_expr, braced(comma_list(1.., p_match_arm)))),
+        cut_err((p_expr, delim('{', comma_list(1.., p_match_arm), '}'))),
     )
     .ws()
     .map(
@@ -172,8 +156,8 @@ pub fn p_if<'a>(input: &mut Input<'a>) -> ModalResult<ast::Expr> {
         k::pk_if.ws(),
         cut_err((
             p_expr,
-            braced(p_expr).ws(),
-            preceded(k::pk_else.ws(), braced(p_expr)),
+            delim('{', p_expr, '}').ws(),
+            preceded(k::pk_else.ws(), delim('{', p_expr, '}')),
         )),
     )
     .ws()
@@ -201,31 +185,11 @@ pub fn p_identifier_or_field<'a>(input: &mut Input<'a>) -> ModalResult<ast::Expr
         .parse_next(input)
 }
 
-/// Parses a lambda expression
-pub fn p_lambda<'a>(input: &mut Input<'a>) -> ModalResult<ast::Expr> {
-    (
-        alt((
-            p_identifier.map(|id| vec![id.to_string()]),
-            bracketed(comma_list(0.., p_identifier.map(str::to_string))),
-        ))
-        .mws(),
-        preceded("->".mws(), cut_err(p_expr).label("lambda body")),
-    )
-        .map(|(params, e)| {
-            ast::Expr::Function(ast::Function {
-                params,
-                scope: vec![],
-                return_expr: Box::new(e),
-            })
-        })
-        .parse_next(input)
-}
-
 /// Parses an atom.
 pub fn p_atom<'a>(input: &mut Input<'a>) -> ModalResult<ast::Expr> {
     alt((
-        p_lambda,
-        bracketed(p_expr).ws(),
+        p_lambda.map(ast::Expr::Function),
+        delim('(', p_expr, ')').ws(),
         p_constant.map(ast::Expr::Const),
         p_std.map(ast::Expr::Std),
         p_literal.map(ast::Expr::Literal),
@@ -268,7 +232,7 @@ pub fn p_expr<'a>(input: &mut Input<'a>) -> ModalResult<ast::Expr> {
     })
     .postfix(dispatch! { peek("(");
         "(" => Postfix(12, |input, e| {
-            let args: Vec<_> = bracketed(comma_list(0.., p_expr))
+            let args: Vec<_> = delim('(',comma_list(0.., p_expr),')')
                     .ws()
                     .parse_next(input)?;
             Ok(ast::Expr::Call {
