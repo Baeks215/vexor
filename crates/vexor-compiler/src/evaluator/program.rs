@@ -9,6 +9,9 @@ use crate::ir::{ast, scene};
 /// Evaluates a program, returns the result of the last expression.
 pub fn eval_program(program: ast::Program) -> EResult<scene::Scene> {
     let env = EnvRef::empty();
+    let mut settings = scene::Settings {
+        canvas: (1000, 1000), // Default canvas size
+    };
     let ast::Program { units } = program;
 
     let mut exports: Vec<ast::Expr> = Vec::new();
@@ -32,6 +35,9 @@ pub fn eval_program(program: ast::Program) -> EResult<scene::Scene> {
             ast::ProgramUnit::Export(e) => {
                 exports.push(e);
             }
+            ast::ProgramUnit::Setting(setting) => match setting {
+                ast::Setting::Canvas { width, height } => settings.canvas = (width, height),
+            },
         }
     }
 
@@ -40,5 +46,8 @@ pub fn eval_program(program: ast::Program) -> EResult<scene::Scene> {
         .map(|e| expr::eval::<ty::Graphic>(&env, e))
         .collect::<Result<Vec<_>, _>>()?;
 
-    Ok(scene::Scene { exports: exported })
+    Ok(scene::Scene {
+        exports: exported,
+        settings,
+    })
 }

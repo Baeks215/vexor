@@ -169,7 +169,13 @@ pub struct MatchArm {
 // --- Program ---
 
 #[derive(Debug, Clone)]
+pub enum Setting {
+    Canvas { width: usize, height: usize },
+}
+
+#[derive(Debug, Clone)]
 pub enum ProgramUnit {
+    Setting(Setting),
     Assignment { identifier: String, value: Expr },
     Function { identifier: String, func: Function },
     Export(Expr),
