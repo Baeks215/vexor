@@ -101,7 +101,13 @@ pub struct Stroke {
 
 // --- Scene ---
 
+#[derive(Debug, Clone, Copy)]
+pub struct Settings {
+    pub canvas: (usize, usize),
+}
+
 #[derive(Debug, Clone)]
 pub struct Scene {
     pub exports: Vec<Graphic>,
+    pub settings: Settings,
 }

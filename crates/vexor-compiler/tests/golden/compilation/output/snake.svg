@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg">
+<svg height="1000" viewBox="-500 -500 1000 1000" width="1000" xmlns="http://www.w3.org/2000/svg">
 <g fill="rgba(0,0,0,1)" transform="matrix(1 0 0 1 500 500)" vector-effect="non-scaling-stroke">
 <circle cx="0" cy="0" fill="rgba(4,0,251,1)" r="0.027777777777777776" transform="matrix(1 0 0 1 6.401135244335773 -1.8627699879928392)" vector-effect="non-scaling-stroke"/>
 <circle cx="0" cy="0" fill="rgba(9,0,247,1)" r="0.1111111111111111" transform="matrix(1 0 0 1 11.251386116433228 -7.1543055733391325)" vector-effect="non-scaling-stroke"/>

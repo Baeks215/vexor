@@ -1,13 +1,25 @@
 // Translator for svg export
 
-use crate::ir::scene::{Color, Graphic, GraphicType, Stroke, Style};
+use crate::ir::scene::{Color, Graphic, GraphicType, Settings, Stroke, Style};
 use kurbo::Affine;
 use svg::node::element as svg_el;
 
 type Attribute = (&'static str, String);
 
-pub fn export_to_svg(graphic: Graphic) -> String {
-    translate_graphic(svg::Document::new(), graphic).to_string()
+pub fn export_to_svg(graphic: Graphic, settings: Settings) -> String {
+    let Settings {
+        canvas: (width, height),
+    } = settings;
+    let min_x = -(width as isize) / 2;
+    let min_y = -(height as isize) / 2;
+    let doc = svg::Document::new()
+        .set("width", width)
+        .set("height", height)
+        .set(
+            "viewBox",
+            format!("{} {} {} {}", min_x, min_y, width, height),
+        );
+    translate_graphic(doc, graphic).to_string()
 }
 
 /// Applies vector of attributes to an SVG node

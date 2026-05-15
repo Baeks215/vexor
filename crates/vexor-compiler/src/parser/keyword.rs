@@ -47,6 +47,7 @@ macro_rules! define_keywords {
 
 define_keywords! {
     // Defined keywords
+    pk_set => "set",
     pk_val => "val",
     pk_export => "export",
     pk_fn => "fn",

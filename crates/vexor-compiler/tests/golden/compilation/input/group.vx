@@ -1,3 +1,5 @@
+set canvas(400, 400)
+
 val circle = Circle(10)
 val group = Group([
     Rect(5, 5),
