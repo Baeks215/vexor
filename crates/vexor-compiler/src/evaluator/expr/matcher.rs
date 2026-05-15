@@ -82,6 +82,17 @@ fn match_literal_pattern(env: &EnvRef, scrutinee: Value, pattern: Literal) -> ER
             }
             Ok(true)
         }
+        (Value::Tuple(s), Literal::Tuple(ps)) => {
+            if s.len() != ps.len() {
+                return Ok(false);
+            }
+            for (s_i, p_i) in s.into_iter().zip(ps) {
+                if !match_pattern(env, s_i, p_i)? {
+                    return Ok(false);
+                }
+            }
+            Ok(true)
+        }
         // Non-matches
         _ => Ok(false),
     }

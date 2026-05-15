@@ -71,4 +71,5 @@ define_value_types! {
     Graphic(scene::Graphic),
     List(List),
     Function(Callable),
+    Tuple(Box<[Value]>),
 }

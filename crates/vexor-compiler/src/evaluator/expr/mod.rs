@@ -86,6 +86,13 @@ fn eval_literal<T: Evaluable>(env: &EnvRef, literal: Literal) -> EResult<T::Outp
             })
         }
         Literal::List(l) => Value::List(list::eval_literal(env, l)?),
+        Literal::Tuple(exprs) => {
+            let values: Box<[Value]> = exprs
+                .into_iter()
+                .map(|e| eval::<ty::Any>(env, e))
+                .collect::<Result<_, _>>()?;
+            Value::Tuple(values)
+        }
     };
     T::expect(result)
 }

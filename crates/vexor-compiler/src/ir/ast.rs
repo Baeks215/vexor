@@ -80,6 +80,7 @@ pub enum Literal {
     Bool(bool),
     Color(Color),
     List(ListLiteral),
+    Tuple(Vec<Expr>),
 }
 
 /// Expression

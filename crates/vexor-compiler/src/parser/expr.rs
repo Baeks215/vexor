@@ -185,11 +185,24 @@ pub fn p_identifier_or_field<'a>(input: &mut Input<'a>) -> ModalResult<ast::Expr
         .parse_next(input)
 }
 
+fn p_tuple_or_bracketed<'a>(input: &mut Input<'a>) -> ModalResult<ast::Expr> {
+    delim('(', comma_list(1.., p_expr), ')')
+        .map(|mut es: Vec<ast::Expr>| {
+            if es.len() == 1 {
+                es.pop().unwrap()
+            } else {
+                ast::Expr::Literal(ast::Literal::Tuple(es))
+            }
+        })
+        .ws()
+        .parse_next(input)
+}
+
 /// Parses an atom.
 pub fn p_atom<'a>(input: &mut Input<'a>) -> ModalResult<ast::Expr> {
     alt((
         p_lambda.map(ast::Expr::Function),
-        delim('(', p_expr, ')').ws(),
+        p_tuple_or_bracketed,
         p_constant.map(ast::Expr::Const),
         p_std.map(ast::Expr::Std),
         p_literal.map(ast::Expr::Literal),
