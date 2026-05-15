@@ -6,55 +6,22 @@ use winnow::{ModalResult, Parser, Result};
 
 use crate::ir::ast::{self, ProgramUnit};
 use crate::parser::expr::p_expr;
-use crate::parser::keyword::{pk_export, pk_fn, pk_let, pk_where};
-use crate::parser::{
-    Input, ParserExt, braced, bracketed, comma_list, exp_string, expected, newline1, p_identifier,
-    p_mws,
-};
+use crate::parser::function::p_function_def;
+use crate::parser::keyword::{pk_export, pk_val};
+use crate::parser::{Input, ParserExt, exp_string, expected, newline1, p_identifier, p_mws};
 
 /// Parses variable assignment `x = expr`
-fn p_assignment_raw<'a>(input: &mut Input<'a>) -> ModalResult<ast::Assignment> {
+pub fn p_assignment_raw<'a>(input: &mut Input<'a>) -> ModalResult<(String, ast::Expr)> {
     (
-        p_identifier.ws(),
+        p_identifier.map(str::to_string).ws(),
         preceded(exp_string("=").mws(), cut_err(p_expr)),
     )
-        .map(|(i, e)| ast::Assignment {
-            identifier: i.to_string(),
-            value: e,
-        })
         .parse_next(input)
 }
 
 /// Parses variable assignment with `let x = expr`
-fn p_assignment<'a>(input: &mut Input<'a>) -> ModalResult<ast::Assignment> {
-    preceded(pk_let.ws(), cut_err(p_assignment_raw)).parse_next(input)
-}
-
-/// Parses a function definition `fn name(params) = expr`
-///   Optional where clause `where { x = a \n ... }`
-fn p_function<'a>(input: &mut Input<'a>) -> ModalResult<ast::Function> {
-    (preceded(
-        pk_fn.ws(),
-        cut_err((
-            p_identifier,                                  // function name
-            bracketed(comma_list(0.., p_identifier)).ws(), // parameters
-            preceded(exp_string("=").mws(), p_expr),       // return expression
-            opt(preceded(
-                (p_mws, pk_where.ws()),
-                cut_err(braced(separated(0.., p_assignment_raw, newline1))),
-            )), // where scope
-        )),
-    ))
-    .ws()
-    .map(
-        |(name, params, return_expr, scope): (_, Vec<&str>, _, _)| ast::Function {
-            name: name.to_string(),
-            params: params.into_iter().map(str::to_string).collect(),
-            scope: scope.unwrap_or_default(),
-            return_expr: return_expr,
-        },
-    )
-    .parse_next(input)
+fn p_assignment<'a>(input: &mut Input<'a>) -> ModalResult<(String, ast::Expr)> {
+    preceded(pk_val.ws(), cut_err(p_assignment_raw)).parse_next(input)
 }
 
 /// Parses an export `export expr`
@@ -71,8 +38,8 @@ fn p_program<'a>(input: &mut Input<'a>) -> ModalResult<ast::Program> {
     let units: Vec<_> = separated(
         1..,
         alt((
-            p_function.map(|f| ProgramUnit::Function(f)),
-            p_assignment.map(|s| ProgramUnit::Assignment(s)),
+            p_function_def.map(|(identifier, func)| ProgramUnit::Function { identifier, func }),
+            p_assignment.map(|(identifier, value)| ProgramUnit::Assignment { identifier, value }),
             p_export.map(|e| {
                 export_count += 1;
                 ProgramUnit::Export(e)

@@ -19,7 +19,7 @@ fn test_golden_compilation() {
         let outputs = match compile_to_svg(&source) {
             Ok(outputs) => outputs,
             Err(e) => {
-                panic!("Expected compilation to succeed\n{e}")
+                panic!("Expected compilation to succeed for {name_stem}:\n\n{e}")
             }
         };
 

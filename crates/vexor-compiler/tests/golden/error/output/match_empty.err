@@ -1,5 +1,5 @@
 parse error at line 3, column 24
   |
-3 | let result = match r { }
+3 | val result = match r { }
   |                        ^
 invalid match arm

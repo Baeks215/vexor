@@ -1,41 +1,44 @@
 //! Evaluator for program
 
-use crate::evaluator::{Context, EResult, expr, ty};
-use crate::ir::{ast, scene};
+use itertools::Itertools;
 
-pub fn eval_assignment(context: &mut Context, statement: ast::Assignment) -> EResult<()> {
-    match statement {
-        ast::Assignment { identifier, value } => {
-            let evaluated = expr::eval::<ty::Any>(context, value)?;
-            let old = context.set_var(identifier, evaluated);
-            if let Some(_) = old {
-                return Err("variable already exists".to_string());
-            }
-            Ok(())
-        }
-    }
-}
+use crate::evaluator::expr::Callable;
+use crate::evaluator::{EResult, EnvExt, EnvRef, Value, expr, ty};
+use crate::ir::{ast, scene};
 
 /// Evaluates a program, returns the result of the last expression.
 pub fn eval_program(program: ast::Program) -> EResult<scene::Scene> {
-    let mut context = Context::new();
+    let env = EnvRef::empty();
     let ast::Program { units } = program;
 
-    let mut exported: Vec<scene::Graphic> = Vec::new();
+    let mut exports: Vec<ast::Expr> = Vec::new();
     for unit in units {
         match unit {
-            ast::ProgramUnit::Function(func) => {
-                context.add_function(func);
+            ast::ProgramUnit::Function { identifier, func } => {
+                if !func.params.iter().all_unique() {
+                    return Err(format!(
+                        "function {identifier} has duplicate parameter names"
+                    ));
+                }
+                let func = Callable::User {
+                    func,
+                    closure_env: env.clone(), // Clone reference,
+                };
+                env.set_var(identifier, Value::Function(func))?;
             }
-            ast::ProgramUnit::Assignment(assignment) => {
-                eval_assignment(&mut context, assignment)?;
+            ast::ProgramUnit::Assignment { identifier, value } => {
+                env.set_var_lazy(identifier, value)?;
             }
-            ast::ProgramUnit::Export(export) => {
-                let evaluated = expr::eval::<ty::Graphic>(&context, export)?;
-                exported.push(evaluated);
+            ast::ProgramUnit::Export(e) => {
+                exports.push(e);
             }
         }
     }
+
+    let exported: Vec<_> = exports
+        .into_iter()
+        .map(|e| expr::eval::<ty::Graphic>(&env, e))
+        .collect::<Result<Vec<_>, _>>()?;
 
     Ok(scene::Scene { exports: exported })
 }

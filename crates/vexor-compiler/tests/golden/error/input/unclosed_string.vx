@@ -1,3 +1,3 @@
 // unclosed string
-let label = "hello
+val label = "hello
 export Circle(10)

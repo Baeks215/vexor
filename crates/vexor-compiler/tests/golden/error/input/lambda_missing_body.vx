@@ -1,5 +1,5 @@
-// missing = body
-fn double(x)
+// missing body
+val double = x ->
 
 val result = double(10)
 export Circle(result)

@@ -1,5 +1,5 @@
-let r = 100
+val r = 100
 // duplicate variable r
-let r = 200
-let c = Circle(r)
+val r = 200
+val c = Circle(r)
 export c

@@ -1,0 +1,7 @@
+// OUTPUT: 10
+
+export Circle(a)
+
+val a = b + 3
+val b = 7
+val c = 10 / 0 // Should not be evaluated

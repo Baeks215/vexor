@@ -1,19 +1,19 @@
 //! Common parser utilities.
 
 use winnow::ascii::{line_ending, multispace1, space1, till_line_ending};
-use winnow::combinator::{alt, cut_err, delimited, repeat, separated, terminated};
+use winnow::combinator::{alt, cut_err, delimited, preceded, repeat, separated, terminated};
 use winnow::error::{AddContext, ContextError, ErrMode, StrContext, StrContextValue};
 use winnow::stream::Stream;
 use winnow::stream::{Accumulate, Range};
 use winnow::token::take_while;
 use winnow::{LocatingSlice, ModalParser, ModalResult, Parser};
 
-mod call;
 mod expr;
+mod function;
 mod keyword;
 mod program;
 
-pub use program::*;
+pub use program::parse_program;
 
 /// Parser input type with location information.
 type Input<'a> = LocatingSlice<&'a str>;
@@ -111,42 +111,33 @@ fn exp_string<'a>(lit: &'static str) -> impl ModalParser<Input<'a>, &'a str, Con
     lit.expected_lit(lit)
 }
 
-/// Parse between brackets "()"
+/// Parse between char delimiters
 ///   Can be across multiple lines
-fn bracketed<'a, F, O>(inner: F) -> impl ModalParser<Input<'a>, O, ContextError>
+fn delim<'a, F, O>(
+    left: char,
+    inner: F,
+    right: char,
+) -> impl ModalParser<Input<'a>, O, ContextError>
 where
     F: ModalParser<Input<'a>, O, ContextError>,
 {
-    delimited(
-        (exp_char('('), p_mws),
-        cut_err(inner),
-        (p_mws, cut_err(exp_char(')'))),
-    )
+    delimited((exp_char(left), p_mws), inner, (p_mws, exp_char(right)))
 }
 
-/// Parse between braces "{}"
+/// Parse between char delimiters
+///   Commits if the left delimiter is found
 ///   Can be across multiple lines
-fn braced<'a, F, O>(inner: F) -> impl ModalParser<Input<'a>, O, ContextError>
+fn delim_cut<'a, F, O>(
+    left: char,
+    inner: F,
+    right: char,
+) -> impl ModalParser<Input<'a>, O, ContextError>
 where
     F: ModalParser<Input<'a>, O, ContextError>,
 {
-    delimited(
-        (exp_char('{'), p_mws),
-        cut_err(inner),
-        (p_mws, cut_err(exp_char('}'))),
-    )
-}
-
-/// Parse between braces "[]"
-///   Can be across multiple lines
-fn square_braced<'a, F, O>(inner: F) -> impl ModalParser<Input<'a>, O, ContextError>
-where
-    F: ModalParser<Input<'a>, O, ContextError>,
-{
-    delimited(
-        (exp_char('['), p_mws),
-        cut_err(inner),
-        (p_mws, cut_err(exp_char(']'))),
+    preceded(
+        (exp_char(left), p_mws),
+        cut_err(terminated(inner, (p_mws, exp_char(right)))),
     )
 }
 
@@ -194,7 +185,7 @@ mod tests {
         assert!(p_identifier.parse_next(&mut input).is_err());
 
         // Invalid identifier starts is a keyword
-        let mut input = Input::new("let");
+        let mut input = Input::new("val");
         assert!(p_identifier.parse_next(&mut input).is_err());
 
         let mut input = Input::new("export");
@@ -218,50 +209,38 @@ mod tests {
     }
 
     #[test]
-    fn test_bracketed() {
+    fn test_delim() {
         let mut input = Input::new("(foo)");
-        assert_eq!(bracketed("foo").parse_next(&mut input).unwrap(), "foo");
+        assert_eq!(
+            delim('(', "foo", ')').parse_next(&mut input).unwrap(),
+            "foo"
+        );
         assert_eq!(*input, "");
 
         let mut input = Input::new("((foo))");
         assert_eq!(
-            bracketed(bracketed("foo")).parse_next(&mut input).unwrap(),
+            delim('(', delim('(', "foo", ')'), ')')
+                .parse_next(&mut input)
+                .unwrap(),
             "foo"
         );
         assert_eq!(*input, "");
 
         // Whitespace inside brackets
         let mut input = Input::new("( foo )");
-        assert_eq!(bracketed("foo").parse_next(&mut input).unwrap(), "foo");
+        assert_eq!(
+            delim('(', "foo", ')').parse_next(&mut input).unwrap(),
+            "foo"
+        );
         assert_eq!(*input, "");
 
         let mut input = Input::new("( ( foo ) )");
         assert_eq!(
-            bracketed(bracketed("foo")).parse_next(&mut input).unwrap(),
+            delim('(', delim('(', "foo", ')'), ')')
+                .parse_next(&mut input)
+                .unwrap(),
             "foo"
         );
         assert_eq!(*input, "");
-    }
-
-    #[test]
-    fn test_braced() {
-        let mut input = Input::new("{foo}");
-        assert_eq!(braced("foo").parse_next(&mut input).unwrap(), "foo");
-        assert_eq!(*input, "");
-
-        // Whitespace inside braces
-        let mut input = Input::new("{ foo }");
-        assert_eq!(braced("foo").parse_next(&mut input).unwrap(), "foo");
-        assert_eq!(*input, "");
-
-        // Newlines inside braces
-        let mut input = Input::new("{\n  foo\n}");
-        assert_eq!(braced("foo").parse_next(&mut input).unwrap(), "foo");
-        assert_eq!(*input, "");
-
-        // braced does NOT consume trailing whitespace after `}`
-        let mut input = Input::new("{foo}\n");
-        assert_eq!(braced("foo").parse_next(&mut input).unwrap(), "foo");
-        assert_eq!(*input, "\n");
     }
 }

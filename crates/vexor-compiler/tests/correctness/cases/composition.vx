@@ -1,0 +1,20 @@
+// OUTPUT: 10, 10, 10, 10
+
+// Curried function definition
+fn scaler(factor)(x) = factor * x
+val doubler = scaler(2)
+
+// Same way to call functions
+val r1 = doubler(5)
+val r2 = scaler(2)(5)
+val r3 = 5 >> scaler(2)
+
+export Circle(r1)
+export Circle(r2)
+export Circle(r3)
+
+// Lambda version
+val scalerL = (factor)(x) -> factor * x
+val r4 = 5 >> (2 >> scalerL)
+
+export Circle(r3)
