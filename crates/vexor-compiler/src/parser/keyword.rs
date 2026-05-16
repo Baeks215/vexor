@@ -36,6 +36,7 @@ define_keywords! {
     pk_set => "set",
     pk_val => "val",
     pk_export => "export",
+    pk_each => "each",
     pk_fn => "fn",
     pk_where => "where",
     pk_match => "match",

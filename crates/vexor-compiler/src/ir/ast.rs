@@ -196,6 +196,7 @@ pub enum ProgramUnit {
     Assignment { identifier: String, value: Expr },
     Function { identifier: String, func: Function },
     Export(Expr),
+    ExportEach(Expr),
 }
 
 #[derive(Debug, Clone)]
