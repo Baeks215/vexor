@@ -92,7 +92,7 @@ pub enum Expr {
     Variable(String),
     // Field access
     Field {
-        object: String,
+        object: Box<Expr>,
         field: String,
     },
     // Expressions with operators

@@ -3,7 +3,7 @@
 use winnow::ascii::{dec_int, float};
 use winnow::combinator::{
     Infix, Postfix, Prefix, alt, cut_err, delimited, dispatch, expression, fail, opt, peek,
-    preceded, terminated,
+    preceded, repeat, terminated,
 };
 use winnow::token::take_while;
 use winnow::{ModalResult, Parser};
@@ -11,9 +11,10 @@ use winnow::{ModalResult, Parser};
 use crate::ir::Number;
 use crate::ir::ast;
 use crate::ir::ast::op;
-use crate::parser::function::{p_lambda, p_std};
+use crate::parser::function::p_lambda;
+use crate::parser::keyword::Ident;
 use crate::parser::{
-    Input, ParserExt, comma_list, delim, delim_cut, exp_string, keyword as k, p_identifier,
+    Input, ParserExt, comma_list, delim, delim_cut, exp_string, keyword as k, p_ws,
 };
 
 // --- Primitives ---
@@ -101,11 +102,6 @@ pub fn p_list<'a>(input: &mut Input<'a>) -> ModalResult<ast::ListLiteral> {
     .parse_next(input)
 }
 
-/// Parses a constant.
-pub fn p_constant<'a>(input: &mut Input<'a>) -> ModalResult<ast::Const> {
-    k::pk_pi.ws().parse_next(input)
-}
-
 /// Parses a literal expression.
 pub fn p_literal<'a>(input: &mut Input<'a>) -> ModalResult<ast::Literal> {
     alt((
@@ -171,18 +167,27 @@ pub fn p_if<'a>(input: &mut Input<'a>) -> ModalResult<ast::Expr> {
     .parse_next(input)
 }
 
-/// Parses identifier or object field access
-pub fn p_identifier_or_field<'a>(input: &mut Input<'a>) -> ModalResult<ast::Expr> {
-    (
-        p_identifier.map(str::to_string),
-        opt(preceded('.', p_identifier.map(str::to_string))),
-    )
-        .ws()
-        .map(|(var, field)| match field {
-            Some(field) => ast::Expr::Field { object: var, field },
-            None => ast::Expr::Variable(var),
-        })
-        .parse_next(input)
+/// Parses a classified identifier as an atom expression.
+///   User identifiers may have an optional `.field` suffix.
+fn p_ident_atom<'a>(input: &mut Input<'a>) -> ModalResult<ast::Expr> {
+    let id = k::p_ident.parse_next(input)?;
+    let expr = match id {
+        Ident::Std(s) => ast::Expr::Std(s),
+        Ident::Const(c) => ast::Expr::Const(c),
+        Ident::User(name) => {
+            let fields: Vec<_> = repeat(0.., preceded('.', k::p_user_ident)).parse_next(input)?;
+            let mut acc = ast::Expr::Variable(name);
+            for field in fields {
+                acc = ast::Expr::Field {
+                    object: Box::new(acc),
+                    field,
+                }
+            }
+            acc
+        }
+    };
+    p_ws.parse_next(input)?;
+    Ok(expr)
 }
 
 fn p_tuple_or_bracketed<'a>(input: &mut Input<'a>) -> ModalResult<ast::Expr> {
@@ -203,12 +208,10 @@ pub fn p_atom<'a>(input: &mut Input<'a>) -> ModalResult<ast::Expr> {
     alt((
         p_lambda.map(ast::Expr::Function),
         p_tuple_or_bracketed,
-        p_constant.map(ast::Expr::Const),
-        p_std.map(ast::Expr::Std),
         p_literal.map(ast::Expr::Literal),
         p_if,
         p_match,
-        p_identifier_or_field,
+        p_ident_atom,
     ))
     .parse_next(input)
 }
