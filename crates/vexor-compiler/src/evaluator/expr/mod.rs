@@ -66,7 +66,7 @@ pub fn eval<T: Evaluable>(env: &EnvRef, expr: ast::Expr) -> EResult<T::Output> {
                 eval::<T>(env, *else_branch)
             }
         }
-        Expr::Field { object, field } => eval_field_access::<T>(env, object, field),
+        Expr::Field { object, field } => eval_field_access::<T>(env, *object, field),
     }
 }
 
@@ -86,6 +86,13 @@ fn eval_literal<T: Evaluable>(env: &EnvRef, literal: Literal) -> EResult<T::Outp
             })
         }
         Literal::List(l) => Value::List(list::eval_literal(env, l)?),
+        Literal::Tuple(exprs) => {
+            let values: Box<[Value]> = exprs
+                .into_iter()
+                .map(|e| eval::<ty::Any>(env, e))
+                .collect::<Result<_, _>>()?;
+            Value::Tuple(values)
+        }
     };
     T::expect(result)
 }
@@ -93,10 +100,10 @@ fn eval_literal<T: Evaluable>(env: &EnvRef, literal: Literal) -> EResult<T::Outp
 /// Evaluates a field access expression.
 fn eval_field_access<T: Evaluable>(
     env: &EnvRef,
-    object: String,
+    object: Expr,
     field: String,
 ) -> EResult<T::Output> {
-    let object_value = env.get_var(&object)?;
+    let object_value = eval::<ty::Any>(env, object)?;
     let result = match object_value {
         Value::Graphic(g) => match g.ty {
             scene::GraphicType::Circle { radius } => match field.as_str() {

@@ -3,41 +3,20 @@ use winnow::{ModalResult, Parser};
 
 use crate::ir::ast;
 use crate::parser::expr::p_expr;
+use crate::parser::keyword::p_user_ident;
 use crate::parser::program::p_assignment_raw;
-use crate::parser::{Input, ParserExt, comma_list, exp_string, newline1, p_identifier, p_mws};
+use crate::parser::{Input, ParserExt, comma_list, exp_string, newline1, p_mws};
 use crate::parser::{delim, keyword as k};
-
-/// Parses a std function.
-pub fn p_std<'a>(input: &mut Input<'a>) -> ModalResult<ast::Std> {
-    alt((
-        // Trig functions
-        alt((k::pk_rad, k::pk_sin, k::pk_cos, k::pk_tan)),
-        // List
-        k::pk_map,
-        // Graphic constructors
-        alt((k::pk_circle, k::pk_rect, k::pk_text, k::pk_group)),
-        // Graphic functions
-        alt((
-            k::pk_move,
-            k::pk_scale,
-            k::pk_rotate,
-            k::pk_fill,
-            k::pk_stroke,
-        )),
-    ))
-    .ws()
-    .parse_next(input)
-}
 
 /// Parses a lambda expression
 pub fn p_lambda<'a>(input: &mut Input<'a>) -> ModalResult<ast::Function> {
     (
         alt((
-            p_identifier.map(|id| vec![vec![id.to_string()]]),
+            p_user_ident.map(|id| vec![vec![id]]),
             repeat(
                 // Curried parameters
                 1..,
-                delim::<_, Vec<_>>('(', comma_list(0.., p_identifier.map(str::to_string)), ')'),
+                delim::<_, Vec<_>>('(', comma_list(0.., p_user_ident), ')'),
             ),
         ))
         .mws(),
@@ -53,11 +32,11 @@ pub fn p_function_def<'a>(input: &mut Input<'a>) -> ModalResult<(String, ast::Fu
     (preceded(
         k::pk_fn.ws(),
         cut_err((
-            p_identifier.map(str::to_string), // function name
+            p_user_ident, // function name
             repeat(
                 // Curried parameters
                 1..,
-                delim::<_, Vec<_>>('(', comma_list(0.., p_identifier.map(str::to_string)), ')'),
+                delim::<_, Vec<_>>('(', comma_list(0.., p_user_ident), ')'),
             )
             .ws(), // parameters
             preceded(exp_string("=").mws(), p_expr), // return expression

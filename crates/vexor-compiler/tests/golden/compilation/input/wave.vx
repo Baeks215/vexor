@@ -1,0 +1,12 @@
+val xs = [-500, -480..500]
+
+fn shape(i) = Rect(10, 50) >> move(x, y) >> fill(col)
+where {
+  x = i
+  y = sin(rad(i)) * 100
+  frac = (i + 500) / 1000
+  col = rgb(frac, 0, 1-frac, 1)
+}
+
+val g = Group(map(shape)(xs)) >> rotate(rad(30))
+export g

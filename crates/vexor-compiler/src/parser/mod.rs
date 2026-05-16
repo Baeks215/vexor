@@ -5,7 +5,6 @@ use winnow::combinator::{alt, cut_err, delimited, preceded, repeat, separated, t
 use winnow::error::{AddContext, ContextError, ErrMode, StrContext, StrContextValue};
 use winnow::stream::Stream;
 use winnow::stream::{Accumulate, Range};
-use winnow::token::take_while;
 use winnow::{LocatingSlice, ModalParser, ModalResult, Parser};
 
 mod expr;
@@ -85,20 +84,6 @@ fn p_line_comment<'a>(input: &mut Input<'a>) -> ModalResult<()> {
     ("//", till_line_ending).void().parse_next(input)
 }
 
-/// Parse identifier, no ws
-fn p_identifier<'a>(input: &mut Input<'a>) -> ModalResult<&'a str> {
-    (
-        take_while(1, |c: char| c.is_alphabetic() || c == '_'),
-        take_while(0.., |c: char| c.is_alphanumeric() || c == '_'),
-    )
-        .take()
-        .expected("identifier")
-        // Ensure the identifier is not a keyword
-        .verify(|ident| !keyword::is_keyword(ident))
-        .expected("not a keyword")
-        .parse_next(input)
-}
-
 // --- Helpers ---
 
 /// Parse a char literal with expected context
@@ -166,36 +151,6 @@ fn expected(desc: &'static str, input: &mut Input<'_>) -> ErrMode<ContextError> 
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn test_p_identifier() {
-        let mut input = Input::new("foo_bar_123");
-        assert_eq!(p_identifier.parse_next(&mut input).unwrap(), "foo_bar_123");
-        assert_eq!(*input, "");
-
-        let mut input = Input::new("_123 abc");
-        assert_eq!(p_identifier.parse_next(&mut input).unwrap(), "_123");
-        assert_eq!(*input, " abc");
-
-        // Invalid identifier starts with a digit
-        let mut input = Input::new("123");
-        assert!(p_identifier.parse_next(&mut input).is_err());
-
-        let mut input = Input::new("1abc");
-        assert!(p_identifier.parse_next(&mut input).is_err());
-
-        // Invalid identifier starts is a keyword
-        let mut input = Input::new("val");
-        assert!(p_identifier.parse_next(&mut input).is_err());
-
-        let mut input = Input::new("export");
-        assert!(p_identifier.parse_next(&mut input).is_err());
-
-        // Valid identifier starts with keyword
-        let mut input = Input::new("letabc");
-        assert_eq!(p_identifier.parse_next(&mut input).unwrap(), "letabc");
-        assert_eq!(*input, "");
-    }
 
     #[test]
     fn test_lexeme() {

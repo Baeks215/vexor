@@ -1,9 +1,10 @@
 use itertools::Itertools;
 use kurbo::Affine;
+use std::cell::RefCell;
 
-use crate::evaluator::expr::list::ListNode;
+use crate::evaluator::expr::list::List;
 use crate::evaluator::expr::{Evaluable, Value, eval, ty};
-use crate::evaluator::{EResult, EnvExt, EnvRef};
+use crate::evaluator::{EResult, EnvExt, EnvRef, to_usize};
 use crate::ir::ast::{self, Function, Std};
 use crate::ir::{Number, scene};
 use crate::{Graphic, GraphicType};
@@ -18,13 +19,75 @@ pub enum Callable {
 #[derive(Debug, Clone)]
 pub enum StdLambda {
     // List
-    Map { func: Box<Callable> },
+    Map {
+        func: Box<Callable>,
+    },
+    Filter {
+        func: Box<Callable>,
+    },
+    FlatMap {
+        func: Box<Callable>,
+    },
+    Find {
+        func: Box<Callable>,
+    },
+    Drop {
+        n: usize,
+    },
+    Take {
+        n: usize,
+    },
+    DropWhile {
+        func: Box<Callable>,
+    },
+    TakeWhile {
+        func: Box<Callable>,
+    },
+    SortBy {
+        func: Box<Callable>,
+    },
+    Zip {
+        xs: List,
+    },
+    ZipWithFn {
+        func: Box<Callable>,
+    },
+    ZipWithFnXs {
+        func: Box<Callable>,
+        xs: List,
+    },
+    FoldlFn {
+        func: Box<Callable>,
+    },
+    FoldlFnInit {
+        func: Box<Callable>,
+        init: Box<Value>,
+    },
+    FoldrFn {
+        func: Box<Callable>,
+    },
+    FoldrFnInit {
+        func: Box<Callable>,
+        init: Box<Value>,
+    },
     // Graphic transforms
-    Move { x: Number, y: Number },
-    Scale { scale: Number },
-    Rotate { angle: Number },
-    Fill { color: scene::Color },
-    Stroke { width: Number, color: scene::Color },
+    Move {
+        x: Number,
+        y: Number,
+    },
+    Scale {
+        scale: Number,
+    },
+    Rotate {
+        angle: Number,
+    },
+    Fill {
+        color: scene::Color,
+    },
+    Stroke {
+        width: Number,
+        color: scene::Color,
+    },
 }
 impl From<StdLambda> for Value {
     fn from(value: StdLambda) -> Self {
@@ -92,10 +155,82 @@ fn eval_std_call<T: Evaluable>(
         }
         // List
         Std::Map => {
-            let func = unpack_1!(args)?;
-            let func = Box::new(ty::Function::expect(func)?);
-            // Lambda that takes in a list and applies map
+            let func = Box::new(ty::Function::expect(unpack_1!(args)?)?);
             Value::from(StdLambda::Map { func })
+        }
+        Std::Filter => {
+            let func = Box::new(ty::Function::expect(unpack_1!(args)?)?);
+            Value::from(StdLambda::Filter { func })
+        }
+        Std::FlatMap => {
+            let func = Box::new(ty::Function::expect(unpack_1!(args)?)?);
+            Value::from(StdLambda::FlatMap { func })
+        }
+        Std::Find => {
+            let func = Box::new(ty::Function::expect(unpack_1!(args)?)?);
+            Value::from(StdLambda::Find { func })
+        }
+        Std::Drop => {
+            let n = to_usize(ty::Number::expect(unpack_1!(args)?)?)?;
+            Value::from(StdLambda::Drop { n })
+        }
+        Std::Take => {
+            let n = to_usize(ty::Number::expect(unpack_1!(args)?)?)?;
+            Value::from(StdLambda::Take { n })
+        }
+        Std::DropWhile => {
+            let func = Box::new(ty::Function::expect(unpack_1!(args)?)?);
+            Value::from(StdLambda::DropWhile { func })
+        }
+        Std::TakeWhile => {
+            let func = Box::new(ty::Function::expect(unpack_1!(args)?)?);
+            Value::from(StdLambda::TakeWhile { func })
+        }
+        Std::SortBy => {
+            let func = Box::new(ty::Function::expect(unpack_1!(args)?)?);
+            Value::from(StdLambda::SortBy { func })
+        }
+        Std::Zip => {
+            let xs = ty::List::expect(unpack_1!(args)?)?;
+            Value::from(StdLambda::Zip { xs })
+        }
+        Std::ZipWith => {
+            let func = Box::new(ty::Function::expect(unpack_1!(args)?)?);
+            Value::from(StdLambda::ZipWithFn { func })
+        }
+        Std::Foldl => {
+            let func = Box::new(ty::Function::expect(unpack_1!(args)?)?);
+            Value::from(StdLambda::FoldlFn { func })
+        }
+        Std::Foldr => {
+            let func = Box::new(ty::Function::expect(unpack_1!(args)?)?);
+            Value::from(StdLambda::FoldrFn { func })
+        }
+        Std::Enumerate => {
+            let xs = ty::List::expect(unpack_1!(args)?)?;
+            Value::List(
+                xs.into_iter()
+                    .enumerate()
+                    .map(|(i, v)| Value::Tuple(Box::new([Value::Number(i as f64), v])))
+                    .collect(),
+            )
+        }
+        Std::Len => {
+            let xs = ty::List::expect(unpack_1!(args)?)?;
+            Value::from(xs.len() as Number)
+        }
+        Std::Reverse => {
+            let xs = ty::List::expect(unpack_1!(args)?)?;
+            Value::List(xs.into_iter().rev().collect())
+        }
+        Std::Sort => {
+            let xs = ty::List::expect(unpack_1!(args)?)?;
+            let mut v: Vec<Number> = xs
+                .into_iter()
+                .map(ty::Number::expect)
+                .collect::<Result<_, _>>()?;
+            v.sort_by(f64::total_cmp);
+            Value::List(v.into_iter().map(Value::Number).collect())
         }
         // Graphic constructors
         Std::Circle => {
@@ -168,22 +303,175 @@ fn eval_std_lambda<T: Evaluable>(
     let result = match function {
         StdLambda::Map { func } => {
             let func = *func;
-            let list = unpack_1!(args)?;
-            let list = ty::List::expect(list)?;
-
-            // Evaluate and map each item
+            let list = ty::List::expect(unpack_1!(args)?)?;
             let values = list
                 .into_iter()
                 .map(|item| eval_call::<ty::Any>(env, func.clone(), vec![item]))
-                .collect::<Result<Vec<_>, _>>()?;
-
-            // Rebuild nodes in reverse order
-            let mut acc = Box::new(ListNode::Nil);
-            for item in values.into_iter().rev() {
-                acc = Box::new(ListNode::Cons(item, acc));
+                .collect::<Result<List, _>>()?;
+            Value::List(values)
+        }
+        StdLambda::Filter { func } => {
+            let func = *func;
+            let list = ty::List::expect(unpack_1!(args)?)?;
+            let mut out = List::new();
+            for item in list {
+                if eval_call::<ty::Bool>(env, func.clone(), vec![item.clone()])? {
+                    out.push_back(item);
+                }
             }
-
-            Value::List(acc)
+            Value::List(out)
+        }
+        StdLambda::FlatMap { func } => {
+            let func = *func;
+            let list = ty::List::expect(unpack_1!(args)?)?;
+            let mut out = List::new();
+            for item in list {
+                let sub = eval_call::<ty::List>(env, func.clone(), vec![item])?;
+                out.append(sub);
+            }
+            Value::List(out)
+        }
+        StdLambda::Find { func } => {
+            // Empty list if not found, otherwise singleton list with found item
+            let func = *func;
+            let list = ty::List::expect(unpack_1!(args)?)?;
+            let mut out = List::new();
+            for item in list {
+                if eval_call::<ty::Bool>(env, func.clone(), vec![item.clone()])? {
+                    out.push_back(item);
+                    break;
+                }
+            }
+            Value::List(out)
+        }
+        StdLambda::Drop { n } => {
+            let list = ty::List::expect(unpack_1!(args)?)?;
+            if n >= list.len() {
+                Value::List(List::new())
+            } else {
+                let (_, right) = list.split_at(n);
+                Value::List(right)
+            }
+        }
+        StdLambda::Take { n } => {
+            let list = ty::List::expect(unpack_1!(args)?)?;
+            if n >= list.len() {
+                Value::List(list)
+            } else {
+                let (left, _) = list.split_at(n);
+                Value::List(left)
+            }
+        }
+        StdLambda::DropWhile { func } => {
+            let func = *func;
+            let list = ty::List::expect(unpack_1!(args)?)?;
+            let mut i = 0;
+            for item in list.iter() {
+                if eval_call::<ty::Bool>(env, func.clone(), vec![item.clone()])? {
+                    i += 1;
+                } else {
+                    break;
+                }
+            }
+            let (_, right) = list.split_at(i);
+            Value::List(right)
+        }
+        StdLambda::TakeWhile { func } => {
+            let func = *func;
+            let list = ty::List::expect(unpack_1!(args)?)?;
+            let mut i = 0;
+            for item in list.iter() {
+                if eval_call::<ty::Bool>(env, func.clone(), vec![item.clone()])? {
+                    i += 1;
+                } else {
+                    break;
+                }
+            }
+            let (left, _) = list.split_at(i);
+            Value::List(left)
+        }
+        StdLambda::Zip { xs } => {
+            let ys = ty::List::expect(unpack_1!(args)?)?;
+            Value::List(
+                xs.into_iter()
+                    .zip(ys)
+                    .map(|(a, b)| Value::Tuple(Box::new([a, b])))
+                    .collect(),
+            )
+        }
+        StdLambda::ZipWithFn { func } => {
+            let xs = ty::List::expect(unpack_1!(args)?)?;
+            Value::from(StdLambda::ZipWithFnXs { func, xs })
+        }
+        StdLambda::ZipWithFnXs { func, xs } => {
+            let func = *func;
+            let ys = ty::List::expect(unpack_1!(args)?)?;
+            let result = xs
+                .into_iter()
+                .zip(ys)
+                .map(|(a, b)| eval_call::<ty::Any>(env, func.clone(), vec![a, b]))
+                .collect::<Result<List, _>>()?;
+            Value::List(result)
+        }
+        StdLambda::FoldlFn { func } => {
+            let init = Box::new(unpack_1!(args)?);
+            Value::from(StdLambda::FoldlFnInit { func, init })
+        }
+        StdLambda::FoldlFnInit { func, init } => {
+            let func = *func;
+            let list = ty::List::expect(unpack_1!(args)?)?;
+            let mut acc = *init;
+            for item in list {
+                acc = eval_call::<ty::Any>(env, func.clone(), vec![acc, item])?;
+            }
+            acc
+        }
+        StdLambda::FoldrFn { func } => {
+            let init = Box::new(unpack_1!(args)?);
+            Value::from(StdLambda::FoldrFnInit { func, init })
+        }
+        StdLambda::FoldrFnInit { func, init } => {
+            let func = *func;
+            let list = ty::List::expect(unpack_1!(args)?)?;
+            let mut acc = *init;
+            for item in list.into_iter().rev() {
+                acc = eval_call::<ty::Any>(env, func.clone(), vec![item, acc])?;
+            }
+            acc
+        }
+        StdLambda::SortBy { func } => {
+            let func = *func;
+            let list = ty::List::expect(unpack_1!(args)?)?;
+            let mut v: Vec<Value> = list.into_iter().collect();
+            // Store error outside of closure
+            let err: RefCell<Option<String>> = RefCell::new(None);
+            v.sort_by(|a, b| {
+                if err.borrow().is_some() {
+                    // Stop sorting
+                    return std::cmp::Ordering::Equal;
+                }
+                match eval_call::<ty::Bool>(env, func.clone(), vec![a.clone(), b.clone()]) {
+                    Ok(true) => std::cmp::Ordering::Less,
+                    Ok(false) => {
+                        match eval_call::<ty::Bool>(env, func.clone(), vec![b.clone(), a.clone()]) {
+                            Ok(true) => std::cmp::Ordering::Greater,
+                            Ok(false) => std::cmp::Ordering::Equal,
+                            Err(e) => {
+                                *err.borrow_mut() = Some(e);
+                                std::cmp::Ordering::Equal
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        *err.borrow_mut() = Some(e);
+                        std::cmp::Ordering::Equal
+                    }
+                }
+            });
+            if let Some(e) = err.into_inner() {
+                return Err(e);
+            }
+            Value::List(v.into_iter().collect())
         }
         // Graphic transforms
         StdLambda::Move { x, y } => {

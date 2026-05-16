@@ -80,6 +80,7 @@ pub enum Literal {
     Bool(bool),
     Color(Color),
     List(ListLiteral),
+    Tuple(Vec<Expr>),
 }
 
 /// Expression
@@ -91,7 +92,7 @@ pub enum Expr {
     Variable(String),
     // Field access
     Field {
-        object: String,
+        object: Box<Expr>,
         field: String,
     },
     // Expressions with operators
@@ -144,6 +145,22 @@ pub enum Std {
     Tan,
     // List
     Map,
+    Filter,
+    Drop,
+    Take,
+    DropWhile,
+    TakeWhile,
+    Foldl,
+    Foldr,
+    Zip,
+    ZipWith,
+    FlatMap,
+    Enumerate,
+    Len,
+    Reverse,
+    Find,
+    Sort,
+    SortBy,
     // Graphic constructors
     Circle,
     Rect,

@@ -149,3 +149,10 @@ fn to_int(n: Number) -> EResult<i64> {
     }
     Ok(n as i64)
 }
+fn to_usize(n: Number) -> EResult<usize> {
+    let i = to_int(n)?;
+    if i < 0 {
+        return Err(format!("Expected non-negative integer, got {}", n));
+    }
+    Ok(i as usize)
+}

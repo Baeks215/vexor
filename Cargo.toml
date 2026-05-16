@@ -16,6 +16,7 @@ vexor-gui = { path = "crates/vexor-gui" }
 winnow = "1.0.0"
 clap = "4.6.0"
 svg = "0.18.0"
+im-rc = "15.1.0"
 itertools = "0.14.0"
 kurbo = "0.13.0"
 notify = "8.2.0"

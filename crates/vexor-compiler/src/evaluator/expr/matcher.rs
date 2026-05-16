@@ -1,5 +1,4 @@
 use crate::evaluator::expr::constants::get_constant;
-use crate::evaluator::expr::list::ListNode;
 use crate::evaluator::expr::{Evaluable, Value, eval, ty};
 use crate::evaluator::{EResult, EnvExt, EnvRef};
 use crate::ir::ast::{self, Const, Expr, ListLiteral, Literal, MatchArm, Std, op};
@@ -72,23 +71,27 @@ fn match_literal_pattern(env: &EnvRef, scrutinee: Value, pattern: Literal) -> ER
                 && match_pattern(env, Value::Number(a), *a_expr)?)
         }
         (Value::List(s), Literal::List(ListLiteral::List(ps))) => {
-            let mut node = s;
-            for item_pattern in ps.into_iter() {
-                let ListNode::Cons(head, tail) = *node else {
-                    // Scrutinee is Nil, pattern is too long
-                    return Ok(false);
-                };
-                let matched = match_pattern(env, head, item_pattern)?;
-                if !matched {
+            if s.len() != ps.len() {
+                // Lists of different lengths cannot match
+                return Ok(false);
+            }
+            for (s_i, p_i) in s.into_iter().zip(ps) {
+                if !match_pattern(env, s_i, p_i)? {
                     return Ok(false);
                 }
-                node = tail;
             }
-            match *node {
-                ListNode::Nil => Ok(true),
-                // Scrutinee still has items left, pattern is too short
-                ListNode::Cons(_, _) => Ok(false),
+            Ok(true)
+        }
+        (Value::Tuple(s), Literal::Tuple(ps)) => {
+            if s.len() != ps.len() {
+                return Ok(false);
             }
+            for (s_i, p_i) in s.into_iter().zip(ps) {
+                if !match_pattern(env, s_i, p_i)? {
+                    return Ok(false);
+                }
+            }
+            Ok(true)
         }
         // Non-matches
         _ => Ok(false),
@@ -105,14 +108,17 @@ fn match_bin(
 ) -> EResult<bool> {
     match operator {
         op::Binary::Cons => {
-            let Value::List(s) = scrutinee else {
+            let Value::List(mut xs) = scrutinee else {
                 // Only lists can match cons patterns
                 return Ok(false);
             };
-            match *s {
-                ListNode::Nil => Ok(false), // Nil cannot match cons pattern
-                ListNode::Cons(head, tail) => Ok(match_pattern(env, head, left)?
-                    && match_pattern(env, Value::List(tail), right)?),
+            let head = xs.pop_front(); // Effective O(1)
+            match head {
+                None => Ok(false), // Empty list cannot match cons pattern
+                Some(head) => {
+                    Ok(match_pattern(env, head, left)?
+                        && match_pattern(env, Value::List(xs), right)?)
+                }
             }
         }
         _ => Err("pattern not supported".to_string()),

@@ -8,15 +8,14 @@ use winnow::{ModalResult, Parser, Result};
 use crate::ir::ast::{self, ProgramUnit};
 use crate::parser::expr::p_expr;
 use crate::parser::function::p_function_def;
-use crate::parser::{
-    Input, ParserExt, exp_char, exp_string, expected, newline1, p_identifier, p_mws,
-};
+use crate::parser::keyword::p_user_ident;
+use crate::parser::{Input, ParserExt, exp_char, exp_string, expected, newline1, p_mws};
 use crate::parser::{delim, keyword as k};
 
 /// Parses variable assignment `x = expr`
 pub fn p_assignment_raw<'a>(input: &mut Input<'a>) -> ModalResult<(String, ast::Expr)> {
     (
-        p_identifier.map(str::to_string).ws(),
+        p_user_ident.ws(),
         preceded(exp_string("=").mws(), cut_err(p_expr)),
     )
         .parse_next(input)
