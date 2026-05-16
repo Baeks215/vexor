@@ -1,0 +1,28 @@
+val sky_blue = rgb(0.5, 0.8, 1.0, 1)
+
+val center_puff = Path([
+  curveTo(
+    (10, -50),
+    (40, -50),
+    (50, 0)
+  )
+])
+
+// Singular Curve primitive for the side puffs
+val side_puff = Curve(
+  (5, -20),
+  (15, -20),
+  (20, 0)
+)
+
+// Weld them together
+val cloud_top = side_puff + center_puff + side_puff
+
+// Using singular Line primitives for the hard edges
+val drop_down   = Line(0, 10)
+val flat_bottom = Line(-90, 0)
+
+// Close it all up
+val cloud_shape = close(cloud_top + drop_down + flat_bottom)
+
+export cloud_shape >> fill(sky_blue)

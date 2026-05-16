@@ -94,6 +94,10 @@ fn translate_graphic<T: Appendable>(current: T, graphic: Graphic) -> T {
             }
             current.add(apply_attributes!(group_node, extra))
         }
+        GraphicType::Path { path } => {
+            let path_node = svg_el::Path::new().set("d", path.to_svg());
+            current.add(apply_attributes!(path_node, extra))
+        }
     }
 }
 

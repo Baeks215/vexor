@@ -131,6 +131,9 @@ fn eval_field_access<T: Evaluable>(
                 "y" => Value::from(0.0),
                 _ => return Err("unknown field".to_string()),
             },
+            scene::GraphicType::Path { .. } => {
+                return Err("cannot access fields of a path".to_string());
+            }
         },
         _ => return Err("can not access field of this value".to_string()),
     };

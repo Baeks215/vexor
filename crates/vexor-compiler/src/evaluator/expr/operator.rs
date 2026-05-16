@@ -1,6 +1,8 @@
 use crate::evaluator::expr::{Evaluable, Value, eval, ty};
+use crate::evaluator::graphic::{concat_paths, transform_path};
 use crate::evaluator::{EResult, EnvRef};
 use crate::ir::ast::{Expr, op};
+use crate::ir::scene::{Graphic, GraphicType};
 
 /// Evaluates a binary operator expression
 pub fn eval_op_bin<T: Evaluable>(
@@ -11,15 +13,27 @@ pub fn eval_op_bin<T: Evaluable>(
 ) -> EResult<T::Output> {
     let result = match operator {
         op::Binary::Arithmetic(operator) => {
-            // Force evaluate as expected types
-            let left = eval::<ty::Number>(env, left)?;
-            let right = eval::<ty::Number>(env, right)?;
-            Value::from(match operator {
-                op::Arithmetic::Add => left + right,
-                op::Arithmetic::Sub => left - right,
-                op::Arithmetic::Mul => left * right,
-                op::Arithmetic::Div => left / right,
-            })
+            let l = eval::<ty::Any>(env, left)?;
+            let r = eval::<ty::Any>(env, right)?;
+            match (l, r) {
+                (Value::Graphic(l), Value::Graphic(r)) => {
+                    let Graphic {
+                        ty: GraphicType::Path { path: r },
+                        ..
+                    } = r
+                    else {
+                        return Err("+ expected two paths".into());
+                    };
+                    Value::from(transform_path(l, |p| concat_paths(p, r))?)
+                }
+                (Value::Number(x), Value::Number(y)) => Value::from(match operator {
+                    op::Arithmetic::Add => x + y,
+                    op::Arithmetic::Sub => x - y,
+                    op::Arithmetic::Mul => x * y,
+                    op::Arithmetic::Div => x / y,
+                }),
+                _ => return Err("invalid operands for +".into()),
+            }
         }
         op::Binary::Logic(operator) => {
             let l = eval::<ty::Bool>(env, left)?;

@@ -8,6 +8,7 @@ use crate::evaluator::expr::{Value, ty};
 use crate::ir::{Number, ast};
 
 mod expr;
+mod graphic;
 mod program;
 
 pub use program::eval_program;
