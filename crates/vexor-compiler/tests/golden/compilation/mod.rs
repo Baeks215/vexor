@@ -43,7 +43,7 @@ fn test_golden_compilation() {
 #[test]
 #[ignore]
 fn test_debug() {
-    let name = "group";
+    let name = "sample_path";
     let source =
         std::fs::read_to_string(format!("tests/golden/compilation/input/{name}.vx")).unwrap();
     compile_to_svg(&source).unwrap();

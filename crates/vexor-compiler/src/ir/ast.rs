@@ -32,6 +32,8 @@ pub mod op {
         Sub,
         Mul,
         Div,
+        IntDiv,
+        Rem,
     }
 
     #[derive(Debug, Clone, Copy)]
@@ -53,6 +55,7 @@ pub mod op {
     #[derive(Debug, Clone, Copy)]
     pub enum Unary {
         Not,
+        Neg,
     }
 }
 
@@ -161,15 +164,26 @@ pub enum Std {
     Find,
     Sort,
     SortBy,
+    Repeat,
     // Graphic constructors
     Circle,
     Rect,
     Text,
     Group,
+    Line,
+    Curve,
+    Path,
+    Sample,
     // Graphic functions
+    Close,
+    JumpTo,
+    LineTo,
+    CurveTo,
     Move,
     Scale,
     Rotate,
+    MirrorX,
+    MirrorY,
     Fill,
     Stroke,
 }
@@ -196,6 +210,7 @@ pub enum ProgramUnit {
     Assignment { identifier: String, value: Expr },
     Function { identifier: String, func: Function },
     Export(Expr),
+    ExportEach(Expr),
 }
 
 #[derive(Debug, Clone)]

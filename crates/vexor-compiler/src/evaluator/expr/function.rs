@@ -1,9 +1,10 @@
 use itertools::Itertools;
-use kurbo::Affine;
+use kurbo::{Affine, Point};
 use std::cell::RefCell;
 
 use crate::evaluator::expr::list::List;
 use crate::evaluator::expr::{Evaluable, Value, eval, ty};
+use crate::evaluator::graphic::{catmull_rom_path, close_path, start_path, transform_path};
 use crate::evaluator::{EResult, EnvExt, EnvRef, to_usize};
 use crate::ir::ast::{self, Function, Std};
 use crate::ir::{Number, scene};
@@ -71,6 +72,19 @@ pub enum StdLambda {
         init: Box<Value>,
     },
     // Graphic transforms
+    JumpTo {
+        x: Number,
+        y: Number,
+    },
+    LineTo {
+        x: Number,
+        y: Number,
+    },
+    CurveTo {
+        p1: Point,
+        p2: Point,
+        p3: Point,
+    },
     Move {
         x: Number,
         y: Number,
@@ -124,10 +138,35 @@ macro_rules! unpack_2 {
             .ok_or("expected two arguments")
     };
 }
+macro_rules! unpack_3 {
+    ($iter:expr) => {
+        $iter
+            .into_iter()
+            .collect_tuple::<(_, _, _)>()
+            .ok_or("expected three arguments")
+    };
+}
+macro_rules! unpack_4 {
+    ($iter:expr) => {
+        $iter
+            .into_iter()
+            .collect_tuple::<(_, _, _, _)>()
+            .ok_or("expected four arguments")
+    };
+}
+
+fn tuple_to_point(v: Value) -> EResult<Point> {
+    let tuple = ty::Tuple::expect(v)?;
+    let (x, y) = tuple
+        .into_iter()
+        .collect_tuple()
+        .ok_or("expected a 2-tuple (x, y)")?;
+    Ok(Point::new(ty::Number::expect(x)?, ty::Number::expect(y)?))
+}
 
 /// Evaluates a standard function call.
 fn eval_std_call<T: Evaluable>(
-    _: &EnvRef,
+    env: &EnvRef,
     function: Std,
     args: Vec<Value>,
 ) -> Result<<T as Evaluable>::Output, String> {
@@ -232,6 +271,11 @@ fn eval_std_call<T: Evaluable>(
             v.sort_by(f64::total_cmp);
             Value::List(v.into_iter().map(Value::Number).collect())
         }
+        Std::Repeat => {
+            let (n, value) = unpack_2!(args)?;
+            let n = to_usize(ty::Number::expect(n)?)?;
+            Value::List(std::iter::repeat_n(value, n).collect())
+        }
         // Graphic constructors
         Std::Circle => {
             let radius = unpack_1!(args)?;
@@ -261,7 +305,85 @@ fn eval_std_call<T: Evaluable>(
                 .collect::<Result<Vec<_>, _>>()?;
             Value::from(Graphic::new(GraphicType::Group { children }))
         }
-        // Graphic functions, as lambdas
+        Std::Line => {
+            let (target_x, target_y) = unpack_2!(args)?;
+            let target_x = ty::Number::expect(target_x)?;
+            let target_y = ty::Number::expect(target_y)?;
+
+            let mut path = start_path();
+            path.line_to(Point::new(target_x, target_y));
+            Value::from(Graphic::new(GraphicType::Path { path }))
+        }
+        Std::Curve => {
+            let (a, b, c) = unpack_3!(args)?;
+            let p1 = tuple_to_point(a)?;
+            let p2 = tuple_to_point(b)?;
+            let p3 = tuple_to_point(c)?;
+            let mut path = start_path();
+            path.curve_to(p1, p2, p3);
+            Value::from(Graphic::new(GraphicType::Path { path }))
+        }
+        Std::Path => {
+            let list = ty::List::expect(unpack_1!(args)?)?;
+            let mut g = Graphic::new(GraphicType::Path { path: start_path() });
+            for item in list {
+                let callable = ty::Function::expect(item)?;
+                g = eval_call::<ty::Graphic>(env, callable, vec![Value::from(g)])?;
+            }
+            Value::from(g)
+        }
+        Std::Sample => {
+            let (from, to, steps, f) = unpack_4!(args)?;
+            let from = ty::Number::expect(from)?;
+            let to = ty::Number::expect(to)?;
+            let steps = to_usize(ty::Number::expect(steps)?)?;
+            let f = ty::Function::expect(f)?;
+            if steps < 1 {
+                return Err("sample requires steps >= 1".into());
+            }
+
+            let mut pts: Vec<Point> = Vec::with_capacity(steps + 1 + 2); // +2 for phantom start/end points
+            let step = (to - from) / (steps as Number);
+            for i in -1..=(steps as isize + 1) {
+                let t = from + (step * (i as Number));
+                let v = eval_call::<ty::Any>(env, f.clone(), vec![Value::from(t)])?;
+                pts.push(tuple_to_point(v)?);
+            }
+            let path = catmull_rom_path(&pts);
+            Value::from(Graphic::new(GraphicType::Path { path }))
+        }
+        Std::MirrorX => {
+            let g = ty::Graphic::expect(unpack_1!(args)?)?;
+            Value::from(g.transform_local(Affine::scale_non_uniform(1.0, -1.0)))
+        }
+        Std::MirrorY => {
+            let g = ty::Graphic::expect(unpack_1!(args)?)?;
+            Value::from(g.transform_local(Affine::scale_non_uniform(-1.0, 1.0)))
+        }
+        // Graphic functions
+        Std::Close => {
+            let g = ty::Graphic::expect(unpack_1!(args)?)?;
+            Value::from(transform_path(g, close_path)?)
+        }
+        Std::JumpTo => {
+            let (x, y) = unpack_2!(args)?;
+            let x = ty::Number::expect(x)?;
+            let y = ty::Number::expect(y)?;
+            Value::from(StdLambda::JumpTo { x, y })
+        }
+        Std::LineTo => {
+            let (x, y) = unpack_2!(args)?;
+            let x = ty::Number::expect(x)?;
+            let y = ty::Number::expect(y)?;
+            Value::from(StdLambda::LineTo { x, y })
+        }
+        Std::CurveTo => {
+            let (a, b, c) = unpack_3!(args)?;
+            let p1 = tuple_to_point(a)?;
+            let p2 = tuple_to_point(b)?;
+            let p3 = tuple_to_point(c)?;
+            Value::from(StdLambda::CurveTo { p1, p2, p3 })
+        }
         Std::Move => {
             let (x, y) = unpack_2!(args)?;
             let x = ty::Number::expect(x)?;
@@ -301,6 +423,27 @@ fn eval_std_lambda<T: Evaluable>(
     args: Vec<Value>,
 ) -> Result<<T as Evaluable>::Output, String> {
     let result = match function {
+        StdLambda::JumpTo { x, y } => {
+            let g = ty::Graphic::expect(unpack_1!(args)?)?;
+            Value::from(transform_path(g, |mut p| {
+                p.move_to(Point::new(x, y));
+                Ok(p)
+            })?)
+        }
+        StdLambda::LineTo { x, y } => {
+            let g = ty::Graphic::expect(unpack_1!(args)?)?;
+            Value::from(transform_path(g, |mut p| {
+                p.line_to(Point::new(x, y));
+                Ok(p)
+            })?)
+        }
+        StdLambda::CurveTo { p1, p2, p3 } => {
+            let g = ty::Graphic::expect(unpack_1!(args)?)?;
+            Value::from(transform_path(g, |mut p| {
+                p.curve_to(p1, p2, p3);
+                Ok(p)
+            })?)
+        }
         StdLambda::Map { func } => {
             let func = *func;
             let list = ty::List::expect(unpack_1!(args)?)?;

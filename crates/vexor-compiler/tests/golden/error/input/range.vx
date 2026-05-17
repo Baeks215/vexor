@@ -1,4 +1,4 @@
-// step goes down but end is higher
+-- step goes down but end is higher
 val items = [5, 4..10]
 val r = match items {
   x : _ => x

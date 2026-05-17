@@ -12,7 +12,7 @@ fn rejects(input: &str) {
 fn test_compile() {
     let single = format!(
         "
-val r = 10  // My comment, ignore this
+val r = 10  -- My comment, ignore this
 export Circle(r)"
     );
     matches!(compiles(&single).remove(0), Graphic { .. });

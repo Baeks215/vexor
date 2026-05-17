@@ -1,0 +1,8 @@
+<svg height="1000" viewBox="-500 -500 1000 1000" width="1000" xmlns="http://www.w3.org/2000/svg">
+<g fill="rgba(0,0,0,1)">
+<path d="M0,0 C20,-40 60,-40 70,0 L70,20 Z" fill="rgba(153,153,153,1)" transform="matrix(1 0 0 1 150 0)" vector-effect="non-scaling-stroke"/>
+<path d="M0,0 C20,-40 60,-40 70,0 L70,20 Z" fill="rgba(255,0,0,1)" transform="matrix(1 0 0 -1 150 80)" vector-effect="non-scaling-stroke"/>
+<path d="M0,0 C20,-40 60,-40 70,0 L70,20 Z" fill="rgba(0,0,255,1)" transform="matrix(-1 0 0 1 150 160)" vector-effect="non-scaling-stroke"/>
+<path d="M0,0 C20,-40 60,-40 70,0 L70,20 Z" fill="rgba(0,153,0,1)" transform="matrix(-1 -0 0 -1 150 240)" vector-effect="non-scaling-stroke"/>
+</g>
+</svg>

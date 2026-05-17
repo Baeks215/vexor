@@ -1,4 +1,4 @@
-// duplicate x param
+-- duplicate x param
 fn sq(x, x) = x * x
 
 val result = sq(10)

@@ -1,4 +1,4 @@
-// missing function name
+-- missing function name
 fn (x) = x * 2
 
 val result = double(10)

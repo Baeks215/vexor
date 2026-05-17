@@ -1,0 +1,13 @@
+val red = rgb(1, 0, 0, 1)
+val blue = rgb(0, 0, 1, 1)
+val green = rgb(0, 0.6, 0, 1)
+val gray = rgb(0.6, 0.6, 0.6, 1)
+
+val flag = close(Curve((20, -40), (60, -40), (70, 0)) + Line(0, 20))
+
+val original = flag >> move(150, 0)   >> fill(gray)
+val flipped_x = flag >> move(150, 80) >> mirrorX >> fill(red)
+val flipped_y = flag >> move(150, 160) >> mirrorY >> fill(blue)
+val flipped_both = flag >> move(150, 240) >> mirrorX >> mirrorY >> fill(green)
+
+export Group([original, flipped_x, flipped_y, flipped_both])

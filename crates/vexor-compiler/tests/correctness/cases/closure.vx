@@ -1,16 +1,16 @@
-// OUTPUT: 30, 60
+-- OUTPUT: 30, 60
 
-// Top level factor
+-- Top level factor
 val factor = 3
 
-// This should capture factor in the closure
+-- This should capture factor in the closure
 fn timesFactor(x) = x * factor
 
 fn doubleTimesFactor(x) = times2(timesFactor(x))
 where {
-  // Local scope should not affect the call of timesFactor
+  -- Local scope should not affect the call of timesFactor
   factor = 2
-  // This should capture the local factor, not the top level one
+  -- This should capture the local factor, not the top level one
   times2 = (x) -> x * factor
 }
 

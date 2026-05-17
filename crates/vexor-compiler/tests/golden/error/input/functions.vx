@@ -1,5 +1,5 @@
 fn double(x) = x * 2
 
-// too many arguments
+-- too many arguments
 val result = double(1, 2, 3)
 export Circle(result)

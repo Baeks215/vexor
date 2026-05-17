@@ -2,9 +2,14 @@
 
 use itertools::Itertools;
 
-use crate::evaluator::expr::Callable;
-use crate::evaluator::{EResult, EnvExt, EnvRef, Value, expr, ty};
+use crate::evaluator::expr::{Callable, Evaluable, eval};
+use crate::evaluator::{EResult, EnvExt, EnvRef, Value, ty};
 use crate::ir::{ast, scene};
+
+enum ExportExpr {
+    One(ast::Expr),
+    Each(ast::Expr),
+}
 
 /// Evaluates a program, returns the result of the last expression.
 pub fn eval_program(program: ast::Program) -> EResult<scene::Scene> {
@@ -14,7 +19,7 @@ pub fn eval_program(program: ast::Program) -> EResult<scene::Scene> {
     };
     let ast::Program { units } = program;
 
-    let mut exports: Vec<ast::Expr> = Vec::new();
+    let mut export_exprs: Vec<ExportExpr> = vec![];
     for unit in units {
         match unit {
             ast::ProgramUnit::Function { identifier, func } => {
@@ -33,7 +38,10 @@ pub fn eval_program(program: ast::Program) -> EResult<scene::Scene> {
                 env.set_var_lazy(identifier, value)?;
             }
             ast::ProgramUnit::Export(e) => {
-                exports.push(e);
+                export_exprs.push(ExportExpr::One(e));
+            }
+            ast::ProgramUnit::ExportEach(e) => {
+                export_exprs.push(ExportExpr::Each(e));
             }
             ast::ProgramUnit::Setting(setting) => match setting {
                 ast::Setting::Canvas { width, height } => settings.canvas = (width, height),
@@ -41,13 +49,22 @@ pub fn eval_program(program: ast::Program) -> EResult<scene::Scene> {
         }
     }
 
-    let exported: Vec<_> = exports
-        .into_iter()
-        .map(|e| expr::eval::<ty::Graphic>(&env, e))
-        .collect::<Result<Vec<_>, _>>()?;
+    let mut exports: Vec<scene::Graphic> = vec![];
+    for e in export_exprs {
+        match e {
+            ExportExpr::One(e) => {
+                let g = eval::<ty::Graphic>(&env, e)?;
+                exports.push(g);
+            }
+            ExportExpr::Each(es) => {
+                let l = eval::<ty::List>(&env, es)?;
+                for v in l.into_iter() {
+                    let g = ty::Graphic::expect(v)?;
+                    exports.push(g);
+                }
+            }
+        }
+    }
 
-    Ok(scene::Scene {
-        exports: exported,
-        settings,
-    })
+    Ok(scene::Scene { exports, settings })
 }

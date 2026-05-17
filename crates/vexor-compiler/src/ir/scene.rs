@@ -1,6 +1,6 @@
 //! High-level IR representing a scene. Common IR before render and file output.
 
-use kurbo::Affine;
+use kurbo::{Affine, BezPath};
 
 use crate::ir::Number;
 
@@ -42,6 +42,14 @@ impl Graphic {
         }
     }
 
+    /// Applies a transformation in the graphic's local space.
+    pub fn transform_local(self, transform: Affine) -> Self {
+        Self {
+            transform: self.transform * transform,
+            ..self
+        }
+    }
+
     /// Applies a transformation to the style of the graphic component.
     pub fn transform_style(self, f: impl FnOnce(Style) -> Style) -> Self {
         Self {
@@ -56,6 +64,7 @@ pub enum GraphicType {
     Circle { radius: Number },
     Rect { width: Number, height: Number },
     Text { content: String },
+    Path { path: BezPath },
     Group { children: Vec<Graphic> },
 }
 

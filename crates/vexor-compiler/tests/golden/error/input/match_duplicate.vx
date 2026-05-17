@@ -1,6 +1,6 @@
 val xs = [1..5]
 val result = match xs {
-  // Duplicate x variable
+  -- Duplicate x variable
   x : x : tail => x * x
 }
 export result

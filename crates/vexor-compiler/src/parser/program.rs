@@ -27,8 +27,22 @@ fn p_assignment<'a>(input: &mut Input<'a>) -> ModalResult<(String, ast::Expr)> {
 }
 
 /// Parses an export `export expr`
-fn p_export<'a>(input: &mut Input<'a>) -> ModalResult<ast::Expr> {
-    preceded(k::pk_export.ws(), p_expr.label("graphic expression")).parse_next(input)
+fn p_export<'a>(input: &mut Input<'a>) -> ModalResult<ast::ProgramUnit> {
+    preceded(
+        k::pk_export.ws(),
+        cut_err((
+            opt(k::pk_each.void().ws()),
+            p_expr.label("graphic expression"),
+        ))
+        .map(|(each, e)| {
+            if each.is_some() {
+                ast::ProgramUnit::ExportEach(e)
+            } else {
+                ast::ProgramUnit::Export(e)
+            }
+        }),
+    )
+    .parse_next(input)
 }
 
 fn p_setting<'a>(input: &mut Input<'a>) -> ModalResult<ast::Setting> {
@@ -60,6 +74,7 @@ fn p_setting<'a>(input: &mut Input<'a>) -> ModalResult<ast::Setting> {
 fn p_program<'a>(input: &mut Input<'a>) -> ModalResult<ast::Program> {
     p_mws.parse_next(input)?; // Discard leading whitespace
 
+    // Count how many export units we have.
     let mut export_count = 0;
     let units: Vec<_> = separated(
         1..,
@@ -68,7 +83,7 @@ fn p_program<'a>(input: &mut Input<'a>) -> ModalResult<ast::Program> {
             p_assignment.map(|(identifier, value)| ProgramUnit::Assignment { identifier, value }),
             p_export.map(|e| {
                 export_count += 1;
-                ProgramUnit::Export(e)
+                e
             }),
             p_setting.map(ProgramUnit::Setting),
             fail.expected_lit("fn")

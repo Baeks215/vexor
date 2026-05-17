@@ -1,6 +1,6 @@
 val r = 100
 val result = match r {
-    // missing =>
+    -- missing =>
     100 Circle(100)
 }
 export result

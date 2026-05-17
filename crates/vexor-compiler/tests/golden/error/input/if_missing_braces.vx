@@ -1,5 +1,5 @@
 val r = 100
 val c = Circle(r)
-// missing braces around branches
+-- missing braces around branches
 val result = if r > 50 c else c
 export result

@@ -1,5 +1,5 @@
 val r = 100
 val c = Circle(r)
-// missing else
+-- missing else
 val result = if r > 50 { c }
 export result

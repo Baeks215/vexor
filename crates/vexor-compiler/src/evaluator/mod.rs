@@ -8,6 +8,7 @@ use crate::evaluator::expr::{Value, ty};
 use crate::ir::{Number, ast};
 
 mod expr;
+mod graphic;
 mod program;
 
 pub use program::eval_program;
@@ -145,14 +146,14 @@ const EPS: f64 = 1e-9;
 fn to_int(n: Number) -> EResult<i64> {
     let rounded = n.round();
     if (n - rounded).abs() > EPS {
-        return Err(format!("Expected integer, got {}", n));
+        return Err(format!("expected integer, got {}", n));
     }
     Ok(n as i64)
 }
 fn to_usize(n: Number) -> EResult<usize> {
     let i = to_int(n)?;
     if i < 0 {
-        return Err(format!("Expected non-negative integer, got {}", n));
+        return Err(format!("expected non-negative integer, got {}", n));
     }
     Ok(i as usize)
 }
