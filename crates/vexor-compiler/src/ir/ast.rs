@@ -1,6 +1,24 @@
 //! Abstract Syntax Tree nodes
 
+use std::ops::Range;
+
 use crate::ir::Number;
+
+// --- Span ---
+
+/// Source byte range. Captured from `LocatingSlice` during parsing.
+pub type Span = Range<usize>;
+
+/// Wraps a node with its source span.
+#[derive(Debug, Clone)]
+pub struct Spanned<T> {
+    pub node: T,
+    pub span: Span,
+}
+
+pub type SpanExpr = Spanned<Expr>;
+/// Boxed expression with span info.
+pub type BoxExpr = Box<SpanExpr>;
 
 // --- Primitives ---
 
@@ -8,10 +26,10 @@ use crate::ir::Number;
 #[derive(Debug, Clone)]
 pub enum Color {
     Rgba {
-        r: Box<Expr>,
-        g: Box<Expr>,
-        b: Box<Expr>,
-        a: Box<Expr>,
+        r: BoxExpr,
+        g: BoxExpr,
+        b: BoxExpr,
+        a: BoxExpr,
     },
 }
 
@@ -61,19 +79,19 @@ pub mod op {
 
 #[derive(Debug, Clone)]
 pub enum ListLiteral {
-    List(Vec<Expr>),
+    List(Vec<SpanExpr>),
     Range {
-        start: Box<Expr>,
-        second: Option<Box<Expr>>,
-        end: Box<Expr>,
+        start: BoxExpr,
+        second: Option<BoxExpr>,
+        end: BoxExpr,
     },
 }
 
 #[derive(Debug, Clone)]
 pub struct Function {
     pub params: Vec<String>,
-    pub scope: Vec<(String, Expr)>,
-    pub return_expr: Box<Expr>,
+    pub scope: Vec<(String, SpanExpr)>,
+    pub return_expr: BoxExpr,
 }
 
 #[derive(Debug, Clone)]
@@ -83,7 +101,7 @@ pub enum Literal {
     Bool(bool),
     Color(Color),
     List(ListLiteral),
-    Tuple(Vec<Expr>),
+    Tuple(Vec<SpanExpr>),
 }
 
 /// Expression
@@ -95,23 +113,23 @@ pub enum Expr {
     Variable(String),
     // Field access
     Field {
-        object: Box<Expr>,
+        object: BoxExpr,
         field: String,
     },
     // Expressions with operators
     Binary {
         operator: op::Binary,
-        left: Box<Expr>,
-        right: Box<Expr>,
+        left: BoxExpr,
+        right: BoxExpr,
     },
     Unary {
         operator: op::Unary,
-        operand: Box<Expr>,
+        operand: BoxExpr,
     },
     /// Function call
     Call {
-        function: Box<Expr>,
-        args: Vec<Expr>,
+        function: BoxExpr,
+        args: Vec<SpanExpr>,
     },
     /// Anonymous function
     Function(Function),
@@ -121,14 +139,14 @@ pub enum Expr {
     Const(Const),
     /// Match expression
     Match {
-        scrutinee: Box<Expr>,
+        scrutinee: BoxExpr,
         arms: Vec<MatchArm>,
     },
     /// If expression
     If {
-        condition: Box<Expr>,
-        then_branch: Box<Expr>,
-        else_branch: Box<Expr>,
+        condition: BoxExpr,
+        then_branch: BoxExpr,
+        else_branch: BoxExpr,
     },
 }
 
@@ -192,9 +210,9 @@ pub enum Std {
 
 #[derive(Debug, Clone)]
 pub struct MatchArm {
-    pub pattern: Expr,
-    pub guard: Option<Expr>,
-    pub body: Expr,
+    pub pattern: SpanExpr,
+    pub guard: Option<SpanExpr>,
+    pub body: SpanExpr,
 }
 
 // --- Program ---
@@ -207,13 +225,13 @@ pub enum Setting {
 #[derive(Debug, Clone)]
 pub enum ProgramUnit {
     Setting(Setting),
-    Assignment { identifier: String, value: Expr },
+    Assignment { identifier: String, value: SpanExpr },
     Function { identifier: String, func: Function },
-    Export(Expr),
-    ExportEach(Expr),
+    Export(SpanExpr),
+    ExportEach(SpanExpr),
 }
 
 #[derive(Debug, Clone)]
 pub struct Program {
-    pub units: Vec<ProgramUnit>,
+    pub units: Vec<Spanned<ProgramUnit>>,
 }

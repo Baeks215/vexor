@@ -4,11 +4,12 @@ use itertools::Itertools;
 
 use crate::evaluator::expr::{Callable, Evaluable, eval};
 use crate::evaluator::{EResult, EnvExt, EnvRef, Value, ty};
+use crate::ir::ast::SpanExpr;
 use crate::ir::{ast, scene};
 
 enum ExportExpr {
-    One(ast::Expr),
-    Each(ast::Expr),
+    One(SpanExpr),
+    Each(SpanExpr),
 }
 
 /// Evaluates a program, returns the result of the last expression.
@@ -21,7 +22,7 @@ pub fn eval_program(program: ast::Program) -> EResult<scene::Scene> {
 
     let mut export_exprs: Vec<ExportExpr> = vec![];
     for unit in units {
-        match unit {
+        match unit.node {
             ast::ProgramUnit::Function { identifier, func } => {
                 if !func.params.iter().all_unique() {
                     return Err(format!(

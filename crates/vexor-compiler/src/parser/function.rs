@@ -1,7 +1,7 @@
 use winnow::combinator::{alt, cut_err, opt, preceded, repeat, separated};
 use winnow::{ModalResult, Parser};
 
-use crate::ir::ast;
+use crate::ir::ast::{self, SpanExpr, Spanned};
 use crate::parser::expr::p_expr;
 use crate::parser::keyword::p_user_ident;
 use crate::parser::program::p_assignment_raw;
@@ -57,22 +57,29 @@ pub fn p_function_def<'a>(input: &mut Input<'a>) -> ModalResult<(String, ast::Fu
 /// Builds a curried function to the function ast node
 fn build_curried_function(
     mut curried_params: Vec<Vec<String>>,
-    return_expr: ast::Expr,
-    scope: Vec<(String, ast::Expr)>,
+    return_expr: SpanExpr,
+    scope: Vec<(String, SpanExpr)>,
 ) -> ast::Function {
     let last_params = curried_params.pop().unwrap(); // repeat(1..) guarantees Some
     // Last curried function is the main function
+    let return_span = return_expr.span.clone();
     let mut acc_function = ast::Function {
         params: last_params,
         scope,
         return_expr: Box::new(return_expr),
     };
+    let acc_span = return_span;
     // Curry remaining parameters in reverse
+    // reuses the inner return span (no source position of its own).
     for params in curried_params.into_iter().rev() {
+        let wrapped = Spanned {
+            node: ast::Expr::Function(acc_function),
+            span: acc_span.clone(),
+        };
         acc_function = ast::Function {
             params,
             scope: vec![],
-            return_expr: Box::new(ast::Expr::Function(acc_function)),
+            return_expr: Box::new(wrapped),
         };
     }
     acc_function

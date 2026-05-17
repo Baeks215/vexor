@@ -21,7 +21,7 @@ type EResult<O> = Result<O, EError>;
 
 #[derive(Debug, Clone)]
 enum Thunk {
-    Unevaluated(ast::Expr),
+    Unevaluated(ast::SpanExpr),
     Evaluating,
     Evaluated(Value),
 }
@@ -42,7 +42,7 @@ trait EnvExt {
     /// Get a variable, forces evaluation if stored as lazy expression
     fn get_var(&self, name: &str) -> EResult<Value>;
     /// Set a variable as an unevaluated expression, errors if it already exists
-    fn set_var_lazy(&self, name: String, expr: ast::Expr) -> EResult<()>;
+    fn set_var_lazy(&self, name: String, expr: ast::SpanExpr) -> EResult<()>;
     /// Set a variable as an evaluated value, errors if it already exists
     fn set_var(&self, name: String, value: Value) -> EResult<()>;
     /// Create a new scope with the given variables
@@ -111,7 +111,7 @@ impl EnvExt for EnvRef {
             .insert(name.to_string(), Thunk::Evaluated(val.clone()));
         Ok(val)
     }
-    fn set_var_lazy(&self, name: String, e: ast::Expr) -> EResult<()> {
+    fn set_var_lazy(&self, name: String, e: ast::SpanExpr) -> EResult<()> {
         let mut env = self.borrow_mut();
         let old = env.scope.insert(name.clone(), Thunk::Unevaluated(e));
         match old {

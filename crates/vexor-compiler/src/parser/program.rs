@@ -5,15 +5,15 @@ use winnow::combinator::{alt, cut_err, eof, fail, opt, preceded, separated, sepa
 use winnow::error::{ContextError, ParseError};
 use winnow::{ModalResult, Parser, Result};
 
-use crate::ir::ast::{self, ProgramUnit};
+use crate::ir::ast::{self, ProgramUnit, SpanExpr, Spanned};
 use crate::parser::expr::p_expr;
 use crate::parser::function::p_function_def;
 use crate::parser::keyword::p_user_ident;
-use crate::parser::{Input, ParserExt, exp_char, exp_string, expected, newline1, p_mws};
+use crate::parser::{Input, ParserExt, exp_char, exp_string, expected, newline1, p_mws, spanned};
 use crate::parser::{delim, keyword as k};
 
 /// Parses variable assignment `x = expr`
-pub fn p_assignment_raw<'a>(input: &mut Input<'a>) -> ModalResult<(String, ast::Expr)> {
+pub fn p_assignment_raw<'a>(input: &mut Input<'a>) -> ModalResult<(String, SpanExpr)> {
     (
         p_user_ident.ws(),
         preceded(exp_string("=").mws(), cut_err(p_expr)),
@@ -22,7 +22,7 @@ pub fn p_assignment_raw<'a>(input: &mut Input<'a>) -> ModalResult<(String, ast::
 }
 
 /// Parses variable assignment with `let x = expr`
-fn p_assignment<'a>(input: &mut Input<'a>) -> ModalResult<(String, ast::Expr)> {
+fn p_assignment<'a>(input: &mut Input<'a>) -> ModalResult<(String, SpanExpr)> {
     preceded(k::pk_val.ws(), cut_err(p_assignment_raw)).parse_next(input)
 }
 
@@ -76,9 +76,9 @@ fn p_program<'a>(input: &mut Input<'a>) -> ModalResult<ast::Program> {
 
     // Count how many export units we have.
     let mut export_count = 0;
-    let units: Vec<_> = separated(
+    let units: Vec<Spanned<ProgramUnit>> = separated(
         1..,
-        alt((
+        spanned(alt((
             p_function_def.map(|(identifier, func)| ProgramUnit::Function { identifier, func }),
             p_assignment.map(|(identifier, value)| ProgramUnit::Assignment { identifier, value }),
             p_export.map(|e| {
@@ -90,7 +90,7 @@ fn p_program<'a>(input: &mut Input<'a>) -> ModalResult<ast::Program> {
                 .expected_lit("let")
                 .expected_lit("export")
                 .expected_lit("set"),
-        )),
+        ))),
         newline1,
     )
     .parse_next(input)?;

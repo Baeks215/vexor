@@ -7,6 +7,8 @@ use winnow::stream::Stream;
 use winnow::stream::{Accumulate, Range};
 use winnow::{LocatingSlice, ModalParser, ModalResult, Parser};
 
+use crate::ir::ast::Spanned;
+
 mod expr;
 mod function;
 mod keyword;
@@ -137,6 +139,16 @@ where
     Accumulator: Accumulate<O>,
 {
     separated(occurrences, inner, (p_mws, exp_char(','), p_mws))
+}
+
+/// Wrap a parser to capture its source span.
+fn spanned<'a, F, O>(parser: F) -> impl ModalParser<Input<'a>, Spanned<O>, ContextError>
+where
+    F: ModalParser<Input<'a>, O, ContextError>,
+{
+    parser
+        .with_span()
+        .map(|(node, span)| Spanned { node, span })
 }
 
 /// Created context error for expected input

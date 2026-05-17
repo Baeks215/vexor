@@ -1,7 +1,7 @@
 use crate::evaluator::expr::constants::get_constant;
 use crate::evaluator::expr::{Evaluable, Value, eval, ty};
 use crate::evaluator::{EResult, EnvExt, EnvRef};
-use crate::ir::ast::{self, Const, Expr, ListLiteral, Literal, MatchArm, Std, op};
+use crate::ir::ast::{self, Const, Expr, ListLiteral, Literal, MatchArm, SpanExpr, Std, op};
 use crate::ir::scene;
 
 /// Generic match-arm evaluation.
@@ -33,8 +33,8 @@ pub fn eval_match<T: Evaluable>(
 }
 
 /// Matches an evaluated value to an expression pattern.
-fn match_pattern(env: &EnvRef, scrutinee: Value, pattern: Expr) -> EResult<bool> {
-    match pattern {
+fn match_pattern(env: &EnvRef, scrutinee: Value, pattern: SpanExpr) -> EResult<bool> {
+    match pattern.node {
         Expr::Variable(name) => env.set_var(name, scrutinee).map(|_| true),
         Expr::Literal(lit_pattern) => match_literal_pattern(env, scrutinee, lit_pattern),
         Expr::Binary {
@@ -103,8 +103,8 @@ fn match_bin(
     env: &EnvRef,
     scrutinee: Value,
     operator: op::Binary,
-    left: Expr,
-    right: Expr,
+    left: SpanExpr,
+    right: SpanExpr,
 ) -> EResult<bool> {
     match operator {
         op::Binary::Cons => {

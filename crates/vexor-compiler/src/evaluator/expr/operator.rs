@@ -1,15 +1,15 @@
 use crate::evaluator::expr::{Evaluable, Value, eval, ty};
 use crate::evaluator::graphic::{concat_paths, transform_path};
 use crate::evaluator::{EResult, EnvRef};
-use crate::ir::ast::{Expr, op};
+use crate::ir::ast::{SpanExpr, op};
 use crate::ir::scene::{Graphic, GraphicType};
 
 /// Evaluates a binary operator expression
 pub fn eval_op_bin<T: Evaluable>(
     env: &EnvRef,
     operator: op::Binary,
-    left: Expr,
-    right: Expr,
+    left: SpanExpr,
+    right: SpanExpr,
 ) -> EResult<T::Output> {
     let result = match operator {
         op::Binary::Arithmetic(operator) => {
@@ -71,7 +71,7 @@ pub fn eval_op_bin<T: Evaluable>(
 pub fn eval_op_un<T: Evaluable>(
     env: &EnvRef,
     operator: op::Unary,
-    expr: Expr,
+    expr: SpanExpr,
 ) -> EResult<T::Output> {
     let result = match operator {
         op::Unary::Not => {

@@ -2,7 +2,7 @@
 
 use crate::evaluator::expr::constants::get_constant;
 use crate::evaluator::{EResult, EnvExt, EnvRef};
-use crate::ir::ast::{self, Expr, Literal};
+use crate::ir::ast::{self, Expr, Literal, SpanExpr};
 use crate::ir::scene;
 
 mod constants;
@@ -20,8 +20,8 @@ use matcher::eval_match;
 use operator::{eval_op_bin, eval_op_un};
 
 /// Evaluates an expression and returns the result as the expected output type.
-pub fn eval<T: Evaluable>(env: &EnvRef, expr: ast::Expr) -> EResult<T::Output> {
-    match expr {
+pub fn eval<T: Evaluable>(env: &EnvRef, expr: SpanExpr) -> EResult<T::Output> {
+    match expr.node {
         Expr::Literal(literal) => eval_literal::<T>(env, literal),
         Expr::Variable(name) => {
             let value = env.get_var(&name)?;
@@ -100,7 +100,7 @@ fn eval_literal<T: Evaluable>(env: &EnvRef, literal: Literal) -> EResult<T::Outp
 /// Evaluates a field access expression.
 fn eval_field_access<T: Evaluable>(
     env: &EnvRef,
-    object: Expr,
+    object: SpanExpr,
     field: String,
 ) -> EResult<T::Output> {
     let object_value = eval::<ty::Any>(env, object)?;
