@@ -39,6 +39,16 @@ pub fn close_path(mut path: BezPath) -> EResult<BezPath> {
     Ok(path)
 }
 
+/// Normalise path to start at the origin.
+pub fn normalise_path(mut path: BezPath) -> BezPath {
+    let Some(PathEl::MoveTo(first)) = path.elements().first() else {
+        return path;
+    };
+    let offset = Point::ORIGIN - *first;
+    path.apply_affine(Affine::translate(offset));
+    path
+}
+
 /// Concatenates two paths:
 ///   Translates `right` so its start meets `left`'s end, and connects the two paths.
 pub fn concat_paths(mut left: BezPath, mut right: BezPath) -> EResult<BezPath> {
@@ -75,7 +85,7 @@ pub fn catmull_rom_path(points: &[Point]) -> BezPath {
         let b2 = p2 - (p3 - p1) / 6.0;
         path.curve_to(b1, b2, p2);
     }
-    path
+    normalise_path(path)
 }
 
 /// Returns the endpoint of a path, or `None`
