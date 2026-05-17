@@ -85,6 +85,7 @@ fn classify_kw(s: &str) -> Ident {
         "find" => Ident::Std(Std::Find),
         "sort" => Ident::Std(Std::Sort),
         "sortBy" => Ident::Std(Std::SortBy),
+        "repeat" => Ident::Std(Std::Repeat),
         // Graphic constructors
         "Circle" => Ident::Std(Std::Circle),
         "Rect" => Ident::Std(Std::Rect),
@@ -102,6 +103,8 @@ fn classify_kw(s: &str) -> Ident {
         "move" => Ident::Std(Std::Move),
         "scale" => Ident::Std(Std::Scale),
         "rotate" => Ident::Std(Std::Rotate),
+        "mirrorX" => Ident::Std(Std::MirrorX),
+        "mirrorY" => Ident::Std(Std::MirrorY),
         "fill" => Ident::Std(Std::Fill),
         "stroke" => Ident::Std(Std::Stroke),
         // Constants

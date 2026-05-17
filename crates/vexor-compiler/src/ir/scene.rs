@@ -42,6 +42,14 @@ impl Graphic {
         }
     }
 
+    /// Applies a transformation in the graphic's local space.
+    pub fn transform_local(self, transform: Affine) -> Self {
+        Self {
+            transform: self.transform * transform,
+            ..self
+        }
+    }
+
     /// Applies a transformation to the style of the graphic component.
     pub fn transform_style(self, f: impl FnOnce(Style) -> Style) -> Self {
         Self {

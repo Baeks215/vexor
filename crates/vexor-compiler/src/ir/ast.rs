@@ -164,6 +164,7 @@ pub enum Std {
     Find,
     Sort,
     SortBy,
+    Repeat,
     // Graphic constructors
     Circle,
     Rect,
@@ -181,6 +182,8 @@ pub enum Std {
     Move,
     Scale,
     Rotate,
+    MirrorX,
+    MirrorY,
     Fill,
     Stroke,
 }

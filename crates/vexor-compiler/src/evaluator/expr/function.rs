@@ -271,6 +271,11 @@ fn eval_std_call<T: Evaluable>(
             v.sort_by(f64::total_cmp);
             Value::List(v.into_iter().map(Value::Number).collect())
         }
+        Std::Repeat => {
+            let (n, value) = unpack_2!(args)?;
+            let n = to_usize(ty::Number::expect(n)?)?;
+            Value::List(std::iter::repeat_n(value, n).collect())
+        }
         // Graphic constructors
         Std::Circle => {
             let radius = unpack_1!(args)?;
@@ -346,6 +351,14 @@ fn eval_std_call<T: Evaluable>(
             }
             let path = catmull_rom_path(&pts);
             Value::from(Graphic::new(GraphicType::Path { path }))
+        }
+        Std::MirrorX => {
+            let g = ty::Graphic::expect(unpack_1!(args)?)?;
+            Value::from(g.transform_local(Affine::scale_non_uniform(1.0, -1.0)))
+        }
+        Std::MirrorY => {
+            let g = ty::Graphic::expect(unpack_1!(args)?)?;
+            Value::from(g.transform_local(Affine::scale_non_uniform(-1.0, 1.0)))
         }
         // Graphic functions
         Std::Close => {
