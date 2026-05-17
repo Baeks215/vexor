@@ -7,15 +7,27 @@ pub use exporter::*;
 pub use ir::scene::{Color, Graphic, GraphicType, Scene};
 
 /// Compiler error
-type CError = String;
+#[derive(Debug)]
+pub enum CError {
+    Parse(String),
+    Eval(String),
+}
+impl std::fmt::Display for CError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            CError::Parse(e) => write!(f, "Parse error: {e}"),
+            CError::Eval(e) => write!(f, "Evaluation error: {e}"),
+        }
+    }
+}
 
 /// Result type for evaluation
-type CResult<O> = Result<O, CError>;
+pub type CResult<O> = Result<O, CError>;
 
 /// Compiles the given input string into [`Scene`] IR.
 pub fn compile(input: &str) -> CResult<Scene> {
-    let ast = parser::parse_program(input).map_err(|e| e.to_string())?;
-    let scene = evaluator::eval_program(ast).map_err(|e| format!("evaluation error: {}", e))?;
+    let ast = parser::parse_program(input).map_err(|e| CError::Parse(e.to_string()))?;
+    let scene = evaluator::eval_program(ast).map_err(|e| CError::Eval(e))?;
     Ok(scene)
 }
 

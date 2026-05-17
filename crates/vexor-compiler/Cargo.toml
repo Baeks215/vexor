@@ -12,7 +12,7 @@ svg.workspace = true
 kurbo.workspace = true
 itertools.workspace = true
 im-rc.workspace = true
-
+ariadne.workspace = true
 
 [dev-dependencies]
 # winnow = {workspace = true, features = ["debug"]}
