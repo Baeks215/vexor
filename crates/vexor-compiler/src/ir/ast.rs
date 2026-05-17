@@ -32,6 +32,8 @@ pub mod op {
         Sub,
         Mul,
         Div,
+        IntDiv,
+        Rem,
     }
 
     #[derive(Debug, Clone, Copy)]
@@ -53,6 +55,7 @@ pub mod op {
     #[derive(Debug, Clone, Copy)]
     pub enum Unary {
         Not,
+        Neg,
     }
 }
 

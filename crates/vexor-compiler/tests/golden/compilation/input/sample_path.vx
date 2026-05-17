@@ -17,8 +17,8 @@ fn wave_fn(t) = (x, y) where {
 }
 
 
-val loop = sample(0, 2 * pi, 40, loop_fn)
-val decorative_wave = sample(0, pi, 15, wave_fn)
+val loop = sample(0, 2 * PI, 40, loop_fn)
+val decorative_wave = sample(0, PI, 15, wave_fn)
 
 val ornate_border = decorative_wave + decorative_wave + decorative_wave
 
@@ -30,7 +30,7 @@ val ribbon_badge = close(ornate_border + frame_down + frame_return)
 
 
 val g = Group([
-  // Background
+  -- Background
   Rect(600, 400) >> fill(deep_purple),
   loop >> move(300, 200) >> stroke(4, mint_green),
   ribbon_badge >> move(105, 280) >> fill(royal_gold)

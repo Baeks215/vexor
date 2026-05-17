@@ -1,4 +1,4 @@
-// OUTPUT: 1, 1, 0
+-- OUTPUT: 1, 1, 0
 
 fn is_even(n) = if n == 0 { 1 } else { is_odd(n - 1) }
 fn is_odd(n) = if n == 0 { 0 } else { is_even(n - 1) }

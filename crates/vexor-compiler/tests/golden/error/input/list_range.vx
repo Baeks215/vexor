@@ -1,5 +1,5 @@
 val xs = []
 val ys = [1,3..10]
-// expected a ','
+-- expected a ','
 val zs = [1,2,3..10]
 export Circle(10)

@@ -1,16 +1,16 @@
-// OUTPUT: 3, 3, 3, 9, 4
+-- OUTPUT: 3, 3, 3, 9, 4
 
 val r1 = match [1, 2, 3] { [a, b, c] => c, y => 0 }
 
 val r2 = match 1 : 2 : Nil { [a, b] => a + b, y => 0 }
 
-// Range syntax
+-- Range syntax
 val r3 = match [1..3] { [a, b, c] => c, y => 0 }
 
-// Stepped range
+-- Stepped range
 val r4 = match [1, 3..10] { [a, b, c, d, e] => e, y => 0 }
 
-// Using map function
+-- Using map function
 fn double(x) = x * 2
 val r5 = match map(double)([2, 3]) { [a, b] => a, y => 0 }
 

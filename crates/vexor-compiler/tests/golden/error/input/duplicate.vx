@@ -1,5 +1,5 @@
 val r = 100
-// duplicate variable r
+-- duplicate variable r
 val r = 200
 val c = Circle(r)
 export c

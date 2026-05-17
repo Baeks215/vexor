@@ -1,9 +1,9 @@
-// OUTPUT: 6, 10, 5
+-- OUTPUT: 6, 10, 5, 3, 1
 
 val r = if 5 > 10 { 100 } else { 5 + 1 }
 export Circle(r)
 
-export if true {
+export if -PI < 0 {
     Circle(10)
 } else {
     Circle(0)
@@ -13,5 +13,11 @@ val cond2 = r > 10000
 export if cond2 {
     Circle(99)
 } else {
-    Circle(5)
+    Circle(-(-5))
 }
+
+-- integer division
+export Circle(10 // 3)
+
+-- remainder
+export Circle(10 % 3)

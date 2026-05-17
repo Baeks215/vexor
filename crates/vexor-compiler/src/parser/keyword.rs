@@ -105,7 +105,7 @@ fn classify_kw(s: &str) -> Ident {
         "fill" => Ident::Std(Std::Fill),
         "stroke" => Ident::Std(Std::Stroke),
         // Constants
-        "pi" => Ident::Const(Const::Pi),
+        "PI" => Ident::Const(Const::Pi),
         // User
         other => Ident::User(other.to_string()),
     }
@@ -148,7 +148,7 @@ mod tests {
         assert!(is_keyword("true"));
         assert!(is_keyword("false"));
         assert!(!is_keyword("map"));
-        assert!(!is_keyword("pi"));
+        assert!(!is_keyword("PI"));
         assert!(!is_keyword("not_a_keyword"));
     }
 
@@ -180,7 +180,7 @@ mod tests {
             other => panic!("expected Std::Map, got {:?}", other),
         }
 
-        let mut input = Input::new("pi");
+        let mut input = Input::new("PI");
         match p_ident.parse_next(&mut input).unwrap() {
             Ident::Const(Const::Pi) => (),
             other => panic!("expected Const::Pi, got {:?}", other),
@@ -205,7 +205,7 @@ mod tests {
         assert!(p_user_ident.parse_next(&mut input).is_err());
 
         // Const rejected
-        let mut input = Input::new("pi");
+        let mut input = Input::new("PI");
         assert!(p_user_ident.parse_next(&mut input).is_err());
     }
 }

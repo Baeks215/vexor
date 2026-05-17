@@ -1,3 +1,3 @@
 val r = 10
 val c = Circle(r)
-// no export
+-- no export

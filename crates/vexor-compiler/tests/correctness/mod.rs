@@ -8,7 +8,7 @@ use std::fs;
 // Parser for extracting expected outputs from source code comments
 fn expected_outputs<'a>(input: &mut &'a str) -> winnow::Result<Vec<f64>> {
     preceded(
-        ("// OUTPUT:", space0),
+        ("-- OUTPUT:", space0),
         separated(1.., float::<_, f64, _>, (',', space0)),
     )
     .parse_next(input)

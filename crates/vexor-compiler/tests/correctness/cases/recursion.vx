@@ -1,4 +1,4 @@
-// OUTPUT: 120, 8
+-- OUTPUT: 120, 8
 
 fn factorial(n) = if n <= 1 { 1 } else { n * factorial(n - 1) }
 fn power(base, exp) = if exp <= 0 { 1 } else { base * power(base, exp - 1) }

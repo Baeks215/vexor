@@ -1,4 +1,4 @@
-// OUTPUT: 2, 4, 6, 8, 10
+-- OUTPUT: 2, 4, 6, 8, 10
 
 val xs = [1..5] >> map(x -> x * 2)
 val cs = map(Circle)(xs)

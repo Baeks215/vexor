@@ -1,4 +1,4 @@
 val c = Circle(10)
-// too few arguments
+-- too few arguments
 val moved = move(50)(c)
 export moved

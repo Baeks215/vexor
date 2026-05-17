@@ -31,6 +31,8 @@ pub fn eval_op_bin<T: Evaluable>(
                     op::Arithmetic::Sub => x - y,
                     op::Arithmetic::Mul => x * y,
                     op::Arithmetic::Div => x / y,
+                    op::Arithmetic::IntDiv => (x / y).trunc(),
+                    op::Arithmetic::Rem => x % y,
                 }),
                 _ => return Err("invalid operands for +".into()),
             }
@@ -75,6 +77,10 @@ pub fn eval_op_un<T: Evaluable>(
         op::Unary::Not => {
             let value = eval::<ty::Bool>(env, expr)?;
             Value::from(!value)
+        }
+        op::Unary::Neg => {
+            let value = eval::<ty::Number>(env, expr)?;
+            Value::from(-value)
         }
     };
     T::expect(result)

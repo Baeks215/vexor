@@ -1,6 +1,6 @@
 val r = 100
 val c = Circle(r)
-// no arm matches r = 100
+-- no arm matches r = 100
 val scaled = match r {
     50 => scale(0.5, c),
     200 => scale(2.0, c)

@@ -1,4 +1,4 @@
-// missing = body
+-- missing = body
 fn double(x)
 
 val result = double(10)

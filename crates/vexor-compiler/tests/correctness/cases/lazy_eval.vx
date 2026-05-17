@@ -1,16 +1,16 @@
-// OUTPUT: 10, 20
+-- OUTPUT: 10, 20
 
 export Circle(a)
 
 val a = b + 3
 val b = 7
-// invalid expression
-val c = "a" + 1 // Should not be evaluated
+-- invalid expression
+val c = "a" + 1 -- Should not be evaluated
 
 fn double(x) = y
 where {
   y = x * 2
-  z = "a" + 1 // Should not be evaluated
+  z = "a" + 1 -- Should not be evaluated
 }
 
 export Circle(double(a))

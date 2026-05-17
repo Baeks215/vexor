@@ -81,7 +81,7 @@ fn newline1<'a>(input: &mut Input<'a>) -> ModalResult<()> {
 
 /// Parse line comment
 fn p_line_comment<'a>(input: &mut Input<'a>) -> ModalResult<()> {
-    ("//", till_line_ending).void().parse_next(input)
+    ("--", till_line_ending).void().parse_next(input)
 }
 
 // --- Helpers ---

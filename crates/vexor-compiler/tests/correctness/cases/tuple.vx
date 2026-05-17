@@ -1,22 +1,22 @@
-// OUTPUT: 6, 7, 3, 42, 5
+-- OUTPUT: 6, 7, 3, 42, 5
 
-// Basic construction + destructure
+-- Basic construction + destructure
 val t = (1, 2, 3)
 val r1 = match t { (a, b, c) => a + b + c, y => 0 }
 
-// 2-tuple
+-- 2-tuple
 val pair = (3, 4)
 val r2 = match pair { (a, b) => a + b, y => 0 }
 
-// Nested tuples
+-- Nested tuples
 val nested = (1, (2, 3))
 val r3 = match nested { (a, (b, c)) => a + b - c + 3, y => 0 }
 
-// Literal pattern in tuple slot
+-- Literal pattern in tuple slot
 val tagged = (true, 42)
 val r4 = match tagged { (true, n) => n, (false, n) => 0, y => 0 }
 
-// Wrong-arity arm falls through; (1, 2) parses as tuple not group
+-- Wrong-arity arm falls through; (1, 2) parses as tuple not group
 val r5 = match (1, 2) { (a, b, c) => 0, (a, b) => a + b + 2, y => 0 }
 
 export Circle(r1)

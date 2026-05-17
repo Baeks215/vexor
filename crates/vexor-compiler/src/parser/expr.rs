@@ -220,9 +220,9 @@ pub fn p_atom<'a>(input: &mut Input<'a>) -> ModalResult<ast::Expr> {
 pub fn p_expr<'a>(input: &mut Input<'a>) -> ModalResult<ast::Expr> {
     expression(p_atom).infix(dispatch! {alt((
         alt((">>", "&&", "||")),
-        alt(("==", "!=", ">=", "<=")),
-        alt(("+", "-", "*", "/", ">", "<", ":")),
-    )).ws();
+        alt(("==", "!=", ">=", "<=", "//")),
+        alt(("+", "-", "*", "/", "%", ">", "<", ":")),
+    )).mws();
         ">>" => Infix::Left(0, |_, arg, func| Ok(ast::Expr::Call { function: Box::new(func), args: vec![arg] })),
         "||" => Infix::Left(1, |_, a, b| Ok(ast::Expr::Binary { operator: op::Binary::Logic(op::Logic::Or), left: Box::new(a), right: Box::new(b) })),
         "&&" => Infix::Left(2, |_, a, b| Ok(ast::Expr::Binary { operator: op::Binary::Logic(op::Logic::And), left: Box::new(a), right: Box::new(b) })),
@@ -240,10 +240,13 @@ pub fn p_expr<'a>(input: &mut Input<'a>) -> ModalResult<ast::Expr> {
         "-" => Infix::Left(5, |_, a, b| Ok(ast::Expr::Binary { operator: op::Binary::Arithmetic(op::Arithmetic::Sub), left: Box::new(a), right: Box::new(b) })),
         "*" => Infix::Left(7, |_, a, b| Ok(ast::Expr::Binary { operator: op::Binary::Arithmetic(op::Arithmetic::Mul), left: Box::new(a), right: Box::new(b) })),
         "/" => Infix::Left(7, |_, a, b| Ok(ast::Expr::Binary { operator: op::Binary::Arithmetic(op::Arithmetic::Div), left: Box::new(a), right: Box::new(b) })),
+        "//" => Infix::Left(7, |_, a, b| Ok(ast::Expr::Binary { operator: op::Binary::Arithmetic(op::Arithmetic::IntDiv), left: Box::new(a), right: Box::new(b) })),
+        "%" => Infix::Left(7, |_, a, b| Ok(ast::Expr::Binary { operator: op::Binary::Arithmetic(op::Arithmetic::Rem), left: Box::new(a), right: Box::new(b) })),
         _ => fail,
     })
-    .prefix(dispatch! {"!";
+    .prefix(dispatch! {alt(("!", "-")).ws();
         "!" => Prefix(11, |_, a| Ok(ast::Expr::Unary { operator: op::Unary::Not, operand: Box::new(a) })),
+        "-" => Prefix(11, |_, a| Ok(ast::Expr::Unary { operator: op::Unary::Neg, operand: Box::new(a) })),
         _ => fail,
     })
     .postfix(dispatch! { peek("(");

@@ -8,13 +8,13 @@ val gear_tooth = Path([
 
 val tooth_list = map(_ -> gear_tooth)([1..20])
 
-// Fold by adding paths together.
-// The + operator automatically shifts the start of the next tooth
-// to the end of the previous one
+-- Fold by adding paths together.
+-- The + operator automatically shifts the start of the next tooth
+-- to the end of the previous one
 val gear_edge = foldl((a, b) -> a + gear_tooth)(gear_tooth)(tooth_list)
 
-// Close the shape with singular Line primitives
-// The gear edge is welded between a vertical drop and a return line.
+-- Close the shape with singular Line primitives
+-- The gear edge is welded between a vertical drop and a return line.
 val gear_edge_shape = close(
   Line(0, 20) + gear_edge + Line(0,-20)
 )
