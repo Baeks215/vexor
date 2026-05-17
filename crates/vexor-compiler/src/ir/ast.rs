@@ -169,6 +169,7 @@ pub enum Std {
     Line,
     Curve,
     Path,
+    Sample,
     // Graphic functions
     Close,
     JumpTo,

@@ -57,7 +57,28 @@ pub fn concat_paths(mut left: BezPath, mut right: BezPath) -> EResult<BezPath> {
     Ok(left)
 }
 
-/// Returns the end point of a path, or `None`
+/// Builds a smooth cubic BezPath through `points` via uniform Catmull-Rom → Bézier conversion.
+///   Start and end points should be phantom points,
+///   i.e. Not included in the path but used to determine tangents at the endpoints.
+pub fn catmull_rom_path(points: &[Point]) -> BezPath {
+    let mut path = BezPath::new();
+    if points.len() < 2 {
+        return path;
+    }
+    path.move_to(points[1]);
+    for i in 1..points.len() - 2 {
+        let p0 = points[i - 1];
+        let p1 = points[i];
+        let p2 = points[i + 1];
+        let p3 = points[i + 2];
+        let b1 = p1 + (p2 - p0) / 6.0;
+        let b2 = p2 - (p3 - p1) / 6.0;
+        path.curve_to(b1, b2, p2);
+    }
+    path
+}
+
+/// Returns the endpoint of a path, or `None`
 fn path_end(path: &BezPath) -> Option<Point> {
     let els = path.elements();
     let last = els.last()?;

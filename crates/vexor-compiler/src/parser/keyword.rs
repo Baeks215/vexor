@@ -93,6 +93,7 @@ fn classify_kw(s: &str) -> Ident {
         "Line" => Ident::Std(Std::Line),
         "Curve" => Ident::Std(Std::Curve),
         "Path" => Ident::Std(Std::Path),
+        "sample" => Ident::Std(Std::Sample),
         // Graphic transforms
         "close" => Ident::Std(Std::Close),
         "jumpTo" => Ident::Std(Std::JumpTo),

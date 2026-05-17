@@ -4,7 +4,7 @@ use std::cell::RefCell;
 
 use crate::evaluator::expr::list::List;
 use crate::evaluator::expr::{Evaluable, Value, eval, ty};
-use crate::evaluator::graphic::{close_path, start_path, transform_path};
+use crate::evaluator::graphic::{catmull_rom_path, close_path, start_path, transform_path};
 use crate::evaluator::{EResult, EnvExt, EnvRef, to_usize};
 use crate::ir::ast::{self, Function, Std};
 use crate::ir::{Number, scene};
@@ -144,6 +144,14 @@ macro_rules! unpack_3 {
             .into_iter()
             .collect_tuple::<(_, _, _)>()
             .ok_or("expected three arguments")
+    };
+}
+macro_rules! unpack_4 {
+    ($iter:expr) => {
+        $iter
+            .into_iter()
+            .collect_tuple::<(_, _, _, _)>()
+            .ok_or("expected four arguments")
     };
 }
 
@@ -318,6 +326,26 @@ fn eval_std_call<T: Evaluable>(
                 g = eval_call::<ty::Graphic>(env, callable, vec![Value::from(g)])?;
             }
             Value::from(g)
+        }
+        Std::Sample => {
+            let (from, to, steps, f) = unpack_4!(args)?;
+            let from = ty::Number::expect(from)?;
+            let to = ty::Number::expect(to)?;
+            let steps = to_usize(ty::Number::expect(steps)?)?;
+            let f = ty::Function::expect(f)?;
+            if steps < 1 {
+                return Err("sample requires steps >= 1".into());
+            }
+
+            let mut pts: Vec<Point> = Vec::with_capacity(steps + 1 + 2); // +2 for phantom start/end points
+            let step = (to - from) / (steps as Number);
+            for i in -1..=(steps as isize + 1) {
+                let t = from + (step * (i as Number));
+                let v = eval_call::<ty::Any>(env, f.clone(), vec![Value::from(t)])?;
+                pts.push(tuple_to_point(v)?);
+            }
+            let path = catmull_rom_path(&pts);
+            Value::from(Graphic::new(GraphicType::Path { path }))
         }
         // Graphic functions
         Std::Close => {

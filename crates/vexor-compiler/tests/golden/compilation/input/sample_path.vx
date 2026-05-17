@@ -1,0 +1,39 @@
+
+val royal_gold  = rgb(0.85, 0.65, 0.12, 1)
+val deep_purple = rgb(0.15, 0.08, 0.22, 1)
+val mint_green  = rgb(0.20, 0.80, 0.50, 1)
+
+fn loop_fn(t) = (x, y)
+where {
+  x = factor * cos(t)
+  y = factor * sin(2 * t) / 2
+  denominator = 3 - cos(2 * t)
+  factor      = 150 / denominator
+}
+
+fn wave_fn(t) = (x, y) where {
+    x = t * 20
+    y = sin(t) * 30 + sin(t * 3) * 8
+}
+
+
+val loop = sample(0, 2 * pi, 40, loop_fn)
+val decorative_wave = sample(0, pi, 15, wave_fn)
+
+val ornate_border = decorative_wave + decorative_wave + decorative_wave
+
+
+val frame_down   = Line(0, 60)
+val frame_return = Line(-188.4, 0)
+
+val ribbon_badge = close(ornate_border + frame_down + frame_return)
+
+
+val g = Group([
+  // Background
+  Rect(600, 400) >> fill(deep_purple),
+  loop >> move(300, 200) >> stroke(4, mint_green),
+  ribbon_badge >> move(105, 280) >> fill(royal_gold)
+])
+
+export g
