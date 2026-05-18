@@ -46,7 +46,7 @@ macro_rules! define_value_types {
                 fn expect(value: Value) -> EResult<Self::Output> {
                     match value {
                         Value::$variant(x) => Ok(x),
-                        _ => Err(format!("expected a {}", stringify!($variant).to_lowercase())),
+                        _ => Err(format!("expected a {}", stringify!($variant).to_lowercase()).into()),
                     }
                 }
             }

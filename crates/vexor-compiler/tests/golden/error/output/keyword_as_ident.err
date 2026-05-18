@@ -1,5 +1,7 @@
-parse error at line 2, column 5
-  |
-2 | val match = 100
-  |     ^
-expected not a keyword
+Error: parse error
+   ╭─[ input:2:5 ]
+   │
+ 2 │ val match = 100
+   │     ┬  
+   │     ╰── expected non-keyword identifier
+───╯

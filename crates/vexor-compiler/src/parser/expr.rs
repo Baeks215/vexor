@@ -2,19 +2,21 @@
 
 use winnow::ascii::{dec_int, float};
 use winnow::combinator::{
-    Infix, Postfix, Prefix, alt, cut_err, delimited, dispatch, expression, fail, opt, peek,
-    preceded, repeat, terminated,
+    Infix, Postfix, Prefix, alt, cut_err, dispatch, expression, fail, opt, peek, preceded, repeat,
+    terminated,
 };
+use winnow::stream::Stream;
 use winnow::token::take_while;
 use winnow::{ModalResult, Parser};
 
 use crate::ir::Number;
-use crate::ir::ast;
 use crate::ir::ast::op;
+use crate::ir::ast::{self, Spanned};
+use crate::parser::error::CtxErrBuilder;
 use crate::parser::function::p_lambda;
 use crate::parser::keyword::Ident;
 use crate::parser::{
-    Input, ParserExt, comma_list, delim, delim_cut, exp_string, keyword as k, p_ws,
+    Input, ParserExt, comma_list, delim, delim_cut, exp_string, keyword as k, p_ws, spanned,
 };
 
 // --- Primitives ---
@@ -34,14 +36,18 @@ pub fn p_number<'a>(input: &mut Input<'a>) -> ModalResult<Number> {
 
 /// Parses a string literal.
 pub fn p_string<'a>(input: &mut Input<'a>) -> ModalResult<&'a str> {
-    delimited(
-        '"',
-        take_while(0.., |c: char| c != '"'),
-        cut_err('"'.expected("closing `\"`")),
-    )
-    .label("string")
-    .ws()
-    .parse_next(input)
+    let start = input.checkpoint();
+    '"'.parse_next(input)?;
+    let s = take_while(0.., |c: char| c != '"').parse_next(input)?;
+    let closing: ModalResult<char> = '"'.parse_next(input);
+    if closing.is_err() {
+        return Err(CtxErrBuilder::from_checkpoint(input, &start)
+            .label("string")
+            .expected("closing `\"`")
+            .err);
+    }
+    p_ws.parse_next(input)?;
+    Ok(s)
 }
 
 /// Parses a bool literal.
@@ -58,7 +64,7 @@ pub fn p_color<'a>(input: &mut Input<'a>) -> ModalResult<ast::Color> {
         k::pk_rgb,
         cut_err(delim(
             '(',
-            comma_list(4, p_expr).map(|mut es: Vec<ast::Expr>| ast::Color::Rgba {
+            comma_list(4, p_expr).map(|mut es: Vec<ast::SpanExpr>| ast::Color::Rgba {
                 r: Box::new(es.remove(0)),
                 g: Box::new(es.remove(0)),
                 b: Box::new(es.remove(0)),
@@ -138,7 +144,7 @@ pub fn p_match<'a>(input: &mut Input<'a>) -> ModalResult<ast::Expr> {
     )
     .ws()
     .map(
-        |(scrutinee, arms): (ast::Expr, Vec<ast::MatchArm>)| ast::Expr::Match {
+        |(scrutinee, arms): (ast::SpanExpr, Vec<ast::MatchArm>)| ast::Expr::Match {
             scrutinee: Box::new(scrutinee),
             arms,
         },
@@ -158,10 +164,12 @@ pub fn p_if<'a>(input: &mut Input<'a>) -> ModalResult<ast::Expr> {
     )
     .ws()
     .map(
-        |(condition, then_branch, else_branch): (ast::Expr, ast::Expr, ast::Expr)| ast::Expr::If {
-            condition: Box::new(condition),
-            then_branch: Box::new(then_branch),
-            else_branch: Box::new(else_branch),
+        |(condition, then_branch, else_branch): (ast::SpanExpr, ast::SpanExpr, ast::SpanExpr)| {
+            ast::Expr::If {
+                condition: Box::new(condition),
+                then_branch: Box::new(then_branch),
+                else_branch: Box::new(else_branch),
+            }
         },
     )
     .parse_next(input)
@@ -170,20 +178,29 @@ pub fn p_if<'a>(input: &mut Input<'a>) -> ModalResult<ast::Expr> {
 /// Parses a classified identifier as an atom expression.
 ///   User identifiers may have an optional `.field` suffix.
 fn p_ident_atom<'a>(input: &mut Input<'a>) -> ModalResult<ast::Expr> {
-    let id = k::p_ident.parse_next(input)?;
+    let (id, id_span) = k::p_ident.with_span().parse_next(input)?;
     let expr = match id {
         Ident::Std(s) => ast::Expr::Std(s),
         Ident::Const(c) => ast::Expr::Const(c),
         Ident::User(name) => {
-            let fields: Vec<_> = repeat(0.., preceded('.', k::p_user_ident)).parse_next(input)?;
-            let mut acc = ast::Expr::Variable(name);
-            for field in fields {
-                acc = ast::Expr::Field {
-                    object: Box::new(acc),
-                    field,
-                }
+            let fields: Vec<(String, std::ops::Range<usize>)> =
+                repeat(0.., preceded('.', k::p_user_ident).with_span()).parse_next(input)?;
+            let mut acc = Spanned {
+                node: ast::Expr::Variable(name),
+                span: Some(id_span),
+            };
+            for (field, field_span) in fields {
+                let new_span = merge_spans(&acc.span, &Some(field_span));
+                acc = Spanned {
+                    node: ast::Expr::Field {
+                        object: Box::new(acc),
+                        field,
+                    },
+                    span: new_span,
+                };
             }
-            acc
+            p_ws.parse_next(input)?;
+            return Ok(acc.node);
         }
     };
     p_ws.parse_next(input)?;
@@ -192,9 +209,9 @@ fn p_ident_atom<'a>(input: &mut Input<'a>) -> ModalResult<ast::Expr> {
 
 fn p_tuple_or_bracketed<'a>(input: &mut Input<'a>) -> ModalResult<ast::Expr> {
     delim('(', comma_list(1.., p_expr), ')')
-        .map(|mut es: Vec<ast::Expr>| {
+        .map(|mut es: Vec<ast::SpanExpr>| {
             if es.len() == 1 {
-                es.pop().unwrap()
+                es.pop().unwrap().node
             } else {
                 ast::Expr::Literal(ast::Literal::Tuple(es))
             }
@@ -203,63 +220,92 @@ fn p_tuple_or_bracketed<'a>(input: &mut Input<'a>) -> ModalResult<ast::Expr> {
         .parse_next(input)
 }
 
-/// Parses an atom.
-pub fn p_atom<'a>(input: &mut Input<'a>) -> ModalResult<ast::Expr> {
-    alt((
+/// Parses an atom (returns a `Spanned<Expr>`).
+pub fn p_atom<'a>(input: &mut Input<'a>) -> ModalResult<ast::SpanExpr> {
+    spanned(alt((
         p_lambda.map(ast::Expr::Function),
         p_tuple_or_bracketed,
         p_literal.map(ast::Expr::Literal),
         p_if,
         p_match,
         p_ident_atom,
-    ))
+    )))
     .parse_next(input)
 }
 
 /// Parses an expression.
-pub fn p_expr<'a>(input: &mut Input<'a>) -> ModalResult<ast::Expr> {
+pub fn p_expr<'a>(input: &mut Input<'a>) -> ModalResult<ast::SpanExpr> {
     expression(p_atom).infix(dispatch! {alt((
         alt((">>", "&&", "||")),
         alt(("==", "!=", ">=", "<=", "//")),
         alt(("+", "-", "*", "/", "%", ">", "<", ":")),
     )).mws();
-        ">>" => Infix::Left(0, |_, arg, func| Ok(ast::Expr::Call { function: Box::new(func), args: vec![arg] })),
-        "||" => Infix::Left(1, |_, a, b| Ok(ast::Expr::Binary { operator: op::Binary::Logic(op::Logic::Or), left: Box::new(a), right: Box::new(b) })),
-        "&&" => Infix::Left(2, |_, a, b| Ok(ast::Expr::Binary { operator: op::Binary::Logic(op::Logic::And), left: Box::new(a), right: Box::new(b) })),
+        ">>" => Infix::Left(0, |_, arg: ast::SpanExpr, func: ast::SpanExpr| {
+            let span = merge_spans(&arg.span, &func.span);
+            Ok(Spanned { node: ast::Expr::Call { function: Box::new(func), args: vec![arg] }, span })
+        }),
+        "||" => Infix::Left(1, |_, a: ast::SpanExpr, b: ast::SpanExpr| bin(a, b, op::Binary::Logic(op::Logic::Or))),
+        "&&" => Infix::Left(2, |_, a: ast::SpanExpr, b: ast::SpanExpr| bin(a, b, op::Binary::Logic(op::Logic::And))),
         // Comparisons
-        "==" => Infix::Left(3, |_, a, b| Ok(ast::Expr::Binary { operator: op::Binary::Compare(op::Compare::Eq), left: Box::new(a), right: Box::new(b) })),
-        "!=" => Infix::Left(3, |_, a, b| Ok(ast::Expr::Binary { operator: op::Binary::Compare(op::Compare::Neq), left: Box::new(a), right: Box::new(b) })),
-        ">=" => Infix::Left(3, |_, a, b| Ok(ast::Expr::Binary { operator: op::Binary::Compare(op::Compare::Gte), left: Box::new(a), right: Box::new(b) })),
-        "<=" => Infix::Left(3, |_, a, b| Ok(ast::Expr::Binary { operator: op::Binary::Compare(op::Compare::Lte), left: Box::new(a), right: Box::new(b) })),
-        ">" => Infix::Left(3, |_, a, b| Ok(ast::Expr::Binary { operator: op::Binary::Compare(op::Compare::Gt), left: Box::new(a), right: Box::new(b) })),
-        "<" => Infix::Left(3, |_, a, b| Ok(ast::Expr::Binary { operator: op::Binary::Compare(op::Compare::Lt), left: Box::new(a), right: Box::new(b) })),
+        "==" => Infix::Left(3, |_, a: ast::SpanExpr, b: ast::SpanExpr| bin(a, b, op::Binary::Compare(op::Compare::Eq))),
+        "!=" => Infix::Left(3, |_, a: ast::SpanExpr, b: ast::SpanExpr| bin(a, b, op::Binary::Compare(op::Compare::Neq))),
+        ">=" => Infix::Left(3, |_, a: ast::SpanExpr, b: ast::SpanExpr| bin(a, b, op::Binary::Compare(op::Compare::Gte))),
+        "<=" => Infix::Left(3, |_, a: ast::SpanExpr, b: ast::SpanExpr| bin(a, b, op::Binary::Compare(op::Compare::Lte))),
+        ">" => Infix::Left(3, |_, a: ast::SpanExpr, b: ast::SpanExpr| bin(a, b, op::Binary::Compare(op::Compare::Gt))),
+        "<" => Infix::Left(3, |_, a: ast::SpanExpr, b: ast::SpanExpr| bin(a, b, op::Binary::Compare(op::Compare::Lt))),
         // Cons
-        ":" => Infix::Right(4, |_, a, b| Ok(ast::Expr::Binary { operator: op::Binary::Cons, left: Box::new(a), right: Box::new(b) })),
+        ":" => Infix::Right(4, |_, a: ast::SpanExpr, b: ast::SpanExpr| bin(a, b, op::Binary::Cons)),
         // Arithmetic
-        "+" => Infix::Left(5, |_, a, b| Ok(ast::Expr::Binary { operator: op::Binary::Arithmetic(op::Arithmetic::Add), left: Box::new(a), right: Box::new(b) })),
-        "-" => Infix::Left(5, |_, a, b| Ok(ast::Expr::Binary { operator: op::Binary::Arithmetic(op::Arithmetic::Sub), left: Box::new(a), right: Box::new(b) })),
-        "*" => Infix::Left(7, |_, a, b| Ok(ast::Expr::Binary { operator: op::Binary::Arithmetic(op::Arithmetic::Mul), left: Box::new(a), right: Box::new(b) })),
-        "/" => Infix::Left(7, |_, a, b| Ok(ast::Expr::Binary { operator: op::Binary::Arithmetic(op::Arithmetic::Div), left: Box::new(a), right: Box::new(b) })),
-        "//" => Infix::Left(7, |_, a, b| Ok(ast::Expr::Binary { operator: op::Binary::Arithmetic(op::Arithmetic::IntDiv), left: Box::new(a), right: Box::new(b) })),
-        "%" => Infix::Left(7, |_, a, b| Ok(ast::Expr::Binary { operator: op::Binary::Arithmetic(op::Arithmetic::Rem), left: Box::new(a), right: Box::new(b) })),
+        "+" => Infix::Left(5, |_, a: ast::SpanExpr, b: ast::SpanExpr| bin(a, b, op::Binary::Arithmetic(op::Arithmetic::Add))),
+        "-" => Infix::Left(5, |_, a: ast::SpanExpr, b: ast::SpanExpr| bin(a, b, op::Binary::Arithmetic(op::Arithmetic::Sub))),
+        "*" => Infix::Left(7, |_, a: ast::SpanExpr, b: ast::SpanExpr| bin(a, b, op::Binary::Arithmetic(op::Arithmetic::Mul))),
+        "/" => Infix::Left(7, |_, a: ast::SpanExpr, b: ast::SpanExpr| bin(a, b, op::Binary::Arithmetic(op::Arithmetic::Div))),
+        "//" => Infix::Left(7, |_, a: ast::SpanExpr, b: ast::SpanExpr| bin(a, b, op::Binary::Arithmetic(op::Arithmetic::IntDiv))),
+        "%" => Infix::Left(7, |_, a: ast::SpanExpr, b: ast::SpanExpr| bin(a, b, op::Binary::Arithmetic(op::Arithmetic::Rem))),
         _ => fail,
     })
     .prefix(dispatch! {alt(("!", "-")).ws();
-        "!" => Prefix(11, |_, a| Ok(ast::Expr::Unary { operator: op::Unary::Not, operand: Box::new(a) })),
-        "-" => Prefix(11, |_, a| Ok(ast::Expr::Unary { operator: op::Unary::Neg, operand: Box::new(a) })),
+        "!" => Prefix(11, |_, a: ast::SpanExpr| {
+            let span = a.span.clone();
+            Ok(Spanned { node: ast::Expr::Unary { operator: op::Unary::Not, operand: Box::new(a) }, span })
+        }),
+        "-" => Prefix(11, |_, a: ast::SpanExpr| {
+            let span = a.span.clone();
+            Ok(Spanned { node: ast::Expr::Unary { operator: op::Unary::Neg, operand: Box::new(a) }, span })
+        }),
         _ => fail,
     })
     .postfix(dispatch! { peek("(");
-        "(" => Postfix(12, |input, e| {
-            let args: Vec<_> = delim('(',comma_list(0.., p_expr),')')
+        "(" => Postfix(12, |input: &mut Input<'a>, e: ast::SpanExpr| {
+            let (args, args_span): (Vec<ast::SpanExpr>, _) = delim('(',comma_list(0.., p_expr),')')
                     .ws()
+                    .with_span()
                     .parse_next(input)?;
-            Ok(ast::Expr::Call {
-                function: Box::new(e),
-                args,
+            let span = merge_spans(&e.span, &Some(args_span));
+            Ok(Spanned {
+                node: ast::Expr::Call { function: Box::new(e), args },
+                span,
             })
         }),
         _ => fail,
     })
     .parse_next(input)
+}
+
+/// Build a binary Spanned expression from two spanned operands.
+fn bin(a: ast::SpanExpr, b: ast::SpanExpr, operator: op::Binary) -> ModalResult<ast::SpanExpr> {
+    let span = merge_spans(&a.span, &b.span);
+    Ok(Spanned {
+        node: ast::Expr::Binary {
+            operator,
+            left: Box::new(a),
+            right: Box::new(b),
+        },
+        span,
+    })
+}
+
+/// Combine two optional spans into one covering both.
+fn merge_spans(a: &Option<ast::Span>, b: &Option<ast::Span>) -> Option<ast::Span> {
+    Some(a.as_ref()?.start..b.as_ref()?.end)
 }

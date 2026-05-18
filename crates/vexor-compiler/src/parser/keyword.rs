@@ -121,7 +121,7 @@ pub fn p_ident<'a>(input: &mut Input<'a>) -> ModalResult<Ident> {
         take_while(0.., |c: char| c.is_alphanumeric() || c == '_'),
     )
         .take()
-        .expected("identifier")
+        .label("identifier")
         // Reject keywords
         .verify(|ident: &str| !is_keyword(ident))
         .map(classify_kw)
@@ -136,7 +136,7 @@ pub fn p_user_ident<'a>(input: &mut Input<'a>) -> ModalResult<String> {
             Ident::User(s) => Some(s),
             _ => None,
         })
-        .expected("not a keyword")
+        .expected("non-keyword identifier")
         .parse_next(input)
 }
 

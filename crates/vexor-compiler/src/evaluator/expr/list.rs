@@ -56,10 +56,10 @@ fn build_range(start: i64, second: Option<i64>, end: i64) -> EResult<impl Iterat
 
     // Check range step
     if step == 0 {
-        return Err("range step cannot be zero.".to_string());
+        return Err("range step cannot be zero.".into());
     }
     if start != end && total_range.signum() != step.signum() {
-        return Err("range step direction is inconsistent with end.".to_string());
+        return Err("range step direction is inconsistent with end.".into());
     }
 
     // Normalise end to be the last element in the range

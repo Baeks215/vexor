@@ -24,7 +24,7 @@ pub fn compile_to_svg(args: CompileArgs) -> Result<(), String> {
         format!(
             "compilation failed for '{}':\n\n{}",
             args.input.display(),
-            e
+            e.format_colored()
         )
     })?;
 

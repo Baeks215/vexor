@@ -1,1 +1,7 @@
-evaluation error: expected two arguments
+Error: evaluation error
+   ╭─[ input:3:13 ]
+   │
+ 3 │ val moved = move(50)(c)
+   │             ────┬───  
+   │                 ╰───── expected two arguments
+───╯

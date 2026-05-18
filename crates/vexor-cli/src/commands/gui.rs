@@ -82,7 +82,11 @@ fn compile_and_send(path: &PathBuf, tx: &mpsc::Sender<Vec<NamedSvg>>, ctx: &efra
                 ctx.request_repaint();
             }
         }
-        Err(e) => eprintln!("compilation failed for '{}':\n\n{}", path.display(), e),
+        Err(e) => eprintln!(
+            "compilation failed for '{}':\n\n{}",
+            path.display(),
+            e.format_colored()
+        ),
     }
 }
 

@@ -5,7 +5,7 @@ use std::cell::RefCell;
 use crate::evaluator::expr::list::List;
 use crate::evaluator::expr::{Evaluable, Value, eval, ty};
 use crate::evaluator::graphic::{catmull_rom_path, close_path, start_path, transform_path};
-use crate::evaluator::{EResult, EnvExt, EnvRef, to_usize};
+use crate::evaluator::{EError, EResult, EnvExt, EnvRef, to_usize};
 use crate::ir::ast::{self, Function, Std};
 use crate::ir::{Number, scene};
 use crate::{Graphic, GraphicType};
@@ -169,7 +169,7 @@ fn eval_std_call<T: Evaluable>(
     env: &EnvRef,
     function: Std,
     args: Vec<Value>,
-) -> Result<<T as Evaluable>::Output, String> {
+) -> EResult<<T as Evaluable>::Output> {
     let result = match function {
         // Trig
         Std::Rad => {
@@ -421,7 +421,7 @@ fn eval_std_lambda<T: Evaluable>(
     env: &EnvRef,
     function: StdLambda,
     args: Vec<Value>,
-) -> Result<<T as Evaluable>::Output, String> {
+) -> EResult<<T as Evaluable>::Output> {
     let result = match function {
         StdLambda::JumpTo { x, y } => {
             let g = ty::Graphic::expect(unpack_1!(args)?)?;
@@ -587,7 +587,7 @@ fn eval_std_lambda<T: Evaluable>(
             let list = ty::List::expect(unpack_1!(args)?)?;
             let mut v: Vec<Value> = list.into_iter().collect();
             // Store error outside of closure
-            let err: RefCell<Option<String>> = RefCell::new(None);
+            let err: RefCell<Option<EError>> = RefCell::new(None);
             v.sort_by(|a, b| {
                 if err.borrow().is_some() {
                     // Stop sorting
@@ -665,7 +665,8 @@ fn eval_user_call<T: Evaluable>(
             params.len(),
             if params.len() == 1 { "" } else { "s" },
             args.len()
-        ));
+        )
+        .into());
     }
     // Pair param name with arg values
     let param_args: Vec<(String, Value)> = params.into_iter().zip(args).collect();

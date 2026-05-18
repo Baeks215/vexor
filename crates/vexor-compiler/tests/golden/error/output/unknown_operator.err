@@ -1,5 +1,7 @@
-parse error at line 2, column 12
-  |
-2 | val x = 10 ^ 3
-  |            ^
-invalid character
+Error: parse error
+   ╭─[ input:2:12 ]
+   │
+ 2 │ val x = 10 ^ 3
+   │            ┬  
+   │            ╰── invalid character
+───╯

@@ -1,5 +1,7 @@
-parse error at line 2, column 1
-  |
-2 | r = 10
-  | ^
-expected `fn`, `let`, `export`, `set`
+Error: parse error
+   ╭─[ input:2:1 ]
+   │
+ 2 │ r = 10
+   │ ┬  
+   │ ╰── expected `fn`, `let`, `export`, `set`
+───╯

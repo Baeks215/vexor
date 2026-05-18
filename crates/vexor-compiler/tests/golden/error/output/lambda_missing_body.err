@@ -1,5 +1,9 @@
-parse error at line 4, column 1
-  |
-4 | val result = double(10)
-  | ^
-invalid lambda body
+Error: parse error
+   ╭─[ input:2:18 ]
+   │
+ 2 │ val double = x ->
+   │                  ┬  
+   │                  ╰── invalid lambda body
+   │                  │  
+   │                  ╰── expected return expression
+───╯

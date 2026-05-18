@@ -14,7 +14,7 @@ pub fn transform_path(g: Graphic, f: impl FnOnce(BezPath) -> EResult<BezPath>) -
     } = g;
     let path = match ty {
         GraphicType::Path { path } => f(path)?,
-        _ => return Err("expected a path".to_string()),
+        _ => return Err("expected a path".into()),
     };
     Ok(Graphic {
         ty: GraphicType::Path { path },

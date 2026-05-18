@@ -1,6 +1,9 @@
-parse error at line 4, column 9
-  |
-4 |     100 Circle(100)
-  |         ^
-invalid match arm
-expected `=>`
+Error: parse error
+   ╭─[ input:4:9 ]
+   │
+ 4 │     100 Circle(100)
+   │         ┬  
+   │         ╰── invalid match arm
+   │         │  
+   │         ╰── expected `=>`
+───╯

@@ -1,5 +1,7 @@
-parse error at line 3, column 14
-  |
-3 | -- no export
-  |              ^
-expected at least one export
+Error: parse error
+   ╭─[ input:3:14 ]
+   │
+ 3 │ -- no export
+   │              │ 
+   │              ╰─ expected at least one export
+───╯

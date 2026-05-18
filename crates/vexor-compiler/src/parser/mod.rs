@@ -2,11 +2,14 @@
 
 use winnow::ascii::{line_ending, multispace1, space1, till_line_ending};
 use winnow::combinator::{alt, cut_err, delimited, preceded, repeat, separated, terminated};
-use winnow::error::{AddContext, ContextError, ErrMode, StrContext, StrContextValue};
-use winnow::stream::Stream;
+use winnow::error::ContextError;
 use winnow::stream::{Accumulate, Range};
 use winnow::{LocatingSlice, ModalParser, ModalResult, Parser};
 
+use crate::ir::ast::Spanned;
+use crate::parser::error::str_ctx;
+
+mod error;
 mod expr;
 mod function;
 mod keyword;
@@ -43,22 +46,16 @@ where
         terminated(self, p_mws)
     }
     fn label(self, label: &'static str) -> impl ModalParser<Input<'a>, O, ContextError> {
-        self.context(StrContext::Label(label))
+        self.context(str_ctx::label(label))
     }
     fn expected(self, description: &'static str) -> impl ModalParser<Input<'a>, O, ContextError> {
-        self.context(StrContext::Expected(StrContextValue::Description(
-            description,
-        )))
+        self.context(str_ctx::desc(description))
     }
     fn expected_lit(self, literal: &'static str) -> impl ModalParser<Input<'a>, O, ContextError> {
-        self.context(StrContext::Expected(StrContextValue::StringLiteral(
-            literal,
-        )))
+        self.context(str_ctx::lit(literal))
     }
     fn expected_char(self, char_literal: char) -> impl ModalParser<Input<'a>, O, ContextError> {
-        self.context(StrContext::Expected(StrContextValue::CharLiteral(
-            char_literal,
-        )))
+        self.context(str_ctx::lit_char(char_literal))
     }
 }
 
@@ -139,13 +136,15 @@ where
     separated(occurrences, inner, (p_mws, exp_char(','), p_mws))
 }
 
-/// Created context error for expected input
-fn expected(desc: &'static str, input: &mut Input<'_>) -> ErrMode<ContextError> {
-    ErrMode::Cut(ContextError::new().add_context(
-        input,
-        &input.checkpoint(),
-        StrContext::Expected(StrContextValue::Description(desc)),
-    ))
+/// Wrap a parser to capture its source span.
+fn spanned<'a, F, O>(parser: F) -> impl ModalParser<Input<'a>, Spanned<O>, ContextError>
+where
+    F: ModalParser<Input<'a>, O, ContextError>,
+{
+    parser.with_span().map(|(node, span)| Spanned {
+        node,
+        span: Some(span),
+    })
 }
 
 #[cfg(test)]
