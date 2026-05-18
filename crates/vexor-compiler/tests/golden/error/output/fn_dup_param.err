@@ -1,1 +1,7 @@
-evaluation error: function sq has duplicate parameter names
+Error: evaluation error
+   ╭─[ input:2:1 ]
+   │
+ 2 │ fn sq(x, x) = x * x
+   │ ─────────┬─────────  
+   │          ╰─────────── function sq has duplicate parameter names
+───╯

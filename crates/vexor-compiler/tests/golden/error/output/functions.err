@@ -1,1 +1,7 @@
-evaluation error: expected 1 argument but got 3
+Error: evaluation error
+   ╭─[ input:4:14 ]
+   │
+ 4 │ val result = double(1, 2, 3)
+   │              ───────┬───────  
+   │                     ╰───────── expected 1 argument but got 3
+───╯

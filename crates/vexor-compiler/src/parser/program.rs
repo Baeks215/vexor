@@ -6,10 +6,11 @@ use winnow::error::{ContextError, ParseError};
 use winnow::{ModalResult, Parser, Result};
 
 use crate::ir::ast::{self, ProgramUnit, SpanExpr, Spanned};
+use crate::parser::error::CtxErrBuilder;
 use crate::parser::expr::p_expr;
 use crate::parser::function::p_function_def;
 use crate::parser::keyword::p_user_ident;
-use crate::parser::{Input, ParserExt, exp_char, exp_string, expected, newline1, p_mws, spanned};
+use crate::parser::{Input, ParserExt, exp_char, exp_string, newline1, p_mws, spanned};
 use crate::parser::{delim, keyword as k};
 
 /// Parses variable assignment `x = expr`
@@ -112,7 +113,9 @@ fn p_program<'a>(input: &mut Input<'a>) -> ModalResult<ast::Program> {
     }
 
     if export_count == 0 {
-        return Err(expected("at least one export", input));
+        return Err(CtxErrBuilder::new(input)
+            .expected("at least one export")
+            .err);
     }
 
     Ok(ast::Program { units })

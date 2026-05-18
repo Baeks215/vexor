@@ -13,12 +13,28 @@ pub type Span = Range<usize>;
 #[derive(Debug, Clone)]
 pub struct Spanned<T> {
     pub node: T,
-    pub span: Span,
+    pub span: Option<Span>,
 }
 
 pub type SpanExpr = Spanned<Expr>;
 /// Boxed expression with span info.
 pub type BoxExpr = Box<SpanExpr>;
+
+// Terse error construction for `Spanned<String>` (used as `EError`).
+// Placeholder span `0..0` is overwritten by the eval funnel when bubbling out.
+impl From<String> for Spanned<String> {
+    fn from(node: String) -> Self {
+        Spanned { node, span: None }
+    }
+}
+impl From<&str> for Spanned<String> {
+    fn from(s: &str) -> Self {
+        Spanned {
+            node: s.to_string(),
+            span: None,
+        }
+    }
+}
 
 // --- Primitives ---
 

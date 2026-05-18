@@ -1,5 +1,7 @@
-parse error at line 3, column 24
-  |
-3 | val result = match r { }
-  |                        ^
-invalid match arm
+Error: parse error
+   ╭─[ input:3:24 ]
+   │
+ 3 │ val result = match r { }
+   │                        ┬  
+   │                        ╰── invalid match arm
+───╯

@@ -1,6 +1,6 @@
 use crate::evaluator::expr::constants::get_constant;
 use crate::evaluator::expr::{Evaluable, Value, eval, ty};
-use crate::evaluator::{EResult, EnvExt, EnvRef};
+use crate::evaluator::{EResult, EnvExt, EnvRef, WithSpan};
 use crate::ir::ast::{self, Const, Expr, ListLiteral, Literal, MatchArm, SpanExpr, Std, op};
 use crate::ir::scene;
 
@@ -29,12 +29,12 @@ pub fn eval_match<T: Evaluable>(
         }
         return eval::<T>(&arm_env, body);
     }
-    Err("no arm matched".to_string())
+    Err("no arm matched".into())
 }
 
 /// Matches an evaluated value to an expression pattern.
 fn match_pattern(env: &EnvRef, scrutinee: Value, pattern: SpanExpr) -> EResult<bool> {
-    match pattern.node {
+    (match pattern.node {
         Expr::Variable(name) => env.set_var(name, scrutinee).map(|_| true),
         Expr::Literal(lit_pattern) => match_literal_pattern(env, scrutinee, lit_pattern),
         Expr::Binary {
@@ -44,15 +44,16 @@ fn match_pattern(env: &EnvRef, scrutinee: Value, pattern: SpanExpr) -> EResult<b
         } => match_bin(env, scrutinee, operator, *left, *right),
         Expr::Std(std) => match_std(scrutinee, std),
         Expr::Const(c) => match_const(scrutinee, c),
-        _ => Err("pattern not supported".to_string()),
-    }
+        _ => Err("pattern not supported".into()),
+    })
+    .with_span_if_missing(pattern.span)
 }
 
 /// Matches an evaluated value to a literal expression pattern.
 fn match_literal_pattern(env: &EnvRef, scrutinee: Value, pattern: Literal) -> EResult<bool> {
     match (scrutinee, pattern) {
         // Unsupported patterns
-        (_, Literal::List(ListLiteral::Range { .. })) => Err("pattern not supported".to_string()),
+        (_, Literal::List(ListLiteral::Range { .. })) => Err("pattern not supported".into()),
         // Matches
         (Value::Number(s), Literal::Number(p)) => Ok(s == p),
         (Value::String(s), Literal::String(p)) => Ok(s == p),
@@ -121,12 +122,12 @@ fn match_bin(
                 }
             }
         }
-        _ => Err("pattern not supported".to_string()),
+        _ => Err("pattern not supported".into()),
     }
 }
 
 /// Matches an evaluated value to a standard function type pattern
-fn match_std(scrutinee: Value, std: Std) -> Result<bool, String> {
+fn match_std(scrutinee: Value, std: Std) -> EResult<bool> {
     match std {
         Std::Circle => Ok(matches!(
             scrutinee,
@@ -156,11 +157,11 @@ fn match_std(scrutinee: Value, std: Std) -> Result<bool, String> {
                 ..
             })
         )),
-        _ => Err("pattern not supported".to_string()),
+        _ => Err("pattern not supported".into()),
     }
 }
 
-fn match_const(scrutinee: Value, c: Const) -> Result<bool, String> {
+fn match_const(scrutinee: Value, c: Const) -> EResult<bool> {
     match (scrutinee, get_constant(c)) {
         (Value::Number(s), Value::Number(p)) => Ok(s == p),
         (Value::String(s), Value::String(p)) => Ok(s == p),

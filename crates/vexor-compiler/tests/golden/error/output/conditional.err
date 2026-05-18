@@ -1,1 +1,9 @@
-evaluation error: no arm matched
+Error: evaluation error
+   ╭─[ input:4:14 ]
+   │
+ 4 │ ╭─▶ val scaled = match r {
+   ┆ ┆   
+ 7 │ ├─▶ }
+   │ │       
+   │ ╰─────── no arm matched
+───╯

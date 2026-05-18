@@ -1,5 +1,9 @@
-parse error at line 2, column 4
-  |
-2 | fn (x) = x * 2
-  |    ^
-expected identifier, not a keyword
+Error: parse error
+   ╭─[ input:2:4 ]
+   │
+ 2 │ fn (x) = x * 2
+   │    ┬  
+   │    ╰── invalid identifier
+   │    │  
+   │    ╰── expected non-keyword identifier
+───╯

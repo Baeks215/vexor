@@ -1,1 +1,7 @@
-evaluation error: `r` already exists in scope
+Error: evaluation error
+   ╭─[ input:3:1 ]
+   │
+ 3 │ val r = 200
+   │ ─────┬─────  
+   │      ╰─────── `r` already exists in scope
+───╯

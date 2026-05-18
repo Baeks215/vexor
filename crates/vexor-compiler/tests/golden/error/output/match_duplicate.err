@@ -1,1 +1,7 @@
-evaluation error: `x` already exists in scope
+Error: evaluation error
+   ╭─[ input:4:7 ]
+   │
+ 4 │   x : x : tail => x * x
+   │       ─┬  
+   │        ╰── `x` already exists in scope
+───╯

@@ -1,5 +1,7 @@
-parse error at line 4, column 29
-  |
-4 | val result = if r > 50 { c }
-  |                             ^
-expected `else`
+Error: parse error
+   ╭─[ input:4:29 ]
+   │
+ 4 │ val result = if r > 50 { c }
+   │                             ┬  
+   │                             ╰── expected `else`
+───╯

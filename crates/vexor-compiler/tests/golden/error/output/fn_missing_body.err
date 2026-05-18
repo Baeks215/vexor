@@ -1,5 +1,7 @@
-parse error at line 2, column 13
-  |
-2 | fn double(x)
-  |             ^
-expected `=`
+Error: parse error
+   ╭─[ input:2:13 ]
+   │
+ 2 │ fn double(x)
+   │             ┬  
+   │             ╰── expected `=`
+───╯

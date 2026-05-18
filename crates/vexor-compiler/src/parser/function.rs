@@ -1,7 +1,9 @@
 use winnow::combinator::{alt, cut_err, opt, preceded, repeat, separated};
+use winnow::stream::Stream;
 use winnow::{ModalResult, Parser};
 
 use crate::ir::ast::{self, SpanExpr, Spanned};
+use crate::parser::error::CtxErrBuilder;
 use crate::parser::expr::p_expr;
 use crate::parser::keyword::p_user_ident;
 use crate::parser::program::p_assignment_raw;
@@ -10,20 +12,29 @@ use crate::parser::{delim, keyword as k};
 
 /// Parses a lambda expression
 pub fn p_lambda<'a>(input: &mut Input<'a>) -> ModalResult<ast::Function> {
-    (
-        alt((
-            p_user_ident.map(|id| vec![vec![id]]),
-            repeat(
-                // Curried parameters
-                1..,
-                delim::<_, Vec<_>>('(', comma_list(0.., p_user_ident), ')'),
-            ),
-        ))
-        .mws(),
-        preceded("->".mws(), cut_err(p_expr).label("lambda body")),
-    )
-        .map(|(params, e)| build_curried_function(params, e, vec![]))
-        .parse_next(input)
+    let params: Vec<Vec<String>> = alt((
+        p_user_ident.map(|id| vec![vec![id]]),
+        repeat(
+            // Curried parameters
+            1..,
+            delim::<_, Vec<_>>('(', comma_list(0.., p_user_ident), ')'),
+        ),
+    ))
+    .mws()
+    .parse_next(input)?;
+    "->".parse_next(input)?;
+
+    let start = input.checkpoint();
+
+    p_mws.parse_next(input)?;
+    let body = p_expr.parse_next(input).map_err(|_| {
+        CtxErrBuilder::from_checkpoint(input, &start)
+            .label("lambda body")
+            .expected("return expression")
+            .err
+    })?;
+
+    Ok(build_curried_function(params, body, vec![]))
 }
 
 /// Parses a function definition `fn name(params) = expr`

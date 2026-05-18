@@ -1,1 +1,7 @@
-evaluation error: range step direction is inconsistent with end.
+Error: evaluation error
+   ╭─[ input:2:13 ]
+   │
+ 2 │ val items = [5, 4..10]
+   │             ─────┬────  
+   │                  ╰────── range step direction is inconsistent with end.
+───╯

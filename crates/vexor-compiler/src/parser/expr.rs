@@ -2,15 +2,17 @@
 
 use winnow::ascii::{dec_int, float};
 use winnow::combinator::{
-    Infix, Postfix, Prefix, alt, cut_err, delimited, dispatch, expression, fail, opt, peek,
-    preceded, repeat, terminated,
+    Infix, Postfix, Prefix, alt, cut_err, dispatch, expression, fail, opt, peek, preceded, repeat,
+    terminated,
 };
+use winnow::stream::Stream;
 use winnow::token::take_while;
 use winnow::{ModalResult, Parser};
 
 use crate::ir::Number;
 use crate::ir::ast::op;
 use crate::ir::ast::{self, Spanned};
+use crate::parser::error::CtxErrBuilder;
 use crate::parser::function::p_lambda;
 use crate::parser::keyword::Ident;
 use crate::parser::{
@@ -34,14 +36,18 @@ pub fn p_number<'a>(input: &mut Input<'a>) -> ModalResult<Number> {
 
 /// Parses a string literal.
 pub fn p_string<'a>(input: &mut Input<'a>) -> ModalResult<&'a str> {
-    delimited(
-        '"',
-        take_while(0.., |c: char| c != '"'),
-        cut_err('"'.expected("closing `\"`")),
-    )
-    .label("string")
-    .ws()
-    .parse_next(input)
+    let start = input.checkpoint();
+    '"'.parse_next(input)?;
+    let s = take_while(0.., |c: char| c != '"').parse_next(input)?;
+    let closing: ModalResult<char> = '"'.parse_next(input);
+    if closing.is_err() {
+        return Err(CtxErrBuilder::from_checkpoint(input, &start)
+            .label("string")
+            .expected("closing `\"`")
+            .err);
+    }
+    p_ws.parse_next(input)?;
+    Ok(s)
 }
 
 /// Parses a bool literal.
@@ -181,10 +187,10 @@ fn p_ident_atom<'a>(input: &mut Input<'a>) -> ModalResult<ast::Expr> {
                 repeat(0.., preceded('.', k::p_user_ident).with_span()).parse_next(input)?;
             let mut acc = Spanned {
                 node: ast::Expr::Variable(name),
-                span: id_span,
+                span: Some(id_span),
             };
             for (field, field_span) in fields {
-                let new_span = acc.span.start..field_span.end;
+                let new_span = merge_spans(&acc.span, &Some(field_span));
                 acc = Spanned {
                     node: ast::Expr::Field {
                         object: Box::new(acc),
@@ -235,7 +241,7 @@ pub fn p_expr<'a>(input: &mut Input<'a>) -> ModalResult<ast::SpanExpr> {
         alt(("+", "-", "*", "/", "%", ">", "<", ":")),
     )).mws();
         ">>" => Infix::Left(0, |_, arg: ast::SpanExpr, func: ast::SpanExpr| {
-            let span = arg.span.start..func.span.end;
+            let span = merge_spans(&arg.span, &func.span);
             Ok(Spanned { node: ast::Expr::Call { function: Box::new(func), args: vec![arg] }, span })
         }),
         "||" => Infix::Left(1, |_, a: ast::SpanExpr, b: ast::SpanExpr| bin(a, b, op::Binary::Logic(op::Logic::Or))),
@@ -275,7 +281,7 @@ pub fn p_expr<'a>(input: &mut Input<'a>) -> ModalResult<ast::SpanExpr> {
                     .ws()
                     .with_span()
                     .parse_next(input)?;
-            let span = e.span.start..args_span.end;
+            let span = merge_spans(&e.span, &Some(args_span));
             Ok(Spanned {
                 node: ast::Expr::Call { function: Box::new(e), args },
                 span,
@@ -288,7 +294,7 @@ pub fn p_expr<'a>(input: &mut Input<'a>) -> ModalResult<ast::SpanExpr> {
 
 /// Build a binary Spanned expression from two spanned operands.
 fn bin(a: ast::SpanExpr, b: ast::SpanExpr, operator: op::Binary) -> ModalResult<ast::SpanExpr> {
-    let span = a.span.start..b.span.end;
+    let span = merge_spans(&a.span, &b.span);
     Ok(Spanned {
         node: ast::Expr::Binary {
             operator,
@@ -297,4 +303,9 @@ fn bin(a: ast::SpanExpr, b: ast::SpanExpr, operator: op::Binary) -> ModalResult<
         },
         span,
     })
+}
+
+/// Combine two optional spans into one covering both.
+fn merge_spans(a: &Option<ast::Span>, b: &Option<ast::Span>) -> Option<ast::Span> {
+    Some(a.as_ref()?.start..b.as_ref()?.end)
 }

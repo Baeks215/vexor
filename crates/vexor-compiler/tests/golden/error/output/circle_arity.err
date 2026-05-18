@@ -1,1 +1,7 @@
-evaluation error: expected one argument
+Error: evaluation error
+   ╭─[ input:2:9 ]
+   │
+ 2 │ val c = Circle(10, 20)
+   │         ───────┬──────  
+   │                ╰──────── expected one argument
+───╯

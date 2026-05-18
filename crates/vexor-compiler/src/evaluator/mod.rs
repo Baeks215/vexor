@@ -13,11 +13,26 @@ mod program;
 
 pub use program::eval_program;
 
-/// Evaluation error
-type EError = String;
+/// Evaluation error with a source span.
+pub type EError = ast::Spanned<String>;
 
 /// Result type for evaluation
-type EResult<O> = Result<O, EError>;
+pub type EResult<O> = Result<O, EError>;
+
+/// Inject a span on errors that carry the placeholder `0..0` span.
+pub trait WithSpan {
+    fn with_span_if_missing(self, span: Option<ast::Span>) -> Self;
+}
+impl<T> WithSpan for EResult<T> {
+    fn with_span_if_missing(self, span: Option<ast::Span>) -> Self {
+        self.map_err(|mut e| {
+            if e.span.is_none() {
+                e.span = span;
+            }
+            e
+        })
+    }
+}
 
 #[derive(Debug, Clone)]
 enum Thunk {
@@ -72,14 +87,14 @@ impl EnvExt for EnvRef {
                     // Doesn't exist, fetch from parent instead
                     let Some(parent) = &env.parent else {
                         // Parent doesn't exist
-                        return Err(format!("`{name}` not in scope"));
+                        return Err(format!("`{name}` not in scope").into());
                     };
                     return parent.get_var(name);
                 }
                 Some(Thunk::Evaluating) => {
-                    return Err(format!(
-                        "circular dependency detected while evaluating `{name}`"
-                    ));
+                    return Err(
+                        format!("circular dependency detected while evaluating `{name}`").into(),
+                    );
                 }
                 Some(Thunk::Evaluated(val)) => {
                     return Ok(val.clone());
@@ -115,7 +130,7 @@ impl EnvExt for EnvRef {
         let mut env = self.borrow_mut();
         let old = env.scope.insert(name.clone(), Thunk::Unevaluated(e));
         match old {
-            Some(_) => Err(format!("`{name}` already exists in scope")),
+            Some(_) => Err(format!("`{name}` already exists in scope").into()),
             None => Ok(()),
         }
     }
@@ -123,7 +138,7 @@ impl EnvExt for EnvRef {
         let mut env = self.borrow_mut();
         let old = env.scope.insert(name.clone(), Thunk::Evaluated(value));
         match old {
-            Some(_) => Err(format!("`{name}` already exists in scope")),
+            Some(_) => Err(format!("`{name}` already exists in scope").into()),
             None => Ok(()),
         }
     }
@@ -146,14 +161,14 @@ const EPS: f64 = 1e-9;
 fn to_int(n: Number) -> EResult<i64> {
     let rounded = n.round();
     if (n - rounded).abs() > EPS {
-        return Err(format!("expected integer, got {}", n));
+        return Err(format!("expected integer, got {}", n).into());
     }
     Ok(n as i64)
 }
 fn to_usize(n: Number) -> EResult<usize> {
     let i = to_int(n)?;
     if i < 0 {
-        return Err(format!("expected non-negative integer, got {}", n));
+        return Err(format!("expected non-negative integer, got {}", n).into());
     }
     Ok(i as usize)
 }
