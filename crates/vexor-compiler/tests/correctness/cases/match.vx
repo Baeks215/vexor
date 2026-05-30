@@ -1,4 +1,4 @@
--- OUTPUT: 6, 10, 99, 20, 1, 1.7
+-- OUTPUT: 6, 10, 99, 20, 255, 255.7
 
 val r1 = match 5 { x if x > 10 => 100, y => y + 1 }
 
@@ -9,12 +9,12 @@ val r3 = match g { Rect => 0, y => 99 }
 val b = Rect(4, 5)
 val r4 = match b { Rect => 20, y => 0 }
 
-val c1 = rgb(0.5, 0, 1)
-val c2 = rgba(0.5, 0, 1, 0.7)
+val c1 = rgb(128, 0, 255)
+val c2 = rgba(128, 0, 255, 0.7)
 fn c_matcher(c) =
   match c {
-    rgb(0.5, a, b) => a + b,
-    rgba(0.5, a, b, c) => a + b + c
+    rgb(128, a, b) => a + b,
+    rgba(128, a, b, c) => a + b + c
   }
 
 val r5 = c_matcher(c1)

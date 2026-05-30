@@ -1,7 +1,7 @@
-val red = rgba(1, 0, 0, 1)
-val blue = rgba(0, 0, 1, 1)
-val green = rgba(0, 0.6, 0, 1)
-val gray = rgba(0.6, 0.6, 0.6, 1)
+val red = rgba(255, 0, 0, 1)
+val blue = rgba(0, 0, 255, 1)
+val green = rgba(0, 153, 0, 1)
+val gray = rgba(153, 153, 153, 1)
 
 val flag = close(Curve((20, -40), (60, -40), (70, 0)) + Line(0, 20))
 
