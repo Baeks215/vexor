@@ -135,10 +135,17 @@ fn color_to_svg(color: Color) -> String {
     match color {
         Color::Rgba { r, g, b, a } => format!(
             "rgba({},{},{},{})",
-            (r * 255.0).round() as u8,
-            (g * 255.0).round() as u8,
-            (b * 255.0).round() as u8,
-            a
+            r.round().clamp(0.0, 255.0) as u8,
+            g.round().clamp(0.0, 255.0) as u8,
+            b.round().clamp(0.0, 255.0) as u8,
+            a.clamp(0.0, 1.0)
+        ),
+        Color::Hsla { h, s, l, a } => format!(
+            "hsla({},{}%,{}%,{})",
+            h.round().clamp(0.0, 360.0) as u16,
+            s.round().clamp(0.0, 100.0) as u8,
+            l.round().clamp(0.0, 100.0) as u8,
+            a.clamp(0.0, 1.0)
         ),
     }
 }

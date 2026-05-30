@@ -276,6 +276,43 @@ fn eval_std_call<T: Evaluable>(
             let n = to_usize(ty::Number::expect(n)?)?;
             Value::List(std::iter::repeat_n(value, n).collect())
         }
+        // Color constructors
+        Std::Rgb => {
+            let (r, g, b) = unpack_3!(args)?;
+            Value::from(scene::Color::Rgba {
+                r: ty::Number::expect(r)?,
+                g: ty::Number::expect(g)?,
+                b: ty::Number::expect(b)?,
+                a: 1.0,
+            })
+        }
+        Std::Rgba => {
+            let (r, g, b, a) = unpack_4!(args)?;
+            Value::from(scene::Color::Rgba {
+                r: ty::Number::expect(r)?,
+                g: ty::Number::expect(g)?,
+                b: ty::Number::expect(b)?,
+                a: ty::Number::expect(a)?,
+            })
+        }
+        Std::Hsl => {
+            let (h, s, l) = unpack_3!(args)?;
+            Value::from(scene::Color::Hsla {
+                h: ty::Number::expect(h)?,
+                s: ty::Number::expect(s)?,
+                l: ty::Number::expect(l)?,
+                a: 1.0,
+            })
+        }
+        Std::Hsla => {
+            let (h, s, l, a) = unpack_4!(args)?;
+            Value::from(scene::Color::Hsla {
+                h: ty::Number::expect(h)?,
+                s: ty::Number::expect(s)?,
+                l: ty::Number::expect(l)?,
+                a: ty::Number::expect(a)?,
+            })
+        }
         // Graphic constructors
         Std::Circle => {
             let radius = unpack_1!(args)?;

@@ -15,6 +15,12 @@ pub enum Color {
         b: Number,
         a: Number,
     },
+    Hsla {
+        h: Number,
+        s: Number,
+        l: Number,
+        a: Number,
+    },
 }
 
 /// Renderable graphic component, typed

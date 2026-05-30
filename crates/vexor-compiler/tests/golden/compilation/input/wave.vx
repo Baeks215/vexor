@@ -5,7 +5,7 @@ where {
   x = i
   y = sin(rad(i)) * 100
   frac = (i + 500) / 1000
-  col = rgb(frac, 0, 1-frac, 1)
+  col = rgba(frac * 255, 0, (1 - frac) * 255, 1)
 }
 
 val g = Group(map(shape)(xs)) >> rotate(rad(30))

@@ -7,7 +7,7 @@ where {
   angle = 360 * f
   x = cos(angle) * f * 400
   y = sin(angle) * f * 400
-  color = rgb(f, 0, 1 - f, 1)
+  color = rgba(f * 255, 0, (1 - f) * 255, 1)
 }
 
 export move(500, 500)(Group(

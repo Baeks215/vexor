@@ -1,7 +1,7 @@
 
-val royal_gold  = rgb(0.85, 0.65, 0.12, 1)
-val deep_purple = rgb(0.15, 0.08, 0.22, 1)
-val mint_green  = rgb(0.20, 0.80, 0.50, 1)
+val royal_gold  = rgba(217, 166, 31, 1)
+val deep_purple = rgba(38, 20, 56, 1)
+val mint_green  = rgba(51, 204, 128, 1)
 
 fn loop_fn(t) = (x, y)
 where {

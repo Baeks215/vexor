@@ -1,4 +1,4 @@
-val sky_blue = rgb(0.5, 0.8, 1.0, 1)
+val sky_blue = rgba(128, 204, 255, 1)
 
 val center_puff = Path([
   curveTo(
