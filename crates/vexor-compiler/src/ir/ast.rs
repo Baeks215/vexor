@@ -188,6 +188,8 @@ pub enum Std {
     // Color constructors
     Rgb,
     Rgba,
+    Hsl,
+    Hsla,
     // Graphic constructors
     Circle,
     Rect,

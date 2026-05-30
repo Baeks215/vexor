@@ -1,4 +1,4 @@
--- OUTPUT: 6, 10, 99, 20, 255, 255.7
+-- OUTPUT: 6, 10, 99, 20, 255, 255.7, 100, 100.5
 
 val r1 = match 5 { x if x > 10 => 100, y => y + 1 }
 
@@ -20,9 +20,22 @@ fn c_matcher(c) =
 val r5 = c_matcher(c1)
 val r6 = c_matcher(c2)
 
+val c3 = hsl(180, 50, 50)
+val c4 = hsla(180, 50, 50, 0.5)
+fn h_matcher(c) =
+  match c {
+    hsl(180, a, b) => a + b,
+    hsla(180, a, b, c) => a + b + c
+  }
+
+val r7 = h_matcher(c3)
+val r8 = h_matcher(c4)
+
 export Circle(r1)
 export Circle(r2)
 export Circle(r3)
 export Circle(r4)
 export Circle(r5)
 export Circle(r6)
+export Circle(r7)
+export Circle(r8)

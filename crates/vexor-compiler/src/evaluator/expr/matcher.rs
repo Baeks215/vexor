@@ -170,11 +170,11 @@ fn match_call(
     match (scrutinee, function) {
         (Value::Color(c), f) => {
             let Spanned { node: f, .. } = f;
-            let scene::Color::Rgba { r, g, b, a } = c else {
-                return Ok(false);
-            };
             match f {
                 Expr::Std(Std::Rgba) => {
+                    let scene::Color::Rgba { r, g, b, a } = c else {
+                        return Ok(false);
+                    };
                     let Some((r_p, g_p, b_p, a_p)) = args.into_iter().collect_tuple() else {
                         return Ok(false);
                     };
@@ -184,12 +184,39 @@ fn match_call(
                         && match_pattern(env, Value::Number(a), a_p)?)
                 }
                 Expr::Std(Std::Rgb) => {
+                    let scene::Color::Rgba { r, g, b, a } = c else {
+                        return Ok(false);
+                    };
                     let Some((r_p, g_p, b_p)) = args.into_iter().collect_tuple() else {
                         return Ok(false);
                     };
                     Ok(match_pattern(env, Value::Number(r), r_p)?
                         && match_pattern(env, Value::Number(g), g_p)?
                         && match_pattern(env, Value::Number(b), b_p)?
+                        && a == 1.0)
+                }
+                Expr::Std(Std::Hsla) => {
+                    let scene::Color::Hsla { h, s, l, a } = c else {
+                        return Ok(false);
+                    };
+                    let Some((h_p, s_p, l_p, a_p)) = args.into_iter().collect_tuple() else {
+                        return Ok(false);
+                    };
+                    Ok(match_pattern(env, Value::Number(h), h_p)?
+                        && match_pattern(env, Value::Number(s), s_p)?
+                        && match_pattern(env, Value::Number(l), l_p)?
+                        && match_pattern(env, Value::Number(a), a_p)?)
+                }
+                Expr::Std(Std::Hsl) => {
+                    let scene::Color::Hsla { h, s, l, a } = c else {
+                        return Ok(false);
+                    };
+                    let Some((h_p, s_p, l_p)) = args.into_iter().collect_tuple() else {
+                        return Ok(false);
+                    };
+                    Ok(match_pattern(env, Value::Number(h), h_p)?
+                        && match_pattern(env, Value::Number(s), s_p)?
+                        && match_pattern(env, Value::Number(l), l_p)?
                         && a == 1.0)
                 }
                 _ => Ok(false),

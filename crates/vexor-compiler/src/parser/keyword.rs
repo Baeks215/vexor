@@ -87,6 +87,8 @@ fn classify_kw(s: &str) -> Ident {
         // Color constructors
         "rgb" => Ident::Std(Std::Rgb),
         "rgba" => Ident::Std(Std::Rgba),
+        "hsl" => Ident::Std(Std::Hsl),
+        "hsla" => Ident::Std(Std::Hsla),
         // Graphic constructors
         "Circle" => Ident::Std(Std::Circle),
         "Rect" => Ident::Std(Std::Rect),
