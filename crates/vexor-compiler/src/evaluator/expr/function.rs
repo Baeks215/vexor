@@ -276,6 +276,25 @@ fn eval_std_call<T: Evaluable>(
             let n = to_usize(ty::Number::expect(n)?)?;
             Value::List(std::iter::repeat_n(value, n).collect())
         }
+        // Color constructors
+        Std::Rgb => {
+            let (r, g, b) = unpack_3!(args)?;
+            Value::from(scene::Color::Rgba {
+                r: ty::Number::expect(r)?,
+                g: ty::Number::expect(g)?,
+                b: ty::Number::expect(b)?,
+                a: 1.0,
+            })
+        }
+        Std::Rgba => {
+            let (r, g, b, a) = unpack_4!(args)?;
+            Value::from(scene::Color::Rgba {
+                r: ty::Number::expect(r)?,
+                g: ty::Number::expect(g)?,
+                b: ty::Number::expect(b)?,
+                a: ty::Number::expect(a)?,
+            })
+        }
         // Graphic constructors
         Std::Circle => {
             let radius = unpack_1!(args)?;

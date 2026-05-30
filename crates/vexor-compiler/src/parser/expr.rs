@@ -58,43 +58,6 @@ pub fn p_bool<'a>(input: &mut Input<'a>) -> ModalResult<bool> {
         .parse_next(input)
 }
 
-/// Parses a color.
-///   `rgba(r, g, b, a)` takes an explicit alpha;
-///   `rgb(r, g, b)` defaults alpha to 1.0.
-pub fn p_color<'a>(input: &mut Input<'a>) -> ModalResult<ast::Color> {
-    alt((
-        preceded(
-            k::pk_rgba,
-            cut_err(delim(
-                '(',
-                comma_list(4, p_expr).map(|mut es: Vec<ast::SpanExpr>| ast::Color::Rgba {
-                    r: Box::new(es.remove(0)),
-                    g: Box::new(es.remove(0)),
-                    b: Box::new(es.remove(0)),
-                    a: Some(Box::new(es.remove(0))),
-                }),
-                ')',
-            )),
-        ),
-        preceded(
-            k::pk_rgb,
-            cut_err(delim(
-                '(',
-                comma_list(3, p_expr).map(|mut es: Vec<ast::SpanExpr>| ast::Color::Rgba {
-                    r: Box::new(es.remove(0)),
-                    g: Box::new(es.remove(0)),
-                    b: Box::new(es.remove(0)),
-                    a: None,
-                }),
-                ')',
-            )),
-        ),
-    ))
-    .label("color")
-    .ws()
-    .parse_next(input)
-}
-
 /// Parses a list literal.
 pub fn p_list<'a>(input: &mut Input<'a>) -> ModalResult<ast::ListLiteral> {
     alt((
@@ -131,7 +94,6 @@ pub fn p_literal<'a>(input: &mut Input<'a>) -> ModalResult<ast::Literal> {
         p_number.map(ast::Literal::Number),
         p_string.map(|s| ast::Literal::String(s.to_string())),
         p_bool.map(ast::Literal::Bool),
-        p_color.map(ast::Literal::Color),
         p_list.map(ast::Literal::List),
     ))
     .parse_next(input)

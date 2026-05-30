@@ -2,7 +2,7 @@
 
 use crate::evaluator::expr::constants::get_constant;
 use crate::evaluator::{EResult, EnvExt, EnvRef, WithSpan};
-use crate::ir::ast::{self, Expr, Literal, SpanExpr};
+use crate::ir::ast::{Expr, Literal, SpanExpr};
 use crate::ir::scene;
 
 mod constants;
@@ -78,18 +78,6 @@ fn eval_literal<T: Evaluable>(env: &EnvRef, literal: Literal) -> EResult<T::Outp
         Literal::Number(n) => Value::Number(n),
         Literal::String(s) => Value::String(s),
         Literal::Bool(b) => Value::Bool(b),
-        Literal::Color(c) => {
-            let ast::Color::Rgba { r, g, b, a } = c;
-            Value::Color(scene::Color::Rgba {
-                r: eval::<ty::Number>(env, *r)?,
-                g: eval::<ty::Number>(env, *g)?,
-                b: eval::<ty::Number>(env, *b)?,
-                a: match a {
-                    Some(a) => eval::<ty::Number>(env, *a)?,
-                    None => 1.0,
-                },
-            })
-        }
         Literal::List(l) => Value::List(list::eval_literal(env, l)?),
         Literal::Tuple(exprs) => {
             let values: Box<[Value]> = exprs

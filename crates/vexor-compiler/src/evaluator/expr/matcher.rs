@@ -1,7 +1,9 @@
+use itertools::Itertools;
+
 use crate::evaluator::expr::constants::get_constant;
 use crate::evaluator::expr::{Evaluable, Value, eval, ty};
 use crate::evaluator::{EResult, EnvExt, EnvRef, WithSpan};
-use crate::ir::ast::{self, Const, Expr, ListLiteral, Literal, MatchArm, SpanExpr, Std, op};
+use crate::ir::ast::{Const, Expr, ListLiteral, Literal, MatchArm, SpanExpr, Spanned, Std, op};
 use crate::ir::scene;
 
 /// Generic match-arm evaluation.
@@ -43,6 +45,7 @@ fn match_pattern(env: &EnvRef, scrutinee: Value, pattern: SpanExpr) -> EResult<b
             right,
         } => match_bin(env, scrutinee, operator, *left, *right),
         Expr::Std(std) => match_std(scrutinee, std),
+        Expr::Call { function, args } => match_call(env, scrutinee, *function, args),
         Expr::Const(c) => match_const(scrutinee, c),
         _ => Err("pattern not supported".into()),
     })
@@ -58,23 +61,6 @@ fn match_literal_pattern(env: &EnvRef, scrutinee: Value, pattern: Literal) -> ER
         (Value::Number(s), Literal::Number(p)) => Ok(s == p),
         (Value::String(s), Literal::String(p)) => Ok(s == p),
         (Value::Bool(s), Literal::Bool(p)) => Ok(s == p),
-        (Value::Color(s), Literal::Color(p)) => {
-            let scene::Color::Rgba { r, g, b, a } = s;
-            let ast::Color::Rgba {
-                r: r_expr,
-                g: g_expr,
-                b: b_expr,
-                a: a_expr,
-            } = p;
-            Ok(match_pattern(env, Value::Number(r), *r_expr)?
-                && match_pattern(env, Value::Number(g), *g_expr)?
-                && match_pattern(env, Value::Number(b), *b_expr)?
-                && match a_expr {
-                    Some(a_expr) => match_pattern(env, Value::Number(a), *a_expr)?,
-                    // No alpha, defaults to 1.0
-                    None => a == 1.0,
-                })
-        }
         (Value::List(s), Literal::List(ListLiteral::List(ps))) => {
             if s.len() != ps.len() {
                 // Lists of different lengths cannot match
@@ -171,6 +157,44 @@ fn match_const(scrutinee: Value, c: Const) -> EResult<bool> {
         (Value::String(s), Value::String(p)) => Ok(s == p),
         (Value::Bool(s), Value::Bool(p)) => Ok(s == p),
         (Value::Color(s), Value::Color(p)) => Ok(s == p),
+        _ => Ok(false),
+    }
+}
+
+fn match_call(
+    env: &EnvRef,
+    scrutinee: Value,
+    function: SpanExpr,
+    args: Vec<SpanExpr>,
+) -> EResult<bool> {
+    match (scrutinee, function) {
+        (Value::Color(c), f) => {
+            let Spanned { node: f, .. } = f;
+            let scene::Color::Rgba { r, g, b, a } = c else {
+                return Ok(false);
+            };
+            match f {
+                Expr::Std(Std::Rgba) => {
+                    let Some((r_p, g_p, b_p, a_p)) = args.into_iter().collect_tuple() else {
+                        return Ok(false);
+                    };
+                    Ok(match_pattern(env, Value::Number(r), r_p)?
+                        && match_pattern(env, Value::Number(g), g_p)?
+                        && match_pattern(env, Value::Number(b), b_p)?
+                        && match_pattern(env, Value::Number(a), a_p)?)
+                }
+                Expr::Std(Std::Rgb) => {
+                    let Some((r_p, g_p, b_p)) = args.into_iter().collect_tuple() else {
+                        return Ok(false);
+                    };
+                    Ok(match_pattern(env, Value::Number(r), r_p)?
+                        && match_pattern(env, Value::Number(g), g_p)?
+                        && match_pattern(env, Value::Number(b), b_p)?
+                        && a == 1.0)
+                }
+                _ => Ok(false),
+            }
+        }
         _ => Ok(false),
     }
 }

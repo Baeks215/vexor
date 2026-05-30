@@ -47,9 +47,6 @@ define_keywords! {
     pk_false => "false",
     // List nil literal
     pk_nil => "Nil",
-    // Color constructor prefixes
-    pk_rgb => "rgb",
-    pk_rgba => "rgba",
 }
 
 /// Classified identifier.
@@ -87,6 +84,9 @@ fn classify_kw(s: &str) -> Ident {
         "sort" => Ident::Std(Std::Sort),
         "sortBy" => Ident::Std(Std::SortBy),
         "repeat" => Ident::Std(Std::Repeat),
+        // Color constructors
+        "rgb" => Ident::Std(Std::Rgb),
+        "rgba" => Ident::Std(Std::Rgba),
         // Graphic constructors
         "Circle" => Ident::Std(Std::Circle),
         "Rect" => Ident::Std(Std::Rect),

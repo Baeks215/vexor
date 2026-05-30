@@ -36,20 +36,6 @@ impl From<&str> for Spanned<String> {
     }
 }
 
-// --- Primitives ---
-
-/// Color symbol: in various representations
-#[derive(Debug, Clone)]
-pub enum Color {
-    Rgba {
-        r: BoxExpr,
-        g: BoxExpr,
-        b: BoxExpr,
-        /// Optional alpha, defaults to 1.0.
-        a: Option<BoxExpr>,
-    },
-}
-
 // --- Expressions ---
 
 pub mod op {
@@ -116,7 +102,6 @@ pub enum Literal {
     Number(Number),
     String(String),
     Bool(bool),
-    Color(Color),
     List(ListLiteral),
     Tuple(Vec<SpanExpr>),
 }
@@ -200,6 +185,9 @@ pub enum Std {
     Sort,
     SortBy,
     Repeat,
+    // Color constructors
+    Rgb,
+    Rgba,
     // Graphic constructors
     Circle,
     Rect,
