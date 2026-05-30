@@ -217,7 +217,7 @@ pub fn p_expr<'a>(input: &mut Input<'a>) -> ModalResult<ast::SpanExpr> {
     expression(p_atom).infix(dispatch! {alt((
         alt((">>", "&&", "||")),
         alt(("==", "!=", ">=", "<=", "//")),
-        alt(("+", "-", "*", "/", "%", ">", "<", ":")),
+        alt(("+", "-", "*", "/", "%", "^", ">", "<", ":")),
     )).mws();
         ">>" => Infix::Left(0, |_, arg: ast::SpanExpr, func: ast::SpanExpr| {
             let span = merge_spans(&arg.span, &func.span);
@@ -241,6 +241,7 @@ pub fn p_expr<'a>(input: &mut Input<'a>) -> ModalResult<ast::SpanExpr> {
         "/" => Infix::Left(7, |_, a: ast::SpanExpr, b: ast::SpanExpr| bin(a, b, op::Binary::Arithmetic(op::Arithmetic::Div))),
         "//" => Infix::Left(7, |_, a: ast::SpanExpr, b: ast::SpanExpr| bin(a, b, op::Binary::Arithmetic(op::Arithmetic::IntDiv))),
         "%" => Infix::Left(7, |_, a: ast::SpanExpr, b: ast::SpanExpr| bin(a, b, op::Binary::Arithmetic(op::Arithmetic::Rem))),
+        "^" => Infix::Right(10, |_, a: ast::SpanExpr, b: ast::SpanExpr| bin(a, b, op::Binary::Arithmetic(op::Arithmetic::Pow))),
         _ => fail,
     })
     .prefix(dispatch! {alt(("!", "-")).ws();
@@ -248,7 +249,7 @@ pub fn p_expr<'a>(input: &mut Input<'a>) -> ModalResult<ast::SpanExpr> {
             let span = a.span.clone();
             Ok(Spanned { node: ast::Expr::Unary { operator: op::Unary::Not, operand: Box::new(a) }, span })
         }),
-        "-" => Prefix(11, |_, a: ast::SpanExpr| {
+        "-" => Prefix(9, |_, a: ast::SpanExpr| {
             let span = a.span.clone();
             Ok(Spanned { node: ast::Expr::Unary { operator: op::Unary::Neg, operand: Box::new(a) }, span })
         }),

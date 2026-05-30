@@ -55,6 +55,7 @@ pub mod op {
         Div,
         IntDiv,
         Rem,
+        Pow,
     }
 
     #[derive(Debug, Clone, Copy)]
@@ -166,6 +167,24 @@ pub enum Std {
     Sin,
     Cos,
     Tan,
+    // Math functions
+    Sinh,
+    Cosh,
+    Tanh,
+    Asinh,
+    Acosh,
+    Atanh,
+    Asin,
+    Acos,
+    Atan,
+    Atan2,
+    Round,
+    Floor,
+    Ceil,
+    Abs,
+    Max,
+    Min,
+    Clamp,
     // List
     Map,
     Filter,

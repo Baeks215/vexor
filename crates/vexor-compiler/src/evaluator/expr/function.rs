@@ -192,6 +192,87 @@ fn eval_std_call<T: Evaluable>(
             let x = ty::Number::expect(x)?;
             Value::from(x.tan())
         }
+        // Math
+        Std::Sinh => {
+            let x = ty::Number::expect(unpack_1!(args)?)?;
+            Value::from(x.sinh())
+        }
+        Std::Cosh => {
+            let x = ty::Number::expect(unpack_1!(args)?)?;
+            Value::from(x.cosh())
+        }
+        Std::Tanh => {
+            let x = ty::Number::expect(unpack_1!(args)?)?;
+            Value::from(x.tanh())
+        }
+        Std::Asinh => {
+            let x = ty::Number::expect(unpack_1!(args)?)?;
+            Value::from(x.asinh())
+        }
+        Std::Acosh => {
+            let x = ty::Number::expect(unpack_1!(args)?)?;
+            Value::from(x.acosh())
+        }
+        Std::Atanh => {
+            let x = ty::Number::expect(unpack_1!(args)?)?;
+            Value::from(x.atanh())
+        }
+        Std::Asin => {
+            let x = ty::Number::expect(unpack_1!(args)?)?;
+            Value::from(x.asin())
+        }
+        Std::Acos => {
+            let x = ty::Number::expect(unpack_1!(args)?)?;
+            Value::from(x.acos())
+        }
+        Std::Atan => {
+            let x = ty::Number::expect(unpack_1!(args)?)?;
+            Value::from(x.atan())
+        }
+        Std::Atan2 => {
+            let (y, x) = unpack_2!(args)?;
+            let y = ty::Number::expect(y)?;
+            let x = ty::Number::expect(x)?;
+            Value::from(y.atan2(x))
+        }
+        Std::Round => {
+            let x = ty::Number::expect(unpack_1!(args)?)?;
+            Value::from(x.round())
+        }
+        Std::Floor => {
+            let x = ty::Number::expect(unpack_1!(args)?)?;
+            Value::from(x.floor())
+        }
+        Std::Ceil => {
+            let x = ty::Number::expect(unpack_1!(args)?)?;
+            Value::from(x.ceil())
+        }
+        Std::Abs => {
+            let x = ty::Number::expect(unpack_1!(args)?)?;
+            Value::from(x.abs())
+        }
+        Std::Max => {
+            let (a, b) = unpack_2!(args)?;
+            let a = ty::Number::expect(a)?;
+            let b = ty::Number::expect(b)?;
+            Value::from(a.max(b))
+        }
+        Std::Min => {
+            let (a, b) = unpack_2!(args)?;
+            let a = ty::Number::expect(a)?;
+            let b = ty::Number::expect(b)?;
+            Value::from(a.min(b))
+        }
+        Std::Clamp => {
+            let (x, lo, hi) = unpack_3!(args)?;
+            let x = ty::Number::expect(x)?;
+            let lo = ty::Number::expect(lo)?;
+            let hi = ty::Number::expect(hi)?;
+            if lo > hi {
+                return Err("clamp requires lo <= hi".into());
+            }
+            Value::from(x.max(lo).min(hi))
+        }
         // List
         Std::Map => {
             let func = Box::new(ty::Function::expect(unpack_1!(args)?)?);

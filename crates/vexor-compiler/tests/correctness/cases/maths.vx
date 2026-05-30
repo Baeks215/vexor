@@ -1,0 +1,68 @@
+-- OUTPUT: 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1024, 256, -4, 5, 3, 4, 4, 7, 3, 10, 0, 5
+
+-- Trig
+val sin0 = sin(0)      -- 0
+val cos0 = cos(0)      -- 1
+val tan0 = tan(0)      -- 0
+val rad0 = rad(0)      -- 0
+
+-- Hyperbolic
+val sinh0 = sinh(0)    -- 0
+val cosh0 = cosh(0)    -- 1
+val tanh0 = tanh(0)    -- 0
+
+-- Inverse trig
+val asin0  = asin(0)     -- 0
+val acos1  = acos(1)     -- 0
+val atan0  = atan(0)     -- 0
+val atan20 = atan2(0, 1) -- 0
+
+-- Inverse hyperbolic
+val asinh0 = asinh(0)  -- 0
+val acosh1 = acosh(1)  -- 0
+val atanh0 = atanh(0)  -- 0
+
+-- Power: right-associative, binds tighter than unary minus
+val pow1 = 2 ^ 10      -- 1024
+val pow2 = 2 ^ 2 ^ 3   -- 2^(2^3) = 2^8 = 256 (not 64)
+val pow3 = - 2 ^ 2    -- -(2^2) = -4
+
+-- Rounding / abs
+val abs5   = abs(-5)   -- 5
+val floor3 = floor(3.7) -- 3
+val ceil4  = ceil(3.2)  -- 4
+val round4 = round(3.5) -- 4
+
+-- min / max / clamp
+val max7   = max(3, 7)       -- 7
+val min3   = min(3, 7)       -- 3
+val clampHi = clamp(15, 0, 10) -- 10
+val clampLo = clamp(-5, 0, 10) -- 0
+val clampIn = clamp(5, 0, 10)  -- 5
+
+export Circle(sin0)
+export Circle(cos0)
+export Circle(tan0)
+export Circle(rad0)
+export Circle(sinh0)
+export Circle(cosh0)
+export Circle(tanh0)
+export Circle(asin0)
+export Circle(acos1)
+export Circle(atan0)
+export Circle(atan20)
+export Circle(asinh0)
+export Circle(acosh1)
+export Circle(atanh0)
+export Circle(pow1)
+export Circle(pow2)
+export Circle(pow3)
+export Circle(abs5)
+export Circle(floor3)
+export Circle(ceil4)
+export Circle(round4)
+export Circle(max7)
+export Circle(min3)
+export Circle(clampHi)
+export Circle(clampLo)
+export Circle(clampIn)

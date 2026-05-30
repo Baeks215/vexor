@@ -33,6 +33,7 @@ pub fn eval_op_bin<T: Evaluable>(
                     op::Arithmetic::Div => x / y,
                     op::Arithmetic::IntDiv => (x / y).trunc(),
                     op::Arithmetic::Rem => x % y,
+                    op::Arithmetic::Pow => x.powf(y),
                 }),
                 _ => return Err("invalid operands for +".into()),
             }
