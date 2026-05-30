@@ -84,7 +84,10 @@ fn eval_literal<T: Evaluable>(env: &EnvRef, literal: Literal) -> EResult<T::Outp
                 r: eval::<ty::Number>(env, *r)?,
                 g: eval::<ty::Number>(env, *g)?,
                 b: eval::<ty::Number>(env, *b)?,
-                a: eval::<ty::Number>(env, *a)?,
+                a: match a {
+                    Some(a) => eval::<ty::Number>(env, *a)?,
+                    None => 1.0,
+                },
             })
         }
         Literal::List(l) => Value::List(list::eval_literal(env, l)?),

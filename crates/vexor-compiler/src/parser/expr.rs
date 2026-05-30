@@ -59,20 +59,37 @@ pub fn p_bool<'a>(input: &mut Input<'a>) -> ModalResult<bool> {
 }
 
 /// Parses a color.
+///   `rgba(r, g, b, a)` takes an explicit alpha;
+///   `rgb(r, g, b)` defaults alpha to 1.0.
 pub fn p_color<'a>(input: &mut Input<'a>) -> ModalResult<ast::Color> {
-    preceded(
-        k::pk_rgb,
-        cut_err(delim(
-            '(',
-            comma_list(4, p_expr).map(|mut es: Vec<ast::SpanExpr>| ast::Color::Rgba {
-                r: Box::new(es.remove(0)),
-                g: Box::new(es.remove(0)),
-                b: Box::new(es.remove(0)),
-                a: Box::new(es.remove(0)),
-            }),
-            ')',
-        )),
-    )
+    alt((
+        preceded(
+            k::pk_rgba,
+            cut_err(delim(
+                '(',
+                comma_list(4, p_expr).map(|mut es: Vec<ast::SpanExpr>| ast::Color::Rgba {
+                    r: Box::new(es.remove(0)),
+                    g: Box::new(es.remove(0)),
+                    b: Box::new(es.remove(0)),
+                    a: Some(Box::new(es.remove(0))),
+                }),
+                ')',
+            )),
+        ),
+        preceded(
+            k::pk_rgb,
+            cut_err(delim(
+                '(',
+                comma_list(3, p_expr).map(|mut es: Vec<ast::SpanExpr>| ast::Color::Rgba {
+                    r: Box::new(es.remove(0)),
+                    g: Box::new(es.remove(0)),
+                    b: Box::new(es.remove(0)),
+                    a: None,
+                }),
+                ')',
+            )),
+        ),
+    ))
     .label("color")
     .ws()
     .parse_next(input)

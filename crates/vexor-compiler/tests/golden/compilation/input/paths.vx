@@ -1,4 +1,4 @@
-val red = rgb(1, 0, 0, 1)
+val red = rgba(1, 0, 0, 1)
 
 val gear_tooth = Path([
   lineTo(5, 10),

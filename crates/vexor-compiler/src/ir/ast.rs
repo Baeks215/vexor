@@ -45,7 +45,8 @@ pub enum Color {
         r: BoxExpr,
         g: BoxExpr,
         b: BoxExpr,
-        a: BoxExpr,
+        /// Optional alpha, defaults to 1.0.
+        a: Option<BoxExpr>,
     },
 }
 

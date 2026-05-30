@@ -1,6 +1,6 @@
 val r = 100
 val c = Circle(r)
-val filled = c >> fill(rgb(0.5, 0, 0, 1))
-val stroked = filled >> stroke(3, rgb(0, 0, 0, 1))
+val filled = c >> fill(rgba(0.5, 0, 0, 1))
+val stroked = filled >> stroke(3, rgba(0, 0, 0, 1))
 
 export stroked

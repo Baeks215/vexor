@@ -69,7 +69,11 @@ fn match_literal_pattern(env: &EnvRef, scrutinee: Value, pattern: Literal) -> ER
             Ok(match_pattern(env, Value::Number(r), *r_expr)?
                 && match_pattern(env, Value::Number(g), *g_expr)?
                 && match_pattern(env, Value::Number(b), *b_expr)?
-                && match_pattern(env, Value::Number(a), *a_expr)?)
+                && match a_expr {
+                    Some(a_expr) => match_pattern(env, Value::Number(a), *a_expr)?,
+                    // No alpha, defaults to 1.0
+                    None => a == 1.0,
+                })
         }
         (Value::List(s), Literal::List(ListLiteral::List(ps))) => {
             if s.len() != ps.len() {

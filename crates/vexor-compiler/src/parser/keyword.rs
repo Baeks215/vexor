@@ -47,8 +47,9 @@ define_keywords! {
     pk_false => "false",
     // List nil literal
     pk_nil => "Nil",
-    // Color constructor prefix
+    // Color constructor prefixes
     pk_rgb => "rgb",
+    pk_rgba => "rgba",
 }
 
 /// Classified identifier.
