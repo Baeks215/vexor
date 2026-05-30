@@ -357,6 +357,25 @@ fn eval_std_call<T: Evaluable>(
             let n = to_usize(ty::Number::expect(n)?)?;
             Value::List(std::iter::repeat_n(value, n).collect())
         }
+        // Tuple
+        Std::Fst => {
+            let t = ty::Tuple::expect(unpack_1!(args)?)?;
+            let (a, _) = t
+                .into_vec()
+                .into_iter()
+                .collect_tuple()
+                .ok_or("fst expected a 2-tuple")?;
+            a
+        }
+        Std::Snd => {
+            let t = ty::Tuple::expect(unpack_1!(args)?)?;
+            let (_, b) = t
+                .into_vec()
+                .into_iter()
+                .collect_tuple()
+                .ok_or("snd expected a 2-tuple")?;
+            b
+        }
         // Color constructors
         Std::Rgb => {
             let (r, g, b) = unpack_3!(args)?;

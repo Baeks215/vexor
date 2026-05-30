@@ -102,6 +102,9 @@ fn classify_kw(s: &str) -> Ident {
         "sort" => Ident::Std(Std::Sort),
         "sortBy" => Ident::Std(Std::SortBy),
         "repeat" => Ident::Std(Std::Repeat),
+        // Tuple
+        "fst" => Ident::Std(Std::Fst),
+        "snd" => Ident::Std(Std::Snd),
         // Color constructors
         "rgb" => Ident::Std(Std::Rgb),
         "rgba" => Ident::Std(Std::Rgba),

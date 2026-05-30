@@ -1,4 +1,4 @@
--- OUTPUT: 6, 7, 3, 42, 5
+-- OUTPUT: 6, 7, 3, 42, 5, 10, 20, 5
 
 -- Basic construction + destructure
 val t = (1, 2, 3)
@@ -19,8 +19,19 @@ val r4 = match tagged { (true, n) => n, (false, n) => 0, y => 0 }
 -- Wrong-arity arm falls through; (1, 2) parses as tuple not group
 val r5 = match (1, 2) { (a, b, c) => 0, (a, b) => a + b + 2, y => 0 }
 
+-- fst / snd accessors
+val p = (10, 20)
+val r6 = fst(p)        -- 10
+val r7 = snd(p)        -- 20
+
+-- Compose on nested tuple
+val r8 = fst(snd((1, (5, 9)))) -- = 5
+
 export Circle(r1)
 export Circle(r2)
 export Circle(r3)
 export Circle(r4)
 export Circle(r5)
+export Circle(r6)
+export Circle(r7)
+export Circle(r8)

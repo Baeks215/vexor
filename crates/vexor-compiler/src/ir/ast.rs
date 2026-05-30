@@ -204,6 +204,9 @@ pub enum Std {
     Sort,
     SortBy,
     Repeat,
+    // Tuple
+    Fst,
+    Snd,
     // Color constructors
     Rgb,
     Rgba,
