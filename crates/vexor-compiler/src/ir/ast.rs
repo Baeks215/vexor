@@ -164,6 +164,7 @@ pub enum Const {
 pub enum Std {
     // Trig functions
     Rad,
+    Deg,
     Sin,
     Cos,
     Tan,
@@ -182,6 +183,8 @@ pub enum Std {
     Floor,
     Ceil,
     Abs,
+    Log,
+    Exp,
     Max,
     Min,
     Clamp,

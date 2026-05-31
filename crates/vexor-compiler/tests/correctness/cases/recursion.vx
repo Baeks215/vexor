@@ -1,7 +1,7 @@
 -- OUTPUT: 120, 8
 
 fn factorial(n) = if n <= 1 { 1 } else { n * factorial(n - 1) }
-fn power(base, exp) = if exp <= 0 { 1 } else { base * power(base, exp - 1) }
+fn power(base, n) = if n <= 0 { 1 } else { base * power(base, n - 1) }
 
 export Circle(factorial(5))
 export Circle(power(2, 3))

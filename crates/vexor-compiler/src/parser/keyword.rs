@@ -62,6 +62,7 @@ fn classify_kw(s: &str) -> Ident {
     match s {
         // Trig
         "rad" => Ident::Std(Std::Rad),
+        "deg" => Ident::Std(Std::Deg),
         "sin" => Ident::Std(Std::Sin),
         "cos" => Ident::Std(Std::Cos),
         "tan" => Ident::Std(Std::Tan),
@@ -80,6 +81,8 @@ fn classify_kw(s: &str) -> Ident {
         "floor" => Ident::Std(Std::Floor),
         "ceil" => Ident::Std(Std::Ceil),
         "abs" => Ident::Std(Std::Abs),
+        "log" => Ident::Std(Std::Log),
+        "exp" => Ident::Std(Std::Exp),
         "max" => Ident::Std(Std::Max),
         "min" => Ident::Std(Std::Min),
         "clamp" => Ident::Std(Std::Clamp),

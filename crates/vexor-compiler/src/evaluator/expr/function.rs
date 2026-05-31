@@ -177,6 +177,11 @@ fn eval_std_call<T: Evaluable>(
             let x = ty::Number::expect(x)?;
             Value::from(x.to_radians())
         }
+        Std::Deg => {
+            let x = unpack_1!(args)?;
+            let x = ty::Number::expect(x)?;
+            Value::from(x.to_degrees())
+        }
         Std::Sin => {
             let x = unpack_1!(args)?;
             let x = ty::Number::expect(x)?;
@@ -272,6 +277,14 @@ fn eval_std_call<T: Evaluable>(
                 return Err("clamp requires lo <= hi".into());
             }
             Value::from(x.max(lo).min(hi))
+        }
+        Std::Log => {
+            let x = ty::Number::expect(unpack_1!(args)?)?;
+            Value::from(x.ln())
+        }
+        Std::Exp => {
+            let x = ty::Number::expect(unpack_1!(args)?)?;
+            Value::from(x.exp())
         }
         // List
         Std::Map => {

@@ -1,10 +1,11 @@
--- OUTPUT: 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1024, 256, -4, 5, 3, 4, 4, 7, 3, 10, 0, 5
+-- OUTPUT: 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1024, 256, -4, 5, 3, 4, 4, 7, 3, 10, 0, 5, 0, 1
 
 -- Trig
 val sin0 = sin(0)      -- 0
 val cos0 = cos(0)      -- 1
 val tan0 = tan(0)      -- 0
 val rad0 = rad(0)      -- 0
+val deg0 = deg(0)      -- 0
 
 -- Hyperbolic
 val sinh0 = sinh(0)    -- 0
@@ -40,10 +41,15 @@ val clampHi = clamp(15, 0, 10) -- 10
 val clampLo = clamp(-5, 0, 10) -- 0
 val clampIn = clamp(5, 0, 10)  -- 5
 
+-- Log (natural) / exp
+val log1 = log(1)  -- 0
+val exp0 = exp(0)  -- 1
+
 export Circle(sin0)
 export Circle(cos0)
 export Circle(tan0)
 export Circle(rad0)
+export Circle(deg0)
 export Circle(sinh0)
 export Circle(cosh0)
 export Circle(tanh0)
@@ -66,3 +72,5 @@ export Circle(min3)
 export Circle(clampHi)
 export Circle(clampLo)
 export Circle(clampIn)
+export Circle(log1)
+export Circle(exp0)
