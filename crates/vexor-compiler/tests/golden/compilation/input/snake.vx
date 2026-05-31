@@ -1,15 +1,25 @@
+val steps = 50
+val head_size = 80
+val max_dist = 400
+val revolutions = 2
 
+fn make_circle(max_steps)(i) =
+  Circle(radius) >> fill(color) >> move(x, y)
+  where {
+    frac = i / max_steps
 
-fn make_circle(i) = Circle(r) >> fill(color) >> move(x, y)
-where {
-  f = i / 60
-  r = f * f * 100
-  angle = 360 * f
-  x = cos(angle) * f * 400
-  y = sin(angle) * f * 400
-  color = rgba(f * 255, 0, (1 - f) * 255, 1)
-}
+    radius = head_size * frac
 
-export move(500, 500)(Group(
-  map(make_circle)([1..60])
-))
+    color = hsl(frac * 360, 90, 50)
+
+    angle = 2 * PI * revolutions * frac
+    x = cos(angle) * max_dist * frac
+    y = sin(angle) * max_dist * frac
+  }
+
+fn make_snake() =
+  Group(
+    map(make_circle(steps))([1..steps])
+  )
+
+export make_snake()

@@ -1,0 +1,66 @@
+%YAML 1.2
+---
+# Vexor vector graphics DSL — Sublime/Typst syntax definition
+name: Vexor
+file_extensions:
+  - vx
+scope: source.vx
+
+variables:
+  ident: '[A-Za-z_][A-Za-z0-9_]*'
+
+contexts:
+  main:
+    - include: comments
+    - include: keywords
+    - include: constants
+    - include: builtins
+    - include: math
+    - include: strings
+    - include: numbers
+    - include: operators
+
+  comments:
+    - match: '--.*$'
+      scope: comment.line.double-dash.vx
+
+  keywords:
+    - match: '\b(set|val|export|each|fn|where|match|if|else)\b'
+      scope: keyword.control.vx
+
+  constants:
+    - match: '\b(true|false)\b'
+      scope: constant.language.boolean.vx
+    - match: '\b(Nil)\b'
+      scope: constant.language.nil.vx
+    - match: '\b(PI)\b'
+      scope: constant.language.vx
+
+  # Geometry / color shape constructors and graphic ops
+  builtins:
+    - match: '\b(Circle|Rect|Text|Group|Line|Curve|Path|sample|close|jumpTo|lineTo|curveTo|move|scale|rotate|mirrorX|mirrorY|fill|stroke|rgba|rgb|hsla|hsl)\b'
+      scope: support.function.builtin.vx
+
+  # Math / trig / list / tuple functions
+  math:
+    - match: '\b(rad|sinh|sin|cosh|cos|tanh|tan|asinh|acosh|atanh|asin|acos|atan2|atan|round|floor|ceil|abs|max|min|clamp|map|filter|dropWhile|drop|takeWhile|take|foldl|foldr|zipWith|zip|flatMap|enumerate|len|reverse|find|sortBy|sort|repeat|fst|snd)\b'
+      scope: support.function.math.vx
+
+  numbers:
+    - match: '\b\d+\.\d+([eE][+-]?\d+)?\b'
+      scope: constant.numeric.float.vx
+    - match: '\b\d+\b'
+      scope: constant.numeric.integer.vx
+
+  operators:
+    - match: '(->|=>|>>|\.\.|\+|-|\*|//|/|%|\^|>=|<=|==|!=|>|<|&&|\|\||!|:|=)'
+      scope: keyword.operator.vx
+
+  strings:
+    - match: '"'
+      scope: punctuation.definition.string.begin.vx
+      push:
+        - meta_scope: string.quoted.double.vx
+        - match: '"'
+          scope: punctuation.definition.string.end.vx
+          pop: true

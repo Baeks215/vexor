@@ -1,0 +1,35 @@
+{
+  "name": "vexor",
+  "displayName": "Vexor",
+  "description": "Syntax highlighting for the Vexor vector graphics DSL",
+  "version": "0.1.0",
+  "publisher": "vexor",
+  "engines": {
+    "vscode": "^1.75.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "contributes": {
+    "languages": [
+      {
+        "id": "vexor",
+        "aliases": [
+          "Vexor",
+          "vexor"
+        ],
+        "extensions": [
+          ".vx"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "vexor",
+        "scopeName": "source.vx",
+        "path": "./vexor.tmLanguage.json"
+      }
+    ]
+  }
+}

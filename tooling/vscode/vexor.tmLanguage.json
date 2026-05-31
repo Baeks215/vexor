@@ -1,0 +1,97 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "Vexor",
+  "scopeName": "source.vx",
+  "fileTypes": ["vx"],
+  "patterns": [
+    { "include": "#comments" },
+    { "include": "#keywords" },
+    { "include": "#constants" },
+    { "include": "#builtins" },
+    { "include": "#math" },
+    { "include": "#strings" },
+    { "include": "#numbers" },
+    { "include": "#operators" }
+  ],
+  "repository": {
+    "comments": {
+      "patterns": [
+        {
+          "name": "comment.line.double-dash.vx",
+          "match": "--.*$"
+        }
+      ]
+    },
+    "keywords": {
+      "patterns": [
+        {
+          "name": "keyword.control.vx",
+          "match": "\\b(set|val|export|each|fn|where|match|if|else)\\b"
+        }
+      ]
+    },
+    "constants": {
+      "patterns": [
+        {
+          "name": "constant.language.boolean.vx",
+          "match": "\\b(true|false)\\b"
+        },
+        {
+          "name": "constant.language.nil.vx",
+          "match": "\\b(Nil)\\b"
+        },
+        {
+          "name": "constant.language.vx",
+          "match": "\\b(PI)\\b"
+        }
+      ]
+    },
+    "builtins": {
+      "patterns": [
+        {
+          "name": "support.function.builtin.vx",
+          "match": "\\b(Circle|Rect|Text|Group|Line|Curve|Path|sample|close|jumpTo|lineTo|curveTo|move|scale|rotate|mirrorX|mirrorY|fill|stroke|rgba|rgb|hsla|hsl)\\b"
+        }
+      ]
+    },
+    "math": {
+      "patterns": [
+        {
+          "name": "support.function.math.vx",
+          "match": "\\b(rad|sinh|sin|cosh|cos|tanh|tan|asinh|acosh|atanh|asin|acos|atan2|atan|round|floor|ceil|abs|max|min|clamp|map|filter|dropWhile|drop|takeWhile|take|foldl|foldr|zipWith|zip|flatMap|enumerate|len|reverse|find|sortBy|sort|repeat|fst|snd)\\b"
+        }
+      ]
+    },
+    "numbers": {
+      "patterns": [
+        {
+          "name": "constant.numeric.float.vx",
+          "match": "\\b\\d+\\.\\d+([eE][+-]?\\d+)?\\b"
+        },
+        {
+          "name": "constant.numeric.integer.vx",
+          "match": "\\b\\d+\\b"
+        }
+      ]
+    },
+    "operators": {
+      "patterns": [
+        {
+          "name": "keyword.operator.vx",
+          "match": "(->|=>|>>|\\.\\.|\\+|-|\\*|//|/|%|\\^|>=|<=|==|!=|>|<|&&|\\|\\||!|:|=)"
+        }
+      ]
+    },
+    "strings": {
+      "name": "string.quoted.double.vx",
+      "begin": "\"",
+      "beginCaptures": {
+        "0": { "name": "punctuation.definition.string.begin.vx" }
+      },
+      "end": "\"",
+      "endCaptures": {
+        "0": { "name": "punctuation.definition.string.end.vx" }
+      }
+    }
+  }
+}
