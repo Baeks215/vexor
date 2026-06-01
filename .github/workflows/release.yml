@@ -44,8 +44,12 @@ on:
       - "**[0-9]+.[0-9]+.[0-9]+*"
 
 jobs:
+  ci:
+    uses: ./.github/workflows/ci.yml
+
   # Run 'dist plan' (or host) to determine what tasks we need to do
   plan:
+    needs: ci
     runs-on: "ubuntu-22.04"
     outputs:
       val: ${{ steps.plan.outputs.manifest }}
