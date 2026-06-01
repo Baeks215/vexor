@@ -147,6 +147,13 @@ fn match_std(scrutinee: Value, std: Std) -> EResult<bool> {
                 ..
             })
         )),
+        Std::Path => Ok(matches!(
+            scrutinee,
+            Value::Graphic(scene::Graphic {
+                ty: scene::GraphicType::Path { .. },
+                ..
+            })
+        )),
         _ => Err("pattern not supported".into()),
     }
 }
