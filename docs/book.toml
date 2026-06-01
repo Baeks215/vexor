@@ -1,0 +1,10 @@
+[book]
+title = "Vexor"
+authors = ["baeks"]
+language = "en"
+src = "src"
+
+[output.html]
+git-repository-url = "https://github.com/Baeks215/vexor"
+default-theme = "navy"
+print.enable = true
