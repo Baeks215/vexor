@@ -16,7 +16,7 @@ Vexor is a Rust workspace. Build the CLI from source:
 cargo install --path crates/vexor-cli
 
 # ...or run it directly without installing
-cargo run -p vexor-cli -- compile input.vx output.svg
+cargo run -- compile input.vx output.svg
 ```
 
 ## Your First Program
