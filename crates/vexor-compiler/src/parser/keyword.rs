@@ -86,6 +86,9 @@ fn classify_kw(s: &str) -> Ident {
         "max" => Ident::Std(Std::Max),
         "min" => Ident::Std(Std::Min),
         "clamp" => Ident::Std(Std::Clamp),
+        "magnitude" => Ident::Std(Std::Magnitude),
+        "normalize" => Ident::Std(Std::Normalize),
+        "dot" => Ident::Std(Std::Dot),
         // List
         "map" => Ident::Std(Std::Map),
         "filter" => Ident::Std(Std::Filter),

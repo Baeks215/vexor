@@ -1,4 +1,4 @@
--- OUTPUT: 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1024, 256, -4, 5, 3, 4, 4, 7, 3, 10, 0, 5, 0, 1
+-- OUTPUT: 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1024, 256, -4, 5, 3, 4, 4, 7, 3, 10, 0, 5, 0, 1, 5, 3, 32, 1
 
 -- Trig
 val sin0 = sin(0)      -- 0
@@ -45,6 +45,12 @@ val clampIn = clamp(5, 0, 10)  -- 5
 val log1 = log(1)  -- 0
 val exp0 = exp(0)  -- 1
 
+-- Vector ops (tuples, any arity)
+val mag5    = magnitude((3, 4))               -- 5
+val mag3d   = magnitude((1, 2, 2))            -- 3
+val dot32   = dot((1, 2, 3), (4, 5, 6))       -- 32
+val normMag = magnitude(normalize((3, 4)))    -- 1
+
 export Circle(sin0)
 export Circle(cos0)
 export Circle(tan0)
@@ -74,3 +80,7 @@ export Circle(clampLo)
 export Circle(clampIn)
 export Circle(log1)
 export Circle(exp0)
+export Circle(mag5)
+export Circle(mag3d)
+export Circle(dot32)
+export Circle(normMag)

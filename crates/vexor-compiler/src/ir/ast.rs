@@ -188,6 +188,10 @@ pub enum Std {
     Max,
     Min,
     Clamp,
+    // Vector
+    Magnitude,
+    Normalize,
+    Dot,
     // List
     Map,
     Filter,

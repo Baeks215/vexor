@@ -155,6 +155,15 @@ macro_rules! unpack_4 {
     };
 }
 
+fn tuple_to_numbers(v: Value) -> EResult<Vec<Number>> {
+    let tuple = ty::Tuple::expect(v)?;
+    tuple
+        .into_vec()
+        .into_iter()
+        .map(ty::Number::expect)
+        .collect()
+}
+
 fn tuple_to_point(v: Value) -> EResult<Point> {
     let tuple = ty::Tuple::expect(v)?;
     let (x, y) = tuple
@@ -285,6 +294,29 @@ fn eval_std_call<T: Evaluable>(
         Std::Exp => {
             let x = ty::Number::expect(unpack_1!(args)?)?;
             Value::from(x.exp())
+        }
+        // Vector functions (tuples of any arity)
+        Std::Magnitude => {
+            let v = tuple_to_numbers(unpack_1!(args)?)?;
+            Value::from(v.into_iter().map(|c| c * c).sum::<Number>().sqrt())
+        }
+        Std::Normalize => {
+            let v = tuple_to_numbers(unpack_1!(args)?)?;
+            let mag = v.iter().map(|c| c * c).sum::<Number>().sqrt();
+            if mag == 0.0 {
+                return Err("cannot normalize a zero vector".into());
+            }
+            let out: Box<[Value]> = v.into_iter().map(|c| Value::from(c / mag)).collect();
+            Value::Tuple(out)
+        }
+        Std::Dot => {
+            let (a, b) = unpack_2!(args)?;
+            let a = tuple_to_numbers(a)?;
+            let b = tuple_to_numbers(b)?;
+            if a.len() != b.len() {
+                return Err("dot requires vectors of equal length".into());
+            }
+            Value::from(a.into_iter().zip(b).map(|(x, y)| x * y).sum::<Number>())
         }
         // List
         Std::Map => {

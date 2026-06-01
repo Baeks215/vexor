@@ -43,7 +43,7 @@ contexts:
 
   # Math / trig / list / tuple functions
   math:
-    - match: '\b(rad|deg|sinh|sin|cosh|cos|tanh|tan|asinh|acosh|atanh|asin|acos|atan2|atan|round|floor|ceil|abs|log|exp|max|min|clamp|map|filter|dropWhile|drop|takeWhile|take|foldl|foldr|zipWith|zip|flatMap|enumerate|len|reverse|find|sortBy|sort|repeat|fst|snd)\b'
+    - match: '\b(rad|deg|sinh|sin|cosh|cos|tanh|tan|asinh|acosh|atanh|asin|acos|atan2|atan|round|floor|ceil|abs|log|exp|max|min|clamp|magnitude|normalize|dot|map|filter|dropWhile|drop|takeWhile|take|foldl|foldr|zipWith|zip|flatMap|enumerate|len|reverse|find|sortBy|sort|repeat|fst|snd)\b'
       scope: support.function.math.vx
 
   numbers:
