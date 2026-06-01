@@ -26,3 +26,8 @@ egui_extras = "0.34.2"
 ariadne = "0.6.0"
 goldenfile = "1.11.0"
 assert_matches = "1.5.0"
+
+# The profile that 'dist' will build with
+[profile.dist]
+inherits = "release"
+lto = "thin"
