@@ -26,13 +26,13 @@ Each transform takes a graphic and returns a new one, so they chain with `>>`.
 
 | Function | Signature | Description |
 |----------|-----------|-------------|
-| `move(x, y)` | `(Number, Number) -> Graphic -> Graphic` | Translate by `(x, y)`. |
-| `scale(s)` | `Number -> Graphic -> Graphic` | Scale uniformly. |
-| `rotate(angle)` | `Number -> Graphic -> Graphic` | Rotate (angle in radians). |
+| `move(x, y)(g)` | `(Number, Number) -> Graphic -> Graphic` | Translate by `(x, y)`. |
+| `scale(s)(g)` | `Number -> Graphic -> Graphic` | Scale uniformly. |
+| `rotate(angle)(g)` | `Number -> Graphic -> Graphic` | Rotate (angle in radians). |
 | `mirrorX(g)` | `Graphic -> Graphic` | Flip vertically (negate y). |
 | `mirrorY(g)` | `Graphic -> Graphic` | Flip horizontally (negate x). |
-| `fill(color)` | `Color -> Graphic -> Graphic` | Set the fill color. |
-| `stroke(width, color)` | `(Number, Color) -> Graphic -> Graphic` | Set the stroke width and color. |
+| `fill(color)(g)` | `Color -> Graphic -> Graphic` | Set the fill color. |
+| `stroke(width, color)(g)` | `(Number, Color) -> Graphic -> Graphic` | Set the stroke width and color. |
 
 ## Path Steps
 

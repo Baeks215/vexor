@@ -26,15 +26,15 @@ last, which works well with the pipe operator (`xs >> map(f)`).
 
 | Function | Signature | Description |
 |----------|-----------|-------------|
-| `foldl(f)(init)(xs)` | `(a -> b -> a) -> a -> [b] -> a` | Left fold, starting from `init`. |
-| `foldr(f)(init)(xs)` | `(a -> b -> a) -> a -> [b] -> a` | Right fold. |
+| `foldl(f)(init)(xs)` | `((a, b) -> a) -> a -> [b] -> a` | Left fold, starting from `init`. `f` is called as `f(acc, item)`. |
+| `foldr(f)(init)(xs)` | `((a, b) -> a) -> a -> [b] -> a` | Right fold. `f` is called as `f(item, acc)`. |
 
 ## Combining
 
 | Function | Signature | Description |
 |----------|-----------|-------------|
 | `zip(xs)(ys)` | `[a] -> [b] -> [(a, b)]` | Pair up elements of two lists. |
-| `zipWith(f)(xs)(ys)` | `(a -> b -> c) -> [a] -> [b] -> [c]` | Combine two lists with `f`. |
+| `zipWith(f)(xs)(ys)` | `((a, b) -> c) -> [a] -> [b] -> [c]` | Combine two lists element-wise with `f(x, y)`. |
 | `enumerate(xs)` | `[a] -> [(Number, a)]` | Pair each element with its index. |
 
 ## Ordering
@@ -42,7 +42,7 @@ last, which works well with the pipe operator (`xs >> map(f)`).
 | Function | Signature | Description |
 |----------|-----------|-------------|
 | `sort(xs)` | `[Number] -> [Number]` | Sort numbers ascending. |
-| `sortBy(f)` | `(a -> a -> Bool) -> [a] -> [a]` | Sort using a comparator. `f(a, b)` returns `true` when `a` should come *before* `b`. |
+| `sortBy(f)` | `((a, a) -> Bool) -> [a] -> [a]` | Sort using a comparator. `f(a, b)` returns `true` when `a` should come *before* `b`. |
 
 ## Building and Measuring
 
