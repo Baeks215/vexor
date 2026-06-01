@@ -23,6 +23,9 @@ pub struct CError<'a> {
 /// Result type for evaluation
 pub type CResult<'a, O> = Result<O, CError<'a>>;
 
+/// SVG exports produced by compiling source.
+pub type SvgExport = Vec<Export<String>>;
+
 /// Compiles the given input string into [`Scene`] IR.
 pub fn compile<'a>(input: &'a str) -> CResult<'a, Scene> {
     let ast = parser::parse_program(input).map_err(|e| build_parse_error(input, e))?;
@@ -40,7 +43,7 @@ fn compile_to<'a, T>(
 }
 
 /// Compiles input to SVG exports
-pub fn compile_to_svg<'a>(input: &'a str) -> CResult<'a, Vec<Export<String>>> {
+pub fn compile_to_svg<'a>(input: &'a str) -> CResult<'a, SvgExport> {
     compile_to(input, export_scene_svg)
 }
 
