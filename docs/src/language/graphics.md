@@ -14,7 +14,7 @@ val g = Group([c, r])     -- combine graphics into one
 
 Every constructor produces a **pure** shape positioned at the origin `(0, 0)`. Use
 the [transforms](#transforms) to move, scale, or rotate it, and the
-[style functions](#style-functions) to color it.
+[style functions](#style-functions) to style it.
 
 `Group` is useful for treating several graphics as a single component: a transform
 applied to a group affects all of its children together, as one unit.
