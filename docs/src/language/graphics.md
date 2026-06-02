@@ -13,7 +13,8 @@ val g = Group([c, r])     -- combine graphics into one
 ```
 
 Every constructor produces a **pure** shape positioned at the origin `(0, 0)`. Use
-the [transforms](#transforms) to move, scale, rotate, or color it afterwards.
+the [transforms](#transforms) to move, scale, or rotate it, and the
+[style functions](#style-functions) to style it.
 
 `Group` is useful for treating several graphics as a single component: a transform
 applied to a group affects all of its children together, as one unit.
@@ -38,14 +39,25 @@ operator `>>`:
 
 ```vexor
 export Circle(20)
-  >> fill(rgb(255, 100, 0))
-  >> stroke(2, rgb(0, 0, 0))
   >> move(100, 100)
   >> rotate(rad(45))
 ```
 
-Available transforms: `move`, `scale`, `rotate`, `mirrorX`, `mirrorY`, `fill`,
-`stroke`. Colors come from the [color constructors](../stdlib/color.md).
+Available transforms: `move`, `scale`, `rotate`, `mirrorX`, `mirrorY`.
+
+## Style Functions
+
+Style functions set how a graphic is painted. Like transforms, they take a graphic
+and return a new one, so they chain with `>>`:
+
+```vexor
+export Circle(20)
+  >> fill(rgb(255, 100, 0))
+  >> stroke(2, rgb(0, 0, 0))
+```
+
+Available style functions: `fill`, `stroke`. Colors come from the
+[color constructors](../stdlib/color.md).
 
 ## Paths
 
