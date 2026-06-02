@@ -31,6 +31,14 @@ Each transform takes a graphic and returns a new one, so they chain with `>>`.
 | `rotate(angle)(g)` | `Number -> Graphic -> Graphic` | Rotate (angle in radians). |
 | `mirrorX(g)` | `Graphic -> Graphic` | Flip vertically (negate y). |
 | `mirrorY(g)` | `Graphic -> Graphic` | Flip horizontally (negate x). |
+
+## Style Functions
+
+Like transforms, each style function takes a graphic and returns a new one, so they
+chain with `>>`. Colors come from the [color constructors](color.md).
+
+| Function | Signature | Description |
+|----------|-----------|-------------|
 | `fill(color)(g)` | `Color -> Graphic -> Graphic` | Set the fill color. |
 | `stroke(width, color)(g)` | `(Number, Color) -> Graphic -> Graphic` | Set the stroke width and color. |
 
