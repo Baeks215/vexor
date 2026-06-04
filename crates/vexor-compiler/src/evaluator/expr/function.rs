@@ -853,10 +853,10 @@ fn eval_user_call<T: Evaluable>(
     // Pair param name with arg values
     let param_args: Vec<(String, Value)> = params.into_iter().zip(args).collect();
 
-    // Add arguments to env as variables
+    // Add arguments to env as values
     let call_env = env.new_scope_function(param_args);
 
-    // Evaluate "where" scope of variables
+    // Evaluate "where" scope of values
     for (id, value) in scope {
         call_env.set_var_lazy(id, value)?;
     }
