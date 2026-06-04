@@ -1,7 +1,7 @@
 use crate::evaluator::expr::{Evaluable, Value, eval, ty};
-use crate::evaluator::graphic::{concat_paths, transform_path};
 use crate::evaluator::{EResult, EnvRef};
 use crate::ir::ast::{SpanExpr, op};
+use crate::ir::path::{concat_paths, transform_path};
 use crate::ir::scene::{Graphic, GraphicType};
 
 /// Evaluates a binary operator expression

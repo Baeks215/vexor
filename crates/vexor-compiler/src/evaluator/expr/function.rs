@@ -4,9 +4,9 @@ use std::cell::RefCell;
 
 use crate::evaluator::expr::list::List;
 use crate::evaluator::expr::{Evaluable, Value, eval, ty};
-use crate::evaluator::graphic::{catmull_rom_path, close_path, start_path, transform_path};
 use crate::evaluator::{EError, EResult, EnvExt, EnvRef, to_usize};
 use crate::ir::ast::{self, Function, Std};
+use crate::ir::path::{Path, catmull_rom_path, close_path, transform_path};
 use crate::ir::{Number, scene};
 use crate::{Graphic, GraphicType};
 
@@ -492,7 +492,7 @@ fn eval_std_call<T: Evaluable>(
             let target_x = ty::Number::expect(target_x)?;
             let target_y = ty::Number::expect(target_y)?;
 
-            let mut path = start_path();
+            let mut path = Path::new();
             path.line_to(Point::new(target_x, target_y));
             Value::from(Graphic::new(GraphicType::Path { path }))
         }
@@ -501,13 +501,13 @@ fn eval_std_call<T: Evaluable>(
             let p1 = tuple_to_point(a)?;
             let p2 = tuple_to_point(b)?;
             let p3 = tuple_to_point(c)?;
-            let mut path = start_path();
+            let mut path = Path::new();
             path.curve_to(p1, p2, p3);
             Value::from(Graphic::new(GraphicType::Path { path }))
         }
         Std::Path => {
             let list = ty::List::expect(unpack_1!(args)?)?;
-            let mut g = Graphic::new(GraphicType::Path { path: start_path() });
+            let mut g = Graphic::new(GraphicType::Path { path: Path::new() });
             for item in list {
                 let callable = ty::Callable::expect(item)?;
                 g = eval_call::<ty::Graphic>(env, callable, vec![Value::from(g)])?;
@@ -607,23 +607,23 @@ fn eval_std_lambda<T: Evaluable>(
     let result = match function {
         StdLambda::JumpTo { x, y } => {
             let g = ty::Graphic::expect(unpack_1!(args)?)?;
-            Value::from(transform_path(g, |mut p| {
+            Value::from(transform_path(g, |p| {
                 p.move_to(Point::new(x, y));
-                Ok(p)
+                Ok(())
             })?)
         }
         StdLambda::LineTo { x, y } => {
             let g = ty::Graphic::expect(unpack_1!(args)?)?;
-            Value::from(transform_path(g, |mut p| {
+            Value::from(transform_path(g, |p| {
                 p.line_to(Point::new(x, y));
-                Ok(p)
+                Ok(())
             })?)
         }
         StdLambda::CurveTo { p1, p2, p3 } => {
             let g = ty::Graphic::expect(unpack_1!(args)?)?;
-            Value::from(transform_path(g, |mut p| {
+            Value::from(transform_path(g, |p| {
                 p.curve_to(p1, p2, p3);
-                Ok(p)
+                Ok(())
             })?)
         }
         StdLambda::Map { func } => {

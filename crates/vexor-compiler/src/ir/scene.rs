@@ -1,8 +1,9 @@
 //! High-level IR representing a scene. Common IR before render and file output.
 
-use kurbo::{Affine, BezPath};
+use kurbo::Affine;
 
 use crate::ir::Number;
+use crate::ir::path::Path;
 
 // --- Primitives ---
 
@@ -70,7 +71,7 @@ pub enum GraphicType {
     Circle { radius: Number },
     Rect { width: Number, height: Number },
     Text { content: String },
-    Path { path: BezPath },
+    Path { path: Path },
     Group { children: Vec<Graphic> },
 }
 

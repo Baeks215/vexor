@@ -1,0 +1,165 @@
+//! Path representation and manipulation.
+
+use im_rc::Vector;
+use kurbo::{Affine, BezPath, PathEl, Point};
+
+use crate::evaluator::EResult;
+use crate::ir::scene::{Graphic, GraphicType};
+
+/// A vector path, internally a persistent vector of path elements.
+#[derive(Debug, Clone, Default)]
+pub struct Path {
+    els: Vector<PathEl>,
+    /// Number of elements that are not `MoveTo` (line/curve/close).
+    non_move: usize,
+}
+
+impl Path {
+    /// Creates an empty path.
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Returns `true` if the path has a drawn element and can therefore be closed.
+    pub fn can_close(&self) -> bool {
+        self.non_move > 0
+    }
+
+    /// Appends a move-to element, starting a new subpath at `p`.
+    pub fn move_to(&mut self, p: Point) {
+        self.els.push_back(PathEl::MoveTo(p));
+    }
+
+    /// Appends a line-to element from the current point to `p`.
+    pub fn line_to(&mut self, p: Point) {
+        self.els.push_back(PathEl::LineTo(p));
+        self.non_move += 1;
+    }
+
+    /// Appends a cubic Bézier curve through control points `p1`, `p2` to `p3`.
+    pub fn curve_to(&mut self, p1: Point, p2: Point, p3: Point) {
+        self.els.push_back(PathEl::CurveTo(p1, p2, p3));
+        self.non_move += 1;
+    }
+
+    /// Appends a close-path element.
+    pub fn close_path(&mut self) {
+        self.els.push_back(PathEl::ClosePath);
+        self.non_move += 1;
+    }
+
+    /// Applies an affine transformation to every element of the path.
+    pub fn apply_affine(&mut self, a: Affine) {
+        // Element kinds are preserved, so `non_move` is unchanged.
+        self.els = self.els.iter().map(|el| a * *el).collect();
+    }
+
+    /// Concatenates `other` onto the end of this path.
+    ///   Persistent vector append is `O(log n)`.
+    pub fn append(&mut self, other: Path) {
+        self.els.append(other.els);
+        self.non_move += other.non_move;
+    }
+
+    /// Iterates over the path elements.
+    pub fn iter(&self) -> impl Iterator<Item = &PathEl> {
+        self.els.iter()
+    }
+
+    /// Converts the path to an SVG path data string, reusing kurbo's formatter.
+    pub fn to_svg(mut self) -> String {
+        // Path data must start with a MoveTo, so prepend one if necessary.
+        if !matches!(self.els.front(), Some(PathEl::MoveTo(_))) {
+            self.els.push_front(PathEl::MoveTo(Point::ORIGIN));
+        }
+        BezPath::from_iter(self.els.into_iter()).to_svg()
+    }
+}
+
+impl IntoIterator for Path {
+    type Item = PathEl;
+    type IntoIter = <Vector<PathEl> as IntoIterator>::IntoIter;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.els.into_iter()
+    }
+}
+
+/// Applies an in-place transformation to the path of the graphic component, if it is a path.
+pub fn transform_path(g: Graphic, f: impl FnOnce(&mut Path) -> EResult<()>) -> EResult<Graphic> {
+    let Graphic {
+        ty,
+        style,
+        transform,
+    } = g;
+    let mut path = match ty {
+        GraphicType::Path { path } => path,
+        _ => return Err("expected a path".into()),
+    };
+    f(&mut path)?;
+    Ok(Graphic {
+        ty: GraphicType::Path { path },
+        style,
+        transform,
+    })
+}
+
+/// Closes a path.
+pub fn close_path(path: &mut Path) -> EResult<()> {
+    if !path.can_close() {
+        return Err("cannot close an empty path".into());
+    }
+    path.close_path();
+    Ok(())
+}
+
+/// Concatenates two paths:
+///   Translates `right` so its start meets `left`'s end, and connects the two paths.
+pub fn concat_paths(left: &mut Path, mut right: Path) -> EResult<()> {
+    let end = path_end(left).ok_or("cannot concatenate: left path is empty")?;
+    let start = match right.els.front() {
+        Some(PathEl::MoveTo(p)) => *p,
+        _ => Point::ORIGIN,
+    };
+    let delta = end - start;
+    right.apply_affine(Affine::translate(delta));
+    left.append(right);
+    Ok(())
+}
+
+/// Builds a smooth cubic BezPath through `points` via uniform Catmull-Rom → Bézier conversion.
+///   Start and end points are phantom points
+///   i.e. Not included in the path but used to determine tangents at the endpoints.
+pub fn catmull_rom_path(points: &[Point]) -> Path {
+    let mut path = Path::new();
+    if points.len() < 2 {
+        return path;
+    }
+    let offset = Point::ORIGIN - points[1];
+    for i in 1..points.len() - 2 {
+        let p0 = points[i - 1];
+        let p1 = points[i];
+        let p2 = points[i + 1];
+        let p3 = points[i + 2];
+        let b1 = p1 + (p2 - p0) / 6.0;
+        let b2 = p2 - (p3 - p1) / 6.0;
+
+        // Translate so path starts at origin
+        let b1 = b1 + offset;
+        let b2 = b2 + offset;
+        let p2 = p2 + offset;
+        path.curve_to(b1, b2, p2);
+    }
+    path
+}
+
+/// Returns the endpoint of a path, or `None`
+fn path_end(path: &Path) -> Option<Point> {
+    let last = path.els.back()?;
+    match *last {
+        PathEl::MoveTo(p) | PathEl::LineTo(p) => Some(p),
+        PathEl::QuadTo(_, p) => Some(p),
+        PathEl::CurveTo(_, _, p) => Some(p),
+        PathEl::ClosePath => None,
+    }
+}
