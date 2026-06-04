@@ -30,7 +30,7 @@ pub fn eval<T: Evaluable>(env: &EnvRef, expr: SpanExpr) -> EResult<T::Output> {
         }
         Expr::Const(c) => T::expect(get_constant(c)),
         Expr::Call { function, args } => {
-            let function = eval::<ty::Function>(env, *function)?;
+            let function = eval::<ty::Callable>(env, *function)?;
             let args: Vec<Value> = args
                 .into_iter()
                 .map(|arg_expr| eval::<ty::Any>(env, arg_expr))

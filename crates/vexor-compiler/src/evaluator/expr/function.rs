@@ -320,19 +320,19 @@ fn eval_std_call<T: Evaluable>(
         }
         // List
         Std::Map => {
-            let func = Box::new(ty::Function::expect(unpack_1!(args)?)?);
+            let func = Box::new(ty::Callable::expect(unpack_1!(args)?)?);
             Value::from(StdLambda::Map { func })
         }
         Std::Filter => {
-            let func = Box::new(ty::Function::expect(unpack_1!(args)?)?);
+            let func = Box::new(ty::Callable::expect(unpack_1!(args)?)?);
             Value::from(StdLambda::Filter { func })
         }
         Std::FlatMap => {
-            let func = Box::new(ty::Function::expect(unpack_1!(args)?)?);
+            let func = Box::new(ty::Callable::expect(unpack_1!(args)?)?);
             Value::from(StdLambda::FlatMap { func })
         }
         Std::Find => {
-            let func = Box::new(ty::Function::expect(unpack_1!(args)?)?);
+            let func = Box::new(ty::Callable::expect(unpack_1!(args)?)?);
             Value::from(StdLambda::Find { func })
         }
         Std::Drop => {
@@ -344,15 +344,15 @@ fn eval_std_call<T: Evaluable>(
             Value::from(StdLambda::Take { n })
         }
         Std::DropWhile => {
-            let func = Box::new(ty::Function::expect(unpack_1!(args)?)?);
+            let func = Box::new(ty::Callable::expect(unpack_1!(args)?)?);
             Value::from(StdLambda::DropWhile { func })
         }
         Std::TakeWhile => {
-            let func = Box::new(ty::Function::expect(unpack_1!(args)?)?);
+            let func = Box::new(ty::Callable::expect(unpack_1!(args)?)?);
             Value::from(StdLambda::TakeWhile { func })
         }
         Std::SortBy => {
-            let func = Box::new(ty::Function::expect(unpack_1!(args)?)?);
+            let func = Box::new(ty::Callable::expect(unpack_1!(args)?)?);
             Value::from(StdLambda::SortBy { func })
         }
         Std::Zip => {
@@ -360,15 +360,15 @@ fn eval_std_call<T: Evaluable>(
             Value::from(StdLambda::Zip { xs })
         }
         Std::ZipWith => {
-            let func = Box::new(ty::Function::expect(unpack_1!(args)?)?);
+            let func = Box::new(ty::Callable::expect(unpack_1!(args)?)?);
             Value::from(StdLambda::ZipWithFn { func })
         }
         Std::Foldl => {
-            let func = Box::new(ty::Function::expect(unpack_1!(args)?)?);
+            let func = Box::new(ty::Callable::expect(unpack_1!(args)?)?);
             Value::from(StdLambda::FoldlFn { func })
         }
         Std::Foldr => {
-            let func = Box::new(ty::Function::expect(unpack_1!(args)?)?);
+            let func = Box::new(ty::Callable::expect(unpack_1!(args)?)?);
             Value::from(StdLambda::FoldrFn { func })
         }
         Std::Enumerate => {
@@ -509,7 +509,7 @@ fn eval_std_call<T: Evaluable>(
             let list = ty::List::expect(unpack_1!(args)?)?;
             let mut g = Graphic::new(GraphicType::Path { path: start_path() });
             for item in list {
-                let callable = ty::Function::expect(item)?;
+                let callable = ty::Callable::expect(item)?;
                 g = eval_call::<ty::Graphic>(env, callable, vec![Value::from(g)])?;
             }
             Value::from(g)
@@ -519,7 +519,7 @@ fn eval_std_call<T: Evaluable>(
             let from = ty::Number::expect(from)?;
             let to = ty::Number::expect(to)?;
             let steps = to_usize(ty::Number::expect(steps)?)?;
-            let f = ty::Function::expect(f)?;
+            let f = ty::Callable::expect(f)?;
             if steps < 1 {
                 return Err("sample requires steps >= 1".into());
             }
@@ -837,7 +837,7 @@ fn eval_user_call<T: Evaluable>(
 ) -> EResult<T::Output> {
     let Function {
         params,
-        scope,
+        where_scope,
         return_expr,
     } = func;
     // Ensure arguments have correct type
@@ -857,7 +857,7 @@ fn eval_user_call<T: Evaluable>(
     let call_env = env.new_scope_function(param_args);
 
     // Evaluate "where" scope of values
-    for (id, value) in scope {
+    for (id, value) in where_scope {
         call_env.set_var_lazy(id, value)?;
     }
 

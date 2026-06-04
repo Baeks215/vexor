@@ -69,14 +69,14 @@ pub fn p_function_def<'a>(input: &mut Input<'a>) -> ModalResult<(String, ast::Fu
 fn build_curried_function(
     mut curried_params: Vec<Vec<String>>,
     return_expr: SpanExpr,
-    scope: Vec<(String, SpanExpr)>,
+    where_scope: Vec<(String, SpanExpr)>,
 ) -> ast::Function {
     let last_params = curried_params.pop().unwrap(); // repeat(1..) guarantees Some
     // Last curried function is the main function
     let return_span = return_expr.span.clone();
     let mut acc_function = ast::Function {
         params: last_params,
-        scope,
+        where_scope,
         return_expr: Box::new(return_expr),
     };
     let acc_span = return_span;
@@ -89,7 +89,7 @@ fn build_curried_function(
         };
         acc_function = ast::Function {
             params,
-            scope: vec![],
+            where_scope: vec![],
             return_expr: Box::new(wrapped),
         };
     }

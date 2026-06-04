@@ -93,8 +93,11 @@ pub enum ListLiteral {
 
 #[derive(Debug, Clone)]
 pub struct Function {
+    /// Parameter identifiers of the function.
     pub params: Vec<String>,
-    pub scope: Vec<(String, SpanExpr)>,
+    /// Where scope of identifier-expression bindings
+    pub where_scope: Vec<(String, SpanExpr)>,
+    /// Return expression of the function.
     pub return_expr: BoxExpr,
 }
 
