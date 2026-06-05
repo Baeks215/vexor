@@ -78,12 +78,15 @@ pub enum GraphicType {
 /// Style of a graphic component
 #[derive(Debug, Clone)]
 pub struct Style {
-    pub fill: Color,
+    pub fill: Option<Color>,
     pub stroke: Option<Stroke>,
 }
 impl Style {
     pub fn with_fill(self, fill: Color) -> Self {
-        Self { fill, ..self }
+        Self {
+            fill: Some(fill),
+            ..self
+        }
     }
     pub fn with_stroke(self, stroke: Stroke) -> Self {
         Self {
@@ -95,13 +98,8 @@ impl Style {
 impl Default for Style {
     fn default() -> Self {
         Self {
-            // Black fill
-            fill: Color::Rgba {
-                r: 0.0,
-                g: 0.0,
-                b: 0.0,
-                a: 1.0,
-            },
+            // No explicit fill; SVG defaults to black.
+            fill: None,
             // No stroke
             stroke: None,
         }

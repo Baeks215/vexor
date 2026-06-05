@@ -71,24 +71,18 @@ fn translate_graphic<T: Appendable>(current: T, graphic: Graphic, precision: usi
 
     match ty {
         GraphicType::Circle { radius } => current.add(apply_attributes!(
-            svg_el::Circle::new()
-                .set("r", fmt_num(radius, precision))
-                .set("cx", 0.0)
-                .set("cy", 0.0),
+            svg_el::Circle::new().set("r", fmt_num(radius, precision)),
             extra
         )),
         GraphicType::Rect { width, height } => current.add(apply_attributes!(
             svg_el::Rectangle::new()
                 .set("width", fmt_num(width, precision))
-                .set("height", fmt_num(height, precision))
-                .set("x", 0.0)
-                .set("y", 0.0),
+                .set("height", fmt_num(height, precision)),
             extra
         )),
-        GraphicType::Text { content } => current.add(apply_attributes!(
-            svg_el::Text::new(content).set("x", 0.0).set("y", 0.0),
-            extra
-        )),
+        GraphicType::Text { content } => {
+            current.add(apply_attributes!(svg_el::Text::new(content), extra))
+        }
         GraphicType::Group { children } => {
             let mut group_node = svg_el::Group::new();
             for child in children {
@@ -131,7 +125,9 @@ impl ToAttributes for Affine {
 impl ToAttributes for Style {
     fn add_as_attr(self, current: &mut Vec<Attribute>, precision: usize) {
         let Style { fill, stroke } = self;
-        current.push(("fill", color_to_svg(fill, precision)));
+        if let Some(fill) = fill {
+            current.push(("fill", color_to_svg(fill, precision)));
+        }
 
         if let Some(Stroke { color, width }) = stroke {
             current.push(("stroke", color_to_svg(color, precision)));
