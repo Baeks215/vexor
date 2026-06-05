@@ -233,6 +233,7 @@ pub enum Std {
     Hsla,
     // Graphic constructors
     Circle,
+    Ellipse,
     Rect,
     Text,
     Group,

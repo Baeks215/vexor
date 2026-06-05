@@ -12,6 +12,7 @@ Every constructor produces a **pure** shape positioned at the origin `(0, 0)`; a
 | Function | Signature | Description |
 |----------|-----------|-------------|
 | `Circle(radius)` | `Number -> Graphic` | A circle. |
+| `Ellipse(rx, ry)` | `(Number, Number) -> Graphic` | An ellipse with horizontal radius `rx` and vertical radius `ry`. |
 | `Rect(width, height)` | `(Number, Number) -> Graphic` | A rectangle. |
 | `Text(content)` | `String -> Graphic` | Text. |
 | `Group(children)` | `[Graphic] -> Graphic` | Combine graphics into one. |

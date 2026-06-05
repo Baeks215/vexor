@@ -7,6 +7,7 @@ adjust them with transforms, and emit them with `export`.
 
 ```vexor
 val c = Circle(10)        -- circle of radius 10
+val e = Ellipse(80, 40)   -- ellipse, rx 80 and ry 40
 val r = Rect(100, 50)     -- 100 x 50 rectangle
 val t = Text("hi")        -- text
 val g = Group([c, r])     -- combine graphics into one

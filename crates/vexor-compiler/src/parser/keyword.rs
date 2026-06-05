@@ -127,6 +127,7 @@ fn classify_kw(s: &str) -> Ident {
         "hsla" => Ident::Std(Std::Hsla),
         // Graphic constructors
         "Circle" => Ident::Std(Std::Circle),
+        "Ellipse" => Ident::Std(Std::Ellipse),
         "Rect" => Ident::Std(Std::Rect),
         "Text" => Ident::Std(Std::Text),
         "Group" => Ident::Std(Std::Group),

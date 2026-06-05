@@ -106,6 +106,13 @@ fn eval_field_access<T: Evaluable>(
                 "radius" => Value::from(radius),
                 _ => return Err("unknown field".into()),
             },
+            scene::GraphicType::Ellipse { rx, ry } => match field.as_str() {
+                "x" => Value::from(0.0),
+                "y" => Value::from(0.0),
+                "rx" => Value::from(rx),
+                "ry" => Value::from(ry),
+                _ => return Err("unknown field".into()),
+            },
             scene::GraphicType::Rect { width, height } => match field.as_str() {
                 "x" => Value::from(0.0),
                 "y" => Value::from(0.0),

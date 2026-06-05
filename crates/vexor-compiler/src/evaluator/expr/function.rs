@@ -538,6 +538,13 @@ fn eval_std_call<T: Evaluable>(
                 radius: ty::Number::expect(radius)?,
             }))
         }
+        Std::Ellipse => {
+            let (rx, ry) = unpack_2!(args)?;
+            Value::from(Graphic::new(GraphicType::Ellipse {
+                rx: ty::Number::expect(rx)?,
+                ry: ty::Number::expect(ry)?,
+            }))
+        }
         Std::Rect => {
             let (width, height) = unpack_2!(args)?;
             Value::from(Graphic::new(GraphicType::Rect {

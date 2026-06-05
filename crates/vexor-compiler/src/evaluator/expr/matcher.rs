@@ -126,6 +126,13 @@ fn match_std(scrutinee: Value, std: Std) -> EResult<bool> {
                 ..
             })
         )),
+        Std::Ellipse => Ok(matches!(
+            scrutinee,
+            Value::Graphic(scene::Graphic {
+                ty: scene::GraphicType::Ellipse { .. },
+                ..
+            })
+        )),
         Std::Rect => Ok(matches!(
             scrutinee,
             Value::Graphic(scene::Graphic {

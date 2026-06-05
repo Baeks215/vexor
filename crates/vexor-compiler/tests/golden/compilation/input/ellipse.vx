@@ -1,0 +1,6 @@
+set canvas(200, 200)
+
+export Ellipse(80, 40) >>
+  fill(rgb(80, 160, 255)) >>
+  strokeColor(rgb(0, 0, 0)) >>
+  strokeWidth(2)

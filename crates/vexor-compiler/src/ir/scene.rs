@@ -69,6 +69,7 @@ impl Graphic {
 #[derive(Debug, Clone)]
 pub enum GraphicType {
     Circle { radius: Number },
+    Ellipse { rx: Number, ry: Number },
     Rect { width: Number, height: Number },
     Text { content: String },
     Path { path: Path },

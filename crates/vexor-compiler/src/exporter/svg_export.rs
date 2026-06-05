@@ -74,6 +74,12 @@ fn translate_graphic<T: Appendable>(current: T, graphic: Graphic, precision: usi
             svg_el::Circle::new().set("r", fmt_num(radius, precision)),
             extra
         )),
+        GraphicType::Ellipse { rx, ry } => current.add(apply_attributes!(
+            svg_el::Ellipse::new()
+                .set("rx", fmt_num(rx, precision))
+                .set("ry", fmt_num(ry, precision)),
+            extra
+        )),
         GraphicType::Rect { width, height } => current.add(apply_attributes!(
             svg_el::Rectangle::new()
                 .set("width", fmt_num(width, precision))
