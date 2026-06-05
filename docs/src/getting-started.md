@@ -54,6 +54,24 @@ export Rect(100, 50)
 The **origin `(0, 0)` is at the center of the canvas** — positive `x` goes right and
 positive `y` goes down. A shape built with no transform sits at the center.
 
+## Precision
+
+Use `set precision(n)` to control how many decimal places coordinates use in the
+generated SVG. Every float is rounded to `n` places and trailing zeros are
+dropped, so `100.000` becomes `100` and `0.35355…` becomes `0.354`.
+
+**The default precision is `3`** — if you never write a `set precision` statement,
+every coordinate is rounded to 3 decimal places.
+
+```vexor
+set precision(2)
+
+export Circle(100)
+```
+
+Lower precision produces smaller files; higher precision preserves fine detail.
+Use `set precision(0)` to round every coordinate to a whole number.
+
 ## Output
 
 - **One export** → the output path is written as a single SVG file.

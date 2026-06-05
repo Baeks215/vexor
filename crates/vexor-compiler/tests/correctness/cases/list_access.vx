@@ -1,0 +1,50 @@
+-- OUTPUT: 30, 10, 10, 40, 3, 3, 10, 24, 4, 1, 0
+
+val xs = [10, 20, 30, 40]
+
+-- random access
+val r1 = nth(2)(xs)
+-- xs[2] = 30
+
+-- pipe form of nth
+val r2 = xs >> nth(0)
+-- xs[0] = 10
+
+val r3 = head(xs)
+-- 10
+
+val r4 = last(xs)
+-- 40
+
+val r5 = len(tail(xs))
+-- tail -> [20,30,40]; len 3
+
+val r6 = len(init(xs))
+-- init -> [10,20,30]; len 3
+
+val r7 = sum([1, 2, 3, 4])
+-- 10
+
+val r8 = product([1, 2, 3, 4])
+-- 24
+
+val r9 = len(concat([1, 2], [3, 4]))
+-- [1,2,3,4]; len 4
+
+val r10 = if isEmpty(Nil) { 1 } else { 0 }
+-- empty -> 1
+
+val r11 = if isEmpty(xs) { 1 } else { 0 }
+-- non-empty -> 0
+
+export Circle(r1)
+export Circle(r2)
+export Circle(r3)
+export Circle(r4)
+export Circle(r5)
+export Circle(r6)
+export Circle(r7)
+export Circle(r8)
+export Circle(r9)
+export Circle(r10)
+export Circle(r11)

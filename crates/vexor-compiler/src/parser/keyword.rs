@@ -108,6 +108,15 @@ fn classify_kw(s: &str) -> Ident {
         "sort" => Ident::Std(Std::Sort),
         "sortBy" => Ident::Std(Std::SortBy),
         "repeat" => Ident::Std(Std::Repeat),
+        "nth" => Ident::Std(Std::Nth),
+        "head" => Ident::Std(Std::Head),
+        "tail" => Ident::Std(Std::Tail),
+        "last" => Ident::Std(Std::Last),
+        "init" => Ident::Std(Std::Init),
+        "isEmpty" => Ident::Std(Std::IsEmpty),
+        "sum" => Ident::Std(Std::Sum),
+        "product" => Ident::Std(Std::Product),
+        "concat" => Ident::Std(Std::Concat),
         // Tuple
         "fst" => Ident::Std(Std::Fst),
         "snd" => Ident::Std(Std::Snd),
@@ -118,6 +127,7 @@ fn classify_kw(s: &str) -> Ident {
         "hsla" => Ident::Std(Std::Hsla),
         // Graphic constructors
         "Circle" => Ident::Std(Std::Circle),
+        "Ellipse" => Ident::Std(Std::Ellipse),
         "Rect" => Ident::Std(Std::Rect),
         "Text" => Ident::Std(Std::Text),
         "Group" => Ident::Std(Std::Group),
@@ -136,7 +146,12 @@ fn classify_kw(s: &str) -> Ident {
         "mirrorX" => Ident::Std(Std::MirrorX),
         "mirrorY" => Ident::Std(Std::MirrorY),
         "fill" => Ident::Std(Std::Fill),
-        "stroke" => Ident::Std(Std::Stroke),
+        "strokeWidth" => Ident::Std(Std::StrokeWidth),
+        "strokeColor" => Ident::Std(Std::StrokeColor),
+        "strokeJoin" => Ident::Std(Std::StrokeJoin),
+        "strokeCap" => Ident::Std(Std::StrokeCap),
+        "opacity" => Ident::Std(Std::Opacity),
+        "setId" => Ident::Std(Std::SetId),
         // Constants
         "PI" => Ident::Const(Const::Pi),
         // User

@@ -10,7 +10,7 @@ use winnow::error::{ContextError, ParseError};
 
 use crate::ir::ast::Spanned;
 
-pub use exporter::*;
+pub use exporter::{Export, export_scene_svg};
 pub use ir::scene::{Color, Graphic, GraphicType, Scene};
 
 pub struct CError<'a> {

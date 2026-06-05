@@ -15,9 +15,7 @@ enum ExportExpr {
 /// Evaluates a program, returns the result of the last expression.
 pub fn eval_program(program: ast::Program) -> EResult<scene::Scene> {
     let env = EnvRef::empty();
-    let mut settings = scene::Settings {
-        canvas: (1000, 1000), // Default canvas size
-    };
+    let mut settings = scene::Settings::default();
     let ast::Program { units } = program;
 
     let mut export_exprs: Vec<ExportExpr> = vec![];
@@ -50,6 +48,7 @@ pub fn eval_program(program: ast::Program) -> EResult<scene::Scene> {
             }
             ast::ProgramUnit::Setting(setting) => match setting {
                 ast::Setting::Canvas { width, height } => settings.canvas = (width, height),
+                ast::Setting::Precision(p) => settings.precision = p,
             },
         }
     }

@@ -12,6 +12,7 @@ Every constructor produces a **pure** shape positioned at the origin `(0, 0)`; a
 | Function | Signature | Description |
 |----------|-----------|-------------|
 | `Circle(radius)` | `Number -> Graphic` | A circle. |
+| `Ellipse(rx, ry)` | `(Number, Number) -> Graphic` | An ellipse with horizontal radius `rx` and vertical radius `ry`. |
 | `Rect(width, height)` | `(Number, Number) -> Graphic` | A rectangle. |
 | `Text(content)` | `String -> Graphic` | Text. |
 | `Group(children)` | `[Graphic] -> Graphic` | Combine graphics into one. |
@@ -40,7 +41,12 @@ chain with `>>`. Colors come from the [color constructors](color.md).
 | Function | Signature | Description |
 |----------|-----------|-------------|
 | `fill(color)(g)` | `Color -> Graphic -> Graphic` | Set the fill color. |
-| `stroke(width, color)(g)` | `(Number, Color) -> Graphic -> Graphic` | Set the stroke width and color. |
+| `strokeColor(color)(g)` | `Color -> Graphic -> Graphic` | Set the stroke color. |
+| `strokeWidth(width)(g)` | `Number -> Graphic -> Graphic` | Set the stroke width. |
+| `strokeJoin(kind)(g)` | `String -> Graphic -> Graphic` | Set the line join: `"miter"`, `"round"`, or `"bevel"`. |
+| `strokeCap(kind)(g)` | `String -> Graphic -> Graphic` | Set the line cap: `"butt"`, `"round"`, or `"square"`. |
+| `opacity(n)(g)` | `Number -> Graphic -> Graphic` | Set the opacity (`0`–`1`). |
+| `setId(name)(g)` | `String -> Graphic -> Graphic` | Set the SVG `id`. |
 
 ## Path Steps
 
@@ -66,8 +72,8 @@ set canvas(200, 200)
 -- A circle of radius 80, traced by a parametric function of the angle
 fn circle(t) = (cos(t) * 80, sin(t) * 80)
 
-export sample(0, 2 * PI, 64, circle)
-  >> stroke(2, rgb(0, 0, 0))
+export sample(0, 2 * PI, 64, circle) >>
+  strokeWidth(2) >> strokeColor(rgb(0, 0, 0))
 ```
 
 Changing the parametric function gives a different curve. Here a spiral, where the
@@ -76,8 +82,8 @@ radius grows with `t`:
 ```vexor
 fn spiral(t) = (cos(t) * t * 5, sin(t) * t * 5)
 
-export sample(0, 6 * PI, 120, spiral)
-  >> stroke(2, rgb(200, 0, 120))
+export sample(0, 6 * PI, 120, spiral) >>
+  strokeWidth(2) >> strokeColor(rgb(200, 0, 120))
 ```
 
 More sample `steps` means a smoother, more accurate curve at the cost of a larger
@@ -93,7 +99,7 @@ export Path([
   lineTo(180, 20),
   lineTo(100, 180),
   close
-])
-  >> fill(rgb(80, 160, 255))
-  >> stroke(2, rgb(0, 0, 0))
+]) >>
+  fill(rgb(80, 160, 255)) >>
+  strokeWidth(2) >> strokeColor(rgb(0, 0, 0))
 ```

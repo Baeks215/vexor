@@ -2,7 +2,7 @@
 
 use winnow::ascii::{dec_int, float};
 use winnow::combinator::{
-    Infix, Postfix, Prefix, alt, cut_err, dispatch, expression, fail, opt, peek, preceded, repeat,
+    Infix, Postfix, Prefix, alt, cut_err, dispatch, expression, fail, opt, peek, preceded,
     terminated,
 };
 use winnow::stream::Stream;
@@ -155,32 +155,12 @@ pub fn p_if<'a>(input: &mut Input<'a>) -> ModalResult<ast::Expr> {
 }
 
 /// Parses a classified identifier as an atom expression.
-///   User identifiers may have an optional `.field` suffix.
 fn p_ident_atom<'a>(input: &mut Input<'a>) -> ModalResult<ast::Expr> {
-    let (id, id_span) = k::p_ident.with_span().parse_next(input)?;
+    let id = k::p_ident.parse_next(input)?;
     let expr = match id {
         Ident::Std(s) => ast::Expr::Std(s),
         Ident::Const(c) => ast::Expr::Const(c),
-        Ident::User(name) => {
-            let fields: Vec<(String, std::ops::Range<usize>)> =
-                repeat(0.., preceded('.', k::p_user_ident).with_span()).parse_next(input)?;
-            let mut acc = Spanned {
-                node: ast::Expr::Variable(name),
-                span: Some(id_span),
-            };
-            for (field, field_span) in fields {
-                let new_span = merge_spans(&acc.span, &Some(field_span));
-                acc = Spanned {
-                    node: ast::Expr::Field {
-                        object: Box::new(acc),
-                        field,
-                    },
-                    span: new_span,
-                };
-            }
-            p_ws.parse_next(input)?;
-            return Ok(acc.node);
-        }
+        Ident::User(name) => ast::Expr::Variable(name),
     };
     p_ws.parse_next(input)?;
     Ok(expr)

@@ -3,7 +3,6 @@
 use crate::evaluator::expr::constants::get_constant;
 use crate::evaluator::{EResult, EnvExt, EnvRef, WithSpan};
 use crate::ir::ast::{Expr, Literal, SpanExpr};
-use crate::ir::scene;
 
 mod constants;
 mod function;
@@ -30,7 +29,7 @@ pub fn eval<T: Evaluable>(env: &EnvRef, expr: SpanExpr) -> EResult<T::Output> {
         }
         Expr::Const(c) => T::expect(get_constant(c)),
         Expr::Call { function, args } => {
-            let function = eval::<ty::Function>(env, *function)?;
+            let function = eval::<ty::Callable>(env, *function)?;
             let args: Vec<Value> = args
                 .into_iter()
                 .map(|arg_expr| eval::<ty::Any>(env, arg_expr))
@@ -67,7 +66,6 @@ pub fn eval<T: Evaluable>(env: &EnvRef, expr: SpanExpr) -> EResult<T::Output> {
                 eval::<T>(env, *else_branch)
             }
         }
-        Expr::Field { object, field } => eval_field_access::<T>(env, *object, field),
     };
     result.with_span_if_missing(span)
 }
@@ -86,49 +84,6 @@ fn eval_literal<T: Evaluable>(env: &EnvRef, literal: Literal) -> EResult<T::Outp
                 .collect::<Result<_, _>>()?;
             Value::Tuple(values)
         }
-    };
-    T::expect(result)
-}
-
-/// Evaluates a field access expression.
-fn eval_field_access<T: Evaluable>(
-    env: &EnvRef,
-    object: SpanExpr,
-    field: String,
-) -> EResult<T::Output> {
-    let object_value = eval::<ty::Any>(env, object)?;
-    let result = match object_value {
-        Value::Graphic(g) => match g.ty {
-            scene::GraphicType::Circle { radius } => match field.as_str() {
-                // TEMP: 0 for x and y
-                "x" => Value::from(0.0),
-                "y" => Value::from(0.0),
-                "radius" => Value::from(radius),
-                _ => return Err("unknown field".into()),
-            },
-            scene::GraphicType::Rect { width, height } => match field.as_str() {
-                "x" => Value::from(0.0),
-                "y" => Value::from(0.0),
-                "width" => Value::from(width),
-                "height" => Value::from(height),
-                _ => return Err("unknown field".into()),
-            },
-            scene::GraphicType::Text { content } => match field.as_str() {
-                "x" => Value::from(0.0),
-                "y" => Value::from(0.0),
-                "content" => Value::from(content),
-                _ => return Err("unknown field".into()),
-            },
-            scene::GraphicType::Group { .. } => match field.as_str() {
-                "x" => Value::from(0.0),
-                "y" => Value::from(0.0),
-                _ => return Err("unknown field".into()),
-            },
-            scene::GraphicType::Path { .. } => {
-                return Err("cannot access fields of a path".into());
-            }
-        },
-        _ => return Err("can not access field of this value".into()),
     };
     T::expect(result)
 }

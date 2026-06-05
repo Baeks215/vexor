@@ -93,8 +93,11 @@ pub enum ListLiteral {
 
 #[derive(Debug, Clone)]
 pub struct Function {
+    /// Parameter identifiers of the function.
     pub params: Vec<String>,
-    pub scope: Vec<(String, SpanExpr)>,
+    /// Where scope of identifier-expression bindings
+    pub where_scope: Vec<(String, SpanExpr)>,
+    /// Return expression of the function.
     pub return_expr: BoxExpr,
 }
 
@@ -114,11 +117,6 @@ pub enum Expr {
     Literal(Literal),
     // Variable
     Variable(String),
-    // Field access
-    Field {
-        object: BoxExpr,
-        field: String,
-    },
     // Expressions with operators
     Binary {
         operator: op::Binary,
@@ -211,6 +209,15 @@ pub enum Std {
     Sort,
     SortBy,
     Repeat,
+    Nth,
+    Head,
+    Tail,
+    Last,
+    Init,
+    IsEmpty,
+    Sum,
+    Product,
+    Concat,
     // Tuple
     Fst,
     Snd,
@@ -221,6 +228,7 @@ pub enum Std {
     Hsla,
     // Graphic constructors
     Circle,
+    Ellipse,
     Rect,
     Text,
     Group,
@@ -239,7 +247,12 @@ pub enum Std {
     MirrorX,
     MirrorY,
     Fill,
-    Stroke,
+    StrokeWidth,
+    StrokeColor,
+    StrokeJoin,
+    StrokeCap,
+    Opacity,
+    SetId,
 }
 
 // --- Match ---
@@ -256,6 +269,7 @@ pub struct MatchArm {
 #[derive(Debug, Clone)]
 pub enum Setting {
     Canvas { width: usize, height: usize },
+    Precision(usize),
 }
 
 #[derive(Debug, Clone)]

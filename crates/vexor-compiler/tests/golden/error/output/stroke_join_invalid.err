@@ -1,0 +1,7 @@
+Error: evaluation error
+   ╭─[ input:2:22 ]
+   │
+ 2 │ export Circle(50) >> strokeJoin("rounded")
+   │                      ──────────┬──────────  
+   │                                ╰──────────── invalid stroke join, expected miter|round|bevel
+───╯

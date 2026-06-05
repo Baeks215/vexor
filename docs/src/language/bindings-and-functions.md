@@ -73,7 +73,7 @@ where {
 
 ## Closures
 
-Functions capture variables from their surrounding scope:
+Functions capture values from their surrounding scope:
 
 ```vexor
 val factor = 3

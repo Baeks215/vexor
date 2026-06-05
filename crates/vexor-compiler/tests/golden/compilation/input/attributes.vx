@@ -1,0 +1,10 @@
+set canvas(200, 200)
+
+export Circle(50) >>
+  fill(rgb(80, 160, 255)) >>
+  strokeColor(rgb(0, 0, 0)) >>
+  strokeWidth(4) >>
+  strokeJoin("round") >>
+  strokeCap("square") >>
+  opacity(0.5) >>
+  setId("my-circle")

@@ -1,0 +1,2 @@
+-- index out of bounds
+export Circle(nth(9)([1, 2, 3]))

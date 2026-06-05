@@ -8,7 +8,6 @@ use crate::evaluator::expr::{Value, ty};
 use crate::ir::{Number, ast};
 
 mod expr;
-mod graphic;
 mod program;
 
 pub use program::eval_program;
@@ -46,7 +45,7 @@ enum Thunk {
 pub struct Env {
     /// Parent environment for nested scopes
     parent: Option<Rc<RefCell<Env>>>,
-    /// Variables in the current scope
+    /// Values in the current scope
     scope: HashMap<String, Thunk>,
 }
 trait EnvExt {
@@ -54,14 +53,14 @@ trait EnvExt {
     fn empty() -> Self;
     /// Create a child scope
     fn child_scope(&self) -> Self;
-    /// Get a variable, forces evaluation if stored as lazy expression
+    /// Get a value, forces evaluation if stored as lazy expression
     fn get_var(&self, name: &str) -> EResult<Value>;
-    /// Set a variable as an unevaluated expression, errors if it already exists
+    /// Set a value as an unevaluated expression, errors if it already exists
     fn set_var_lazy(&self, name: String, expr: ast::SpanExpr) -> EResult<()>;
-    /// Set a variable as an evaluated value, errors if it already exists
+    /// Set a value as an evaluated value, errors if it already exists
     fn set_var(&self, name: String, value: Value) -> EResult<()>;
-    /// Create a new scope with the given variables
-    ///   Adds the arguments to the variables scope
+    /// Create a new scope with the given values
+    ///   Adds the arguments to the value scope
     fn new_scope_function(&self, args: Vec<(String, Value)>) -> Self;
 }
 

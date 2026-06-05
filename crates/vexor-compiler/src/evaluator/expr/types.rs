@@ -70,6 +70,6 @@ define_value_types! {
     Color(scene::Color),
     Graphic(scene::Graphic),
     List(List),
-    Function(Callable),
+    Callable(Callable),
     Tuple(Box<[Value]>),
 }

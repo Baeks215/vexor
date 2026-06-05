@@ -4,9 +4,9 @@ use std::cell::RefCell;
 
 use crate::evaluator::expr::list::List;
 use crate::evaluator::expr::{Evaluable, Value, eval, ty};
-use crate::evaluator::graphic::{catmull_rom_path, close_path, start_path, transform_path};
 use crate::evaluator::{EError, EResult, EnvExt, EnvRef, to_usize};
 use crate::ir::ast::{self, Function, Std};
+use crate::ir::path::{Path, catmull_rom_path, close_path, transform_path};
 use crate::ir::{Number, scene};
 use crate::{Graphic, GraphicType};
 
@@ -37,6 +37,9 @@ pub enum StdLambda {
     },
     Take {
         n: usize,
+    },
+    Nth {
+        index: usize,
     },
     DropWhile {
         func: Box<Callable>,
@@ -98,9 +101,23 @@ pub enum StdLambda {
     Fill {
         color: scene::Color,
     },
-    Stroke {
+    StrokeWidth {
         width: Number,
+    },
+    StrokeColor {
         color: scene::Color,
+    },
+    StrokeJoin {
+        join: scene::StrokeJoin,
+    },
+    StrokeCap {
+        cap: scene::StrokeCap,
+    },
+    Opacity {
+        n: Number,
+    },
+    SetId {
+        name: String,
     },
 }
 impl From<StdLambda> for Value {
@@ -320,19 +337,19 @@ fn eval_std_call<T: Evaluable>(
         }
         // List
         Std::Map => {
-            let func = Box::new(ty::Function::expect(unpack_1!(args)?)?);
+            let func = Box::new(ty::Callable::expect(unpack_1!(args)?)?);
             Value::from(StdLambda::Map { func })
         }
         Std::Filter => {
-            let func = Box::new(ty::Function::expect(unpack_1!(args)?)?);
+            let func = Box::new(ty::Callable::expect(unpack_1!(args)?)?);
             Value::from(StdLambda::Filter { func })
         }
         Std::FlatMap => {
-            let func = Box::new(ty::Function::expect(unpack_1!(args)?)?);
+            let func = Box::new(ty::Callable::expect(unpack_1!(args)?)?);
             Value::from(StdLambda::FlatMap { func })
         }
         Std::Find => {
-            let func = Box::new(ty::Function::expect(unpack_1!(args)?)?);
+            let func = Box::new(ty::Callable::expect(unpack_1!(args)?)?);
             Value::from(StdLambda::Find { func })
         }
         Std::Drop => {
@@ -344,15 +361,15 @@ fn eval_std_call<T: Evaluable>(
             Value::from(StdLambda::Take { n })
         }
         Std::DropWhile => {
-            let func = Box::new(ty::Function::expect(unpack_1!(args)?)?);
+            let func = Box::new(ty::Callable::expect(unpack_1!(args)?)?);
             Value::from(StdLambda::DropWhile { func })
         }
         Std::TakeWhile => {
-            let func = Box::new(ty::Function::expect(unpack_1!(args)?)?);
+            let func = Box::new(ty::Callable::expect(unpack_1!(args)?)?);
             Value::from(StdLambda::TakeWhile { func })
         }
         Std::SortBy => {
-            let func = Box::new(ty::Function::expect(unpack_1!(args)?)?);
+            let func = Box::new(ty::Callable::expect(unpack_1!(args)?)?);
             Value::from(StdLambda::SortBy { func })
         }
         Std::Zip => {
@@ -360,15 +377,15 @@ fn eval_std_call<T: Evaluable>(
             Value::from(StdLambda::Zip { xs })
         }
         Std::ZipWith => {
-            let func = Box::new(ty::Function::expect(unpack_1!(args)?)?);
+            let func = Box::new(ty::Callable::expect(unpack_1!(args)?)?);
             Value::from(StdLambda::ZipWithFn { func })
         }
         Std::Foldl => {
-            let func = Box::new(ty::Function::expect(unpack_1!(args)?)?);
+            let func = Box::new(ty::Callable::expect(unpack_1!(args)?)?);
             Value::from(StdLambda::FoldlFn { func })
         }
         Std::Foldr => {
-            let func = Box::new(ty::Function::expect(unpack_1!(args)?)?);
+            let func = Box::new(ty::Callable::expect(unpack_1!(args)?)?);
             Value::from(StdLambda::FoldrFn { func })
         }
         Std::Enumerate => {
@@ -401,6 +418,62 @@ fn eval_std_call<T: Evaluable>(
             let (n, value) = unpack_2!(args)?;
             let n = to_usize(ty::Number::expect(n)?)?;
             Value::List(std::iter::repeat_n(value, n).collect())
+        }
+        Std::Nth => {
+            let index = to_usize(ty::Number::expect(unpack_1!(args)?)?)?;
+            Value::from(StdLambda::Nth { index })
+        }
+        Std::Head => {
+            let xs = ty::List::expect(unpack_1!(args)?)?;
+            xs.front().cloned().ok_or("head of empty list")?
+        }
+        Std::Last => {
+            let xs = ty::List::expect(unpack_1!(args)?)?;
+            xs.back().cloned().ok_or("last of empty list")?
+        }
+        Std::Tail => {
+            let xs = ty::List::expect(unpack_1!(args)?)?;
+            if xs.is_empty() {
+                return Err("tail of empty list".into());
+            }
+            let (_, rest) = xs.split_at(1);
+            Value::List(rest)
+        }
+        Std::Init => {
+            let xs = ty::List::expect(unpack_1!(args)?)?;
+            if xs.is_empty() {
+                return Err("init of empty list".into());
+            }
+            let last = xs.len() - 1;
+            let (rest, _) = xs.split_at(last);
+            Value::List(rest)
+        }
+        Std::IsEmpty => {
+            let xs = ty::List::expect(unpack_1!(args)?)?;
+            Value::from(xs.is_empty())
+        }
+        Std::Sum => {
+            let xs = ty::List::expect(unpack_1!(args)?)?;
+            let total: Number = xs
+                .into_iter()
+                .map(ty::Number::expect)
+                .sum::<EResult<Number>>()?;
+            Value::from(total)
+        }
+        Std::Product => {
+            let xs = ty::List::expect(unpack_1!(args)?)?;
+            let total: Number = xs
+                .into_iter()
+                .map(ty::Number::expect)
+                .product::<EResult<Number>>()?;
+            Value::from(total)
+        }
+        Std::Concat => {
+            let (xs, ys) = unpack_2!(args)?;
+            let mut xs = ty::List::expect(xs)?;
+            let ys = ty::List::expect(ys)?;
+            xs.append(ys);
+            Value::List(xs)
         }
         // Tuple
         Std::Fst => {
@@ -465,6 +538,13 @@ fn eval_std_call<T: Evaluable>(
                 radius: ty::Number::expect(radius)?,
             }))
         }
+        Std::Ellipse => {
+            let (rx, ry) = unpack_2!(args)?;
+            Value::from(Graphic::new(GraphicType::Ellipse {
+                rx: ty::Number::expect(rx)?,
+                ry: ty::Number::expect(ry)?,
+            }))
+        }
         Std::Rect => {
             let (width, height) = unpack_2!(args)?;
             Value::from(Graphic::new(GraphicType::Rect {
@@ -492,7 +572,7 @@ fn eval_std_call<T: Evaluable>(
             let target_x = ty::Number::expect(target_x)?;
             let target_y = ty::Number::expect(target_y)?;
 
-            let mut path = start_path();
+            let mut path = Path::new();
             path.line_to(Point::new(target_x, target_y));
             Value::from(Graphic::new(GraphicType::Path { path }))
         }
@@ -501,35 +581,29 @@ fn eval_std_call<T: Evaluable>(
             let p1 = tuple_to_point(a)?;
             let p2 = tuple_to_point(b)?;
             let p3 = tuple_to_point(c)?;
-            let mut path = start_path();
+            let mut path = Path::new();
             path.curve_to(p1, p2, p3);
             Value::from(Graphic::new(GraphicType::Path { path }))
         }
         Std::Path => {
             let list = ty::List::expect(unpack_1!(args)?)?;
-            let mut g = Graphic::new(GraphicType::Path { path: start_path() });
+            let mut g = Graphic::new(GraphicType::Path { path: Path::new() });
             for item in list {
-                let callable = ty::Function::expect(item)?;
+                let callable = ty::Callable::expect(item)?;
                 g = eval_call::<ty::Graphic>(env, callable, vec![Value::from(g)])?;
             }
             Value::from(g)
         }
         Std::Sample => {
-            let (from, to, steps, f) = unpack_4!(args)?;
-            let from = ty::Number::expect(from)?;
-            let to = ty::Number::expect(to)?;
-            let steps = to_usize(ty::Number::expect(steps)?)?;
-            let f = ty::Function::expect(f)?;
-            if steps < 1 {
-                return Err("sample requires steps >= 1".into());
-            }
-
-            let mut pts: Vec<Point> = Vec::with_capacity(steps + 1 + 2); // +2 for phantom start/end points
-            let step = (to - from) / (steps as Number);
-            for i in -1..=(steps as isize + 1) {
-                let t = from + (step * (i as Number));
-                let v = eval_call::<ty::Any>(env, f.clone(), vec![Value::from(t)])?;
-                pts.push(tuple_to_point(v)?);
+            let (times, f) = unpack_2!(args)?;
+            let times = ty::List::expect(times)?;
+            let f = ty::Callable::expect(f)?;
+            let pts: Vec<Point> = times
+                .into_iter()
+                .map(|t| tuple_to_point(eval_call::<ty::Any>(env, f.clone(), vec![t])?))
+                .collect::<Result<_, _>>()?;
+            if pts.len() < 2 {
+                return Err("sample requires at least 2 points".into());
             }
             let path = catmull_rom_path(&pts);
             Value::from(Graphic::new(GraphicType::Path { path }))
@@ -588,11 +662,41 @@ fn eval_std_call<T: Evaluable>(
             let color = ty::Color::expect(color)?;
             Value::from(StdLambda::Fill { color })
         }
-        Std::Stroke => {
-            let (width, color) = unpack_2!(args)?;
-            let width = ty::Number::expect(width)?;
-            let color = ty::Color::expect(color)?;
-            Value::from(StdLambda::Stroke { width, color })
+        Std::StrokeWidth => {
+            let width = ty::Number::expect(unpack_1!(args)?)?;
+            Value::from(StdLambda::StrokeWidth { width })
+        }
+        Std::StrokeColor => {
+            let color = ty::Color::expect(unpack_1!(args)?)?;
+            Value::from(StdLambda::StrokeColor { color })
+        }
+        Std::StrokeJoin => {
+            let kind = ty::String::expect(unpack_1!(args)?)?;
+            let join = match kind.as_str() {
+                "miter" => scene::StrokeJoin::Miter,
+                "round" => scene::StrokeJoin::Round,
+                "bevel" => scene::StrokeJoin::Bevel,
+                _ => return Err("invalid stroke join, expected miter|round|bevel".into()),
+            };
+            Value::from(StdLambda::StrokeJoin { join })
+        }
+        Std::StrokeCap => {
+            let kind = ty::String::expect(unpack_1!(args)?)?;
+            let cap = match kind.as_str() {
+                "butt" => scene::StrokeCap::Butt,
+                "round" => scene::StrokeCap::Round,
+                "square" => scene::StrokeCap::Square,
+                _ => return Err("invalid stroke cap, expected butt|round|square".into()),
+            };
+            Value::from(StdLambda::StrokeCap { cap })
+        }
+        Std::Opacity => {
+            let n = ty::Number::expect(unpack_1!(args)?)?;
+            Value::from(StdLambda::Opacity { n })
+        }
+        Std::SetId => {
+            let name = ty::String::expect(unpack_1!(args)?)?;
+            Value::from(StdLambda::SetId { name })
         }
     };
     T::expect(result)
@@ -607,23 +711,23 @@ fn eval_std_lambda<T: Evaluable>(
     let result = match function {
         StdLambda::JumpTo { x, y } => {
             let g = ty::Graphic::expect(unpack_1!(args)?)?;
-            Value::from(transform_path(g, |mut p| {
+            Value::from(transform_path(g, |p| {
                 p.move_to(Point::new(x, y));
-                Ok(p)
+                Ok(())
             })?)
         }
         StdLambda::LineTo { x, y } => {
             let g = ty::Graphic::expect(unpack_1!(args)?)?;
-            Value::from(transform_path(g, |mut p| {
+            Value::from(transform_path(g, |p| {
                 p.line_to(Point::new(x, y));
-                Ok(p)
+                Ok(())
             })?)
         }
         StdLambda::CurveTo { p1, p2, p3 } => {
             let g = ty::Graphic::expect(unpack_1!(args)?)?;
-            Value::from(transform_path(g, |mut p| {
+            Value::from(transform_path(g, |p| {
                 p.curve_to(p1, p2, p3);
-                Ok(p)
+                Ok(())
             })?)
         }
         StdLambda::Map { func } => {
@@ -686,6 +790,10 @@ fn eval_std_lambda<T: Evaluable>(
                 let (left, _) = list.split_at(n);
                 Value::List(left)
             }
+        }
+        StdLambda::Nth { index } => {
+            let list = ty::List::expect(unpack_1!(args)?)?;
+            list.get(index).cloned().ok_or("index out of bounds")?
         }
         StdLambda::DropWhile { func } => {
             let func = *func;
@@ -818,12 +926,31 @@ fn eval_std_lambda<T: Evaluable>(
         StdLambda::Fill { color } => {
             let graphic = unpack_1!(args)?;
             let graphic = ty::Graphic::expect(graphic)?;
-            Value::from(graphic.transform_style(|s| s.with_fill(color)))
+            Value::from(graphic.transform_attr(|s| s.with_fill(color)))
         }
-        StdLambda::Stroke { width, color } => {
-            let graphic = unpack_1!(args)?;
-            let graphic = ty::Graphic::expect(graphic)?;
-            Value::from(graphic.transform_style(|s| s.with_stroke(scene::Stroke { width, color })))
+        StdLambda::StrokeWidth { width } => {
+            let graphic = ty::Graphic::expect(unpack_1!(args)?)?;
+            Value::from(graphic.transform_attr(|s| s.with_stroke_width(width)))
+        }
+        StdLambda::StrokeColor { color } => {
+            let graphic = ty::Graphic::expect(unpack_1!(args)?)?;
+            Value::from(graphic.transform_attr(|s| s.with_stroke_color(color)))
+        }
+        StdLambda::StrokeJoin { join } => {
+            let graphic = ty::Graphic::expect(unpack_1!(args)?)?;
+            Value::from(graphic.transform_attr(|s| s.with_stroke_join(join)))
+        }
+        StdLambda::StrokeCap { cap } => {
+            let graphic = ty::Graphic::expect(unpack_1!(args)?)?;
+            Value::from(graphic.transform_attr(|s| s.with_stroke_cap(cap)))
+        }
+        StdLambda::Opacity { n } => {
+            let graphic = ty::Graphic::expect(unpack_1!(args)?)?;
+            Value::from(graphic.transform_attr(|s| s.with_opacity(n)))
+        }
+        StdLambda::SetId { name } => {
+            let graphic = ty::Graphic::expect(unpack_1!(args)?)?;
+            Value::from(graphic.transform_attr(|a| a.with_id(name)))
         }
     };
     T::expect(result)
@@ -837,7 +964,7 @@ fn eval_user_call<T: Evaluable>(
 ) -> EResult<T::Output> {
     let Function {
         params,
-        scope,
+        where_scope,
         return_expr,
     } = func;
     // Ensure arguments have correct type
@@ -853,11 +980,11 @@ fn eval_user_call<T: Evaluable>(
     // Pair param name with arg values
     let param_args: Vec<(String, Value)> = params.into_iter().zip(args).collect();
 
-    // Add arguments to env as variables
+    // Add arguments to env as values
     let call_env = env.new_scope_function(param_args);
 
-    // Evaluate "where" scope of variables
-    for (id, value) in scope {
+    // Evaluate "where" scope of values
+    for (id, value) in where_scope {
         call_env.set_var_lazy(id, value)?;
     }
 

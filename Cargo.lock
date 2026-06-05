@@ -3819,7 +3819,7 @@ checksum = "0b928f33d975fc6ad9f86c8f283853ad26bdd5b10b7f1542aa2fa15e2289105a"
 
 [[package]]
 name = "vexor-cli"
-version = "0.1.0"
+version = "0.1.2"
 dependencies = [
  "clap",
  "eframe",
@@ -3831,7 +3831,7 @@ dependencies = [
 
 [[package]]
 name = "vexor-compiler"
-version = "0.1.0"
+version = "0.1.2"
 dependencies = [
  "ariadne",
  "assert_matches",
@@ -3845,7 +3845,7 @@ dependencies = [
 
 [[package]]
 name = "vexor-gui"
-version = "0.1.0"
+version = "0.1.2"
 dependencies = [
  "eframe",
  "egui_extras",

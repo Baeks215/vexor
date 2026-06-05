@@ -1,0 +1,7 @@
+Error: evaluation error
+   ╭─[ input:2:15 ]
+   │
+ 2 │ export Circle(head(Nil))
+   │               ────┬────  
+   │                   ╰────── head of empty list
+───╯
