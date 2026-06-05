@@ -38,6 +38,9 @@ pub enum StdLambda {
     Take {
         n: usize,
     },
+    Nth {
+        index: usize,
+    },
     DropWhile {
         func: Box<Callable>,
     },
@@ -416,6 +419,62 @@ fn eval_std_call<T: Evaluable>(
             let n = to_usize(ty::Number::expect(n)?)?;
             Value::List(std::iter::repeat_n(value, n).collect())
         }
+        Std::Nth => {
+            let index = to_usize(ty::Number::expect(unpack_1!(args)?)?)?;
+            Value::from(StdLambda::Nth { index })
+        }
+        Std::Head => {
+            let xs = ty::List::expect(unpack_1!(args)?)?;
+            xs.front().cloned().ok_or("head of empty list")?
+        }
+        Std::Last => {
+            let xs = ty::List::expect(unpack_1!(args)?)?;
+            xs.back().cloned().ok_or("last of empty list")?
+        }
+        Std::Tail => {
+            let xs = ty::List::expect(unpack_1!(args)?)?;
+            if xs.is_empty() {
+                return Err("tail of empty list".into());
+            }
+            let (_, rest) = xs.split_at(1);
+            Value::List(rest)
+        }
+        Std::Init => {
+            let xs = ty::List::expect(unpack_1!(args)?)?;
+            if xs.is_empty() {
+                return Err("init of empty list".into());
+            }
+            let last = xs.len() - 1;
+            let (rest, _) = xs.split_at(last);
+            Value::List(rest)
+        }
+        Std::IsEmpty => {
+            let xs = ty::List::expect(unpack_1!(args)?)?;
+            Value::from(xs.is_empty())
+        }
+        Std::Sum => {
+            let xs = ty::List::expect(unpack_1!(args)?)?;
+            let total: Number = xs
+                .into_iter()
+                .map(ty::Number::expect)
+                .sum::<EResult<Number>>()?;
+            Value::from(total)
+        }
+        Std::Product => {
+            let xs = ty::List::expect(unpack_1!(args)?)?;
+            let total: Number = xs
+                .into_iter()
+                .map(ty::Number::expect)
+                .product::<EResult<Number>>()?;
+            Value::from(total)
+        }
+        Std::Concat => {
+            let (xs, ys) = unpack_2!(args)?;
+            let mut xs = ty::List::expect(xs)?;
+            let ys = ty::List::expect(ys)?;
+            xs.append(ys);
+            Value::List(xs)
+        }
         // Tuple
         Std::Fst => {
             let t = ty::Tuple::expect(unpack_1!(args)?)?;
@@ -724,6 +783,10 @@ fn eval_std_lambda<T: Evaluable>(
                 let (left, _) = list.split_at(n);
                 Value::List(left)
             }
+        }
+        StdLambda::Nth { index } => {
+            let list = ty::List::expect(unpack_1!(args)?)?;
+            list.get(index).cloned().ok_or("index out of bounds")?
         }
         StdLambda::DropWhile { func } => {
             let func = *func;

@@ -22,6 +22,21 @@ last, which works well with the pipe operator (`xs >> map(f)`).
 | `dropWhile(f)` | `(a -> Bool) -> [a] -> [a]` | Drop leading elements while `f` is true. |
 | `find(f)` | `(a -> Bool) -> [a] -> [a]` | First matching element as a singleton list (or empty). |
 
+## Accessing
+
+These primitives return a single element or a sub-list. `nth`, `head`, `tail`, `last`,
+and `init` are **partial**: they raise an error on an out-of-range index or an empty
+list. Use `take`/`drop` when you want a total (never-erroring) alternative.
+
+| Function | Signature | Description |
+|----------|-----------|-------------|
+| `nth(i)` | `Number -> [a] -> a` | Element at index `i` (0-based). Errors if out of range. |
+| `head(xs)` | `[a] -> a` | First element. Errors if empty. |
+| `tail(xs)` | `[a] -> [a]` | All but the first element. Errors if empty. |
+| `last(xs)` | `[a] -> a` | Last element. Errors if empty. |
+| `init(xs)` | `[a] -> [a]` | All but the last element. Errors if empty. |
+| `isEmpty(xs)` | `[a] -> Bool` | Whether the list has no elements. |
+
 ## Folding
 
 | Function | Signature | Description |
@@ -50,12 +65,15 @@ last, which works well with the pipe operator (`xs >> map(f)`).
 |----------|-----------|-------------|
 | `len(xs)` | `[a] -> Number` | Number of elements. |
 | `repeat(n, x)` | `(Number, a) -> [a]` | A list of `n` copies of `x`. |
+| `concat(xs, ys)` | `([a], [a]) -> [a]` | Append two lists (`xs` followed by `ys`). |
+| `sum(xs)` | `[Number] -> Number` | Sum of all elements (`0` for an empty list). |
+| `product(xs)` | `[Number] -> Number` | Product of all elements (`1` for an empty list). |
 
 ## Example
 
 ```vexor
-val total = [1, 2, 3, 4]
-  >> filter(n -> n > 2)   -- [3, 4]
-  >> map(n -> n * 10)     -- [30, 40]
-  >> foldl((a, b) -> a + b)(0)   -- 70
+val total = [1, 2, 3, 4] >>
+  filter(n -> n > 2) >>   -- [3, 4]
+  map(n -> n * 10) >>     -- [30, 40]
+  foldl((a, b) -> a + b)(0)   -- 70
 ```

@@ -1,9 +1,7 @@
 // Translator for svg export
 
 use crate::exporter::fmt_num;
-use crate::ir::scene::{
-    Attr, Color, Graphic, GraphicType, Settings, StrokeCap, StrokeJoin,
-};
+use crate::ir::scene::{Attr, Color, Graphic, GraphicType, Settings, StrokeCap, StrokeJoin};
 use kurbo::Affine;
 use svg::node::element as svg_el;
 
