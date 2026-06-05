@@ -120,6 +120,16 @@ pub struct Stroke {
 #[derive(Debug, Clone, Copy)]
 pub struct Settings {
     pub canvas: (usize, usize),
+    /// Number of decimal places for floats in the generated SVG.
+    pub precision: usize,
+}
+impl Default for Settings {
+    fn default() -> Self {
+        Self {
+            canvas: (1000, 1000), // Default canvas size
+            precision: 3,         // Default decimal places for SVG output
+        }
+    }
 }
 
 #[derive(Debug, Clone)]

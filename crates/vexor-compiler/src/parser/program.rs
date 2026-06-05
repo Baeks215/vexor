@@ -64,7 +64,13 @@ fn p_setting<'a>(input: &mut Input<'a>) -> ModalResult<ast::Setting> {
             )
             .map(|(width, height)| ast::Setting::Canvas { width, height })
             .ws(),
-            fail.expected_lit("canvas"),
+            preceded(
+                "precision",
+                cut_err(delim('(', dec_uint.expected("unsigned integer"), ')')),
+            )
+            .map(ast::Setting::Precision)
+            .ws(),
+            fail.expected_lit("canvas").expected_lit("precision"),
         )),
     )
     .parse_next(input)

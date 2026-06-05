@@ -1,0 +1,6 @@
+set precision(1)
+
+val c = Circle(100)
+val rotated = rotate(rad(45))(c)
+
+export rotated

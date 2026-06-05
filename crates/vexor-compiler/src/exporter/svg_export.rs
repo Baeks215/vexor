@@ -1,5 +1,6 @@
 // Translator for svg export
 
+use crate::exporter::fmt_num;
 use crate::ir::scene::{Color, Graphic, GraphicType, Settings, Stroke, Style};
 use kurbo::Affine;
 use svg::node::element as svg_el;
@@ -9,6 +10,7 @@ type Attribute = (&'static str, String);
 pub fn export_to_svg(graphic: Graphic, settings: Settings) -> String {
     let Settings {
         canvas: (width, height),
+        precision,
     } = settings;
     let min_x = -(width as isize) / 2;
     let min_y = -(height as isize) / 2;
@@ -19,7 +21,7 @@ pub fn export_to_svg(graphic: Graphic, settings: Settings) -> String {
             "viewBox",
             format!("{} {} {} {}", min_x, min_y, width, height),
         );
-    translate_graphic(doc, graphic).to_string()
+    translate_graphic(doc, graphic, precision).to_string()
 }
 
 /// Applies vector of attributes to an SVG node
@@ -56,7 +58,7 @@ impl Appendable for svg_el::Group {
 }
 
 /// Translates a graphic to an SVG document node
-fn translate_graphic<T: Appendable>(current: T, graphic: Graphic) -> T {
+fn translate_graphic<T: Appendable>(current: T, graphic: Graphic, precision: usize) -> T {
     let Graphic {
         ty,
         style,
@@ -64,21 +66,21 @@ fn translate_graphic<T: Appendable>(current: T, graphic: Graphic) -> T {
     } = graphic;
 
     let mut extra = vec![];
-    transform.add_as_attr(&mut extra);
-    style.add_as_attr(&mut extra);
+    transform.add_as_attr(&mut extra, precision);
+    style.add_as_attr(&mut extra, precision);
 
     match ty {
         GraphicType::Circle { radius } => current.add(apply_attributes!(
             svg_el::Circle::new()
-                .set("r", radius)
+                .set("r", fmt_num(radius, precision))
                 .set("cx", 0.0)
                 .set("cy", 0.0),
             extra
         )),
         GraphicType::Rect { width, height } => current.add(apply_attributes!(
             svg_el::Rectangle::new()
-                .set("width", width)
-                .set("height", height)
+                .set("width", fmt_num(width, precision))
+                .set("height", fmt_num(height, precision))
                 .set("x", 0.0)
                 .set("y", 0.0),
             extra
@@ -90,12 +92,12 @@ fn translate_graphic<T: Appendable>(current: T, graphic: Graphic) -> T {
         GraphicType::Group { children } => {
             let mut group_node = svg_el::Group::new();
             for child in children {
-                group_node = translate_graphic(group_node, child);
+                group_node = translate_graphic(group_node, child, precision);
             }
             current.add(apply_attributes!(group_node, extra))
         }
         GraphicType::Path { path } => {
-            let path_node = svg_el::Path::new().set("d", path.to_svg());
+            let path_node = svg_el::Path::new().set("d", path.to_svg(precision));
             current.add(apply_attributes!(path_node, extra))
         }
     }
@@ -103,49 +105,57 @@ fn translate_graphic<T: Appendable>(current: T, graphic: Graphic) -> T {
 
 trait ToAttributes {
     /// Converts to svg attributes and adds to the vector
-    fn add_as_attr(self, current: &mut Vec<Attribute>);
+    fn add_as_attr(self, current: &mut Vec<Attribute>, precision: usize);
 }
 impl ToAttributes for Affine {
-    fn add_as_attr(self, current: &mut Vec<Attribute>) {
+    fn add_as_attr(self, current: &mut Vec<Attribute>, precision: usize) {
         if self == Affine::IDENTITY {
             return;
         }
         let [a, b, c, d, e, f] = self.as_coeffs();
         current.push((
             "transform",
-            format!("matrix({} {} {} {} {} {})", a, b, c, d, e, f),
+            format!(
+                "matrix({} {} {} {} {} {})",
+                fmt_num(a, precision),
+                fmt_num(b, precision),
+                fmt_num(c, precision),
+                fmt_num(d, precision),
+                fmt_num(e, precision),
+                fmt_num(f, precision),
+            ),
         ));
         current.push(("vector-effect", "non-scaling-stroke".to_string()))
     }
 }
 impl ToAttributes for Style {
-    fn add_as_attr(self, current: &mut Vec<Attribute>) {
+    fn add_as_attr(self, current: &mut Vec<Attribute>, precision: usize) {
         let Style { fill, stroke } = self;
-        current.push(("fill", color_to_svg(fill)));
+        current.push(("fill", color_to_svg(fill, precision)));
 
         if let Some(Stroke { color, width }) = stroke {
-            current.push(("stroke", color_to_svg(color)));
-            current.push(("stroke-width", width.to_string()));
+            current.push(("stroke", color_to_svg(color, precision)));
+            current.push(("stroke-width", fmt_num(width, precision)));
         }
     }
 }
 
 /// Converts a color to an SVG color string
-fn color_to_svg(color: Color) -> String {
+fn color_to_svg(color: Color, precision: usize) -> String {
     match color {
         Color::Rgba { r, g, b, a } => format!(
             "rgba({},{},{},{})",
             r.round().clamp(0.0, 255.0) as u8,
             g.round().clamp(0.0, 255.0) as u8,
             b.round().clamp(0.0, 255.0) as u8,
-            a.clamp(0.0, 1.0)
+            fmt_num(a.clamp(0.0, 1.0), precision)
         ),
         Color::Hsla { h, s, l, a } => format!(
             "hsla({},{}%,{}%,{})",
             h.round().clamp(0.0, 360.0) as u16,
             s.round().clamp(0.0, 100.0) as u8,
             l.round().clamp(0.0, 100.0) as u8,
-            a.clamp(0.0, 1.0)
+            fmt_num(a.clamp(0.0, 1.0), precision)
         ),
     }
 }

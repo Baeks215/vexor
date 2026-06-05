@@ -259,6 +259,7 @@ pub struct MatchArm {
 #[derive(Debug, Clone)]
 pub enum Setting {
     Canvas { width: usize, height: usize },
+    Precision(usize),
 }
 
 #[derive(Debug, Clone)]

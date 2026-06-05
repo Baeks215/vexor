@@ -1,9 +1,10 @@
 //! Path representation and manipulation.
 
 use im_rc::Vector;
-use kurbo::{Affine, BezPath, PathEl, Point};
+use kurbo::{Affine, PathEl, Point};
 
 use crate::evaluator::EResult;
+use crate::exporter::fmt_num;
 use crate::ir::scene::{Graphic, GraphicType};
 
 /// A vector path, internally a persistent vector of path elements.
@@ -66,13 +67,29 @@ impl Path {
         self.els.iter()
     }
 
-    /// Converts the path to an SVG path data string, reusing kurbo's formatter.
-    pub fn to_svg(mut self) -> String {
+    /// Converts the path to an SVG path data string
+    pub fn to_svg(mut self, precision: usize) -> String {
         // Path data must start with a MoveTo, so prepend one if necessary.
         if !matches!(self.els.front(), Some(PathEl::MoveTo(_))) {
             self.els.push_front(PathEl::MoveTo(Point::ORIGIN));
         }
-        BezPath::from_iter(self.els.into_iter()).to_svg()
+        let pt = |p: Point| format!("{},{}", fmt_num(p.x, precision), fmt_num(p.y, precision));
+        let mut out = String::new();
+        for el in &self.els {
+            if !out.is_empty() {
+                out.push(' ');
+            }
+            match *el {
+                PathEl::MoveTo(p) => out.push_str(&format!("M{}", pt(p))),
+                PathEl::LineTo(p) => out.push_str(&format!("L{}", pt(p))),
+                PathEl::QuadTo(p1, p2) => out.push_str(&format!("Q{} {}", pt(p1), pt(p2))),
+                PathEl::CurveTo(p1, p2, p3) => {
+                    out.push_str(&format!("C{} {} {}", pt(p1), pt(p2), pt(p3)))
+                }
+                PathEl::ClosePath => out.push('Z'),
+            }
+        }
+        out
     }
 }
 

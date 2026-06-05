@@ -20,3 +20,17 @@ pub fn export_scene_svg(scene: Scene) -> Vec<Export<String>> {
         })
         .collect()
 }
+
+/// Formats a float for string output: rounds to `precision` decimal places, then
+/// strips any trailing zeros and a trailing decimal point (`100.000` -> `100`,
+/// `0.35355` -> `0.354`). Normalizes a bare `-0` to `0`.
+pub fn fmt_num(v: f64, precision: usize) -> String {
+    let mut s = format!("{:.*}", precision, v);
+    if s.contains('.') {
+        s.truncate(s.trim_end_matches('0').trim_end_matches('.').len());
+    }
+    if s == "-0" {
+        s = "0".into();
+    }
+    s
+}
