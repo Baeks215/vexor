@@ -117,11 +117,6 @@ pub enum Expr {
     Literal(Literal),
     // Variable
     Variable(String),
-    // Field access
-    Field {
-        object: BoxExpr,
-        field: String,
-    },
     // Expressions with operators
     Binary {
         operator: op::Binary,
