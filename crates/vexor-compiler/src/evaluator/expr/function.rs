@@ -515,21 +515,15 @@ fn eval_std_call<T: Evaluable>(
             Value::from(g)
         }
         Std::Sample => {
-            let (from, to, steps, f) = unpack_4!(args)?;
-            let from = ty::Number::expect(from)?;
-            let to = ty::Number::expect(to)?;
-            let steps = to_usize(ty::Number::expect(steps)?)?;
+            let (times, f) = unpack_2!(args)?;
+            let times = ty::List::expect(times)?;
             let f = ty::Callable::expect(f)?;
-            if steps < 1 {
-                return Err("sample requires steps >= 1".into());
-            }
-
-            let mut pts: Vec<Point> = Vec::with_capacity(steps + 1 + 2); // +2 for phantom start/end points
-            let step = (to - from) / (steps as Number);
-            for i in -1..=(steps as isize + 1) {
-                let t = from + (step * (i as Number));
-                let v = eval_call::<ty::Any>(env, f.clone(), vec![Value::from(t)])?;
-                pts.push(tuple_to_point(v)?);
+            let pts: Vec<Point> = times
+                .into_iter()
+                .map(|t| tuple_to_point(eval_call::<ty::Any>(env, f.clone(), vec![t])?))
+                .collect::<Result<_, _>>()?;
+            if pts.len() < 2 {
+                return Err("sample requires at least 2 points".into());
             }
             let path = catmull_rom_path(&pts);
             Value::from(Graphic::new(GraphicType::Path { path }))

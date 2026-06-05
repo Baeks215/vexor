@@ -127,28 +127,34 @@ pub fn concat_paths(left: &mut Path, mut right: Path) -> EResult<()> {
     Ok(())
 }
 
-/// Builds a smooth cubic BezPath through `points` via uniform Catmull-Rom → Bézier conversion.
-///   Start and end points are phantom points
-///   i.e. Not included in the path but used to determine tangents at the endpoints.
+/// Builds a smooth cubic path through every point in `points` via
+/// Catmull-Rom → Bézier conversion.
+///   Phantom endpoints are synthesized internally by linearly extrapolating each
+///   end segment (reflecting it outward), so the curve passes through all `points`.
 pub fn catmull_rom_path(points: &[Point]) -> Path {
     let mut path = Path::new();
     if points.len() < 2 {
         return path;
     }
-    let offset = Point::ORIGIN - points[1];
-    for i in 1..points.len() - 2 {
-        let p0 = points[i - 1];
-        let p1 = points[i];
-        let p2 = points[i + 1];
-        let p3 = points[i + 2];
+    let n = points.len();
+    // Reflect each end segment outward by extrapolation
+    let start = points[0] + (points[0] - points[1]);
+    let end = points[n - 1] + (points[n - 1] - points[n - 2]);
+    let pts: Vec<Point> = std::iter::once(start)
+        .chain(points.iter().copied())
+        .chain(std::iter::once(end))
+        .collect();
+
+    // Translate so the first drawn point starts at the origin.
+    let offset = Point::ORIGIN - pts[1];
+    for i in 1..pts.len() - 2 {
+        let p0 = pts[i - 1];
+        let p1 = pts[i];
+        let p2 = pts[i + 1];
+        let p3 = pts[i + 2];
         let b1 = p1 + (p2 - p0) / 6.0;
         let b2 = p2 - (p3 - p1) / 6.0;
-
-        // Translate so path starts at origin
-        let b1 = b1 + offset;
-        let b2 = b2 + offset;
-        let p2 = p2 + offset;
-        path.curve_to(b1, b2, p2);
+        path.curve_to(b1 + offset, b2 + offset, p2 + offset);
     }
     path
 }
