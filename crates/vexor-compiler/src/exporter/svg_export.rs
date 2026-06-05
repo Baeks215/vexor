@@ -1,7 +1,9 @@
 // Translator for svg export
 
 use crate::exporter::fmt_num;
-use crate::ir::scene::{Color, Graphic, GraphicType, Settings, Stroke, Style};
+use crate::ir::scene::{
+    Attr, Color, Graphic, GraphicType, Settings, StrokeCap, StrokeJoin,
+};
 use kurbo::Affine;
 use svg::node::element as svg_el;
 
@@ -61,13 +63,13 @@ impl Appendable for svg_el::Group {
 fn translate_graphic<T: Appendable>(current: T, graphic: Graphic, precision: usize) -> T {
     let Graphic {
         ty,
-        style,
+        attr,
         transform,
     } = graphic;
 
     let mut extra = vec![];
     transform.add_as_attr(&mut extra, precision);
-    style.add_as_attr(&mut extra, precision);
+    attr.add_as_attr(&mut extra, precision);
 
     match ty {
         GraphicType::Circle { radius } => current.add(apply_attributes!(
@@ -122,17 +124,54 @@ impl ToAttributes for Affine {
         current.push(("vector-effect", "non-scaling-stroke".to_string()))
     }
 }
-impl ToAttributes for Style {
+impl ToAttributes for Attr {
     fn add_as_attr(self, current: &mut Vec<Attribute>, precision: usize) {
-        let Style { fill, stroke } = self;
+        let Attr {
+            fill,
+            stroke_color,
+            stroke_width,
+            stroke_join,
+            stroke_cap,
+            opacity,
+            id,
+        } = self;
         if let Some(fill) = fill {
             current.push(("fill", color_to_svg(fill, precision)));
         }
-
-        if let Some(Stroke { color, width }) = stroke {
+        if let Some(color) = stroke_color {
             current.push(("stroke", color_to_svg(color, precision)));
+        }
+        if let Some(width) = stroke_width {
             current.push(("stroke-width", fmt_num(width, precision)));
         }
+        if let Some(join) = stroke_join {
+            current.push(("stroke-linejoin", stroke_join_to_svg(join).to_string()));
+        }
+        if let Some(cap) = stroke_cap {
+            current.push(("stroke-linecap", stroke_cap_to_svg(cap).to_string()));
+        }
+        if let Some(opacity) = opacity {
+            current.push(("opacity", fmt_num(opacity, precision)));
+        }
+        if let Some(id) = id {
+            current.push(("id", id));
+        }
+    }
+}
+
+fn stroke_join_to_svg(join: StrokeJoin) -> &'static str {
+    match join {
+        StrokeJoin::Miter => "miter",
+        StrokeJoin::Round => "round",
+        StrokeJoin::Bevel => "bevel",
+    }
+}
+
+fn stroke_cap_to_svg(cap: StrokeCap) -> &'static str {
+    match cap {
+        StrokeCap::Butt => "butt",
+        StrokeCap::Round => "round",
+        StrokeCap::Square => "square",
     }
 }
 

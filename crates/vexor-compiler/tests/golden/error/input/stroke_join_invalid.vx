@@ -1,0 +1,2 @@
+-- invalid stroke join kind
+export Circle(50) >> strokeJoin("rounded")

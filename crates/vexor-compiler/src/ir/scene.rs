@@ -28,7 +28,7 @@ pub enum Color {
 #[derive(Debug, Clone)]
 pub struct Graphic {
     pub ty: GraphicType,
-    pub style: Style,
+    pub attr: Attr,
     pub transform: Affine,
 }
 impl Graphic {
@@ -36,7 +36,7 @@ impl Graphic {
     pub fn new(ty: GraphicType) -> Self {
         Self {
             ty,
-            style: Style::default(),
+            attr: Attr::default(),
             transform: Affine::default(),
         }
     }
@@ -57,10 +57,10 @@ impl Graphic {
         }
     }
 
-    /// Applies a transformation to the style of the graphic component.
-    pub fn transform_style(self, f: impl FnOnce(Style) -> Style) -> Self {
+    /// Applies a transformation to the attributes of the graphic component.
+    pub fn transform_attr(self, f: impl FnOnce(Attr) -> Attr) -> Self {
         Self {
-            style: f(self.style),
+            attr: f(self.attr),
             ..self
         }
     }
@@ -75,42 +75,94 @@ pub enum GraphicType {
     Group { children: Vec<Graphic> },
 }
 
-/// Style of a graphic component
+/// Presentation attributes of a graphic component (style + identity).
 #[derive(Debug, Clone)]
-pub struct Style {
+pub struct Attr {
     pub fill: Option<Color>,
-    pub stroke: Option<Stroke>,
+    pub stroke_color: Option<Color>,
+    pub stroke_width: Option<Number>,
+    pub stroke_join: Option<StrokeJoin>,
+    pub stroke_cap: Option<StrokeCap>,
+    pub opacity: Option<Number>,
+    /// Optional SVG `id` attribute.
+    pub id: Option<String>,
 }
-impl Style {
+impl Attr {
     pub fn with_fill(self, fill: Color) -> Self {
         Self {
             fill: Some(fill),
             ..self
         }
     }
-    pub fn with_stroke(self, stroke: Stroke) -> Self {
+    pub fn with_stroke_color(self, color: Color) -> Self {
         Self {
-            stroke: Some(stroke),
+            stroke_color: Some(color),
+            ..self
+        }
+    }
+    pub fn with_stroke_width(self, width: Number) -> Self {
+        Self {
+            stroke_width: Some(width),
+            ..self
+        }
+    }
+    pub fn with_stroke_join(self, join: StrokeJoin) -> Self {
+        Self {
+            stroke_join: Some(join),
+            ..self
+        }
+    }
+    pub fn with_stroke_cap(self, cap: StrokeCap) -> Self {
+        Self {
+            stroke_cap: Some(cap),
+            ..self
+        }
+    }
+    pub fn with_opacity(self, opacity: Number) -> Self {
+        Self {
+            opacity: Some(opacity),
+            ..self
+        }
+    }
+    pub fn with_id(self, id: String) -> Self {
+        Self {
+            id: Some(id),
             ..self
         }
     }
 }
-impl Default for Style {
+impl Default for Attr {
     fn default() -> Self {
         Self {
             // No explicit fill; SVG defaults to black.
             fill: None,
             // No stroke
-            stroke: None,
+            stroke_color: None,
+            stroke_width: None,
+            stroke_join: None,
+            stroke_cap: None,
+            // Fully opaque
+            opacity: None,
+            // No id
+            id: None,
         }
     }
 }
 
-/// Stroke of a graphic component
-#[derive(Debug, Clone)]
-pub struct Stroke {
-    pub color: Color,
-    pub width: Number,
+/// Stroke line join style.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum StrokeJoin {
+    Miter,
+    Round,
+    Bevel,
+}
+
+/// Stroke line cap style.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum StrokeCap {
+    Butt,
+    Round,
+    Square,
 }
 
 // --- Scene ---

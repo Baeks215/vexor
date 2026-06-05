@@ -32,7 +32,7 @@ val ribbon_badge = close(ornate_border + frame_down + frame_return)
 val g = Group([
   -- Background
   Rect(600, 400) >> fill(deep_purple),
-  loop >> move(300, 200) >> stroke(4, mint_green),
+  loop >> move(300, 200) >> strokeWidth(4) >> strokeColor(mint_green),
   ribbon_badge >> move(105, 280) >> fill(royal_gold)
 ])
 

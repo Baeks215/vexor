@@ -98,9 +98,23 @@ pub enum StdLambda {
     Fill {
         color: scene::Color,
     },
-    Stroke {
+    StrokeWidth {
         width: Number,
+    },
+    StrokeColor {
         color: scene::Color,
+    },
+    StrokeJoin {
+        join: scene::StrokeJoin,
+    },
+    StrokeCap {
+        cap: scene::StrokeCap,
+    },
+    Opacity {
+        n: Number,
+    },
+    SetId {
+        name: String,
     },
 }
 impl From<StdLambda> for Value {
@@ -582,11 +596,41 @@ fn eval_std_call<T: Evaluable>(
             let color = ty::Color::expect(color)?;
             Value::from(StdLambda::Fill { color })
         }
-        Std::Stroke => {
-            let (width, color) = unpack_2!(args)?;
-            let width = ty::Number::expect(width)?;
-            let color = ty::Color::expect(color)?;
-            Value::from(StdLambda::Stroke { width, color })
+        Std::StrokeWidth => {
+            let width = ty::Number::expect(unpack_1!(args)?)?;
+            Value::from(StdLambda::StrokeWidth { width })
+        }
+        Std::StrokeColor => {
+            let color = ty::Color::expect(unpack_1!(args)?)?;
+            Value::from(StdLambda::StrokeColor { color })
+        }
+        Std::StrokeJoin => {
+            let kind = ty::String::expect(unpack_1!(args)?)?;
+            let join = match kind.as_str() {
+                "miter" => scene::StrokeJoin::Miter,
+                "round" => scene::StrokeJoin::Round,
+                "bevel" => scene::StrokeJoin::Bevel,
+                _ => return Err("invalid stroke join, expected miter|round|bevel".into()),
+            };
+            Value::from(StdLambda::StrokeJoin { join })
+        }
+        Std::StrokeCap => {
+            let kind = ty::String::expect(unpack_1!(args)?)?;
+            let cap = match kind.as_str() {
+                "butt" => scene::StrokeCap::Butt,
+                "round" => scene::StrokeCap::Round,
+                "square" => scene::StrokeCap::Square,
+                _ => return Err("invalid stroke cap, expected butt|round|square".into()),
+            };
+            Value::from(StdLambda::StrokeCap { cap })
+        }
+        Std::Opacity => {
+            let n = ty::Number::expect(unpack_1!(args)?)?;
+            Value::from(StdLambda::Opacity { n })
+        }
+        Std::SetId => {
+            let name = ty::String::expect(unpack_1!(args)?)?;
+            Value::from(StdLambda::SetId { name })
         }
     };
     T::expect(result)
@@ -812,12 +856,31 @@ fn eval_std_lambda<T: Evaluable>(
         StdLambda::Fill { color } => {
             let graphic = unpack_1!(args)?;
             let graphic = ty::Graphic::expect(graphic)?;
-            Value::from(graphic.transform_style(|s| s.with_fill(color)))
+            Value::from(graphic.transform_attr(|s| s.with_fill(color)))
         }
-        StdLambda::Stroke { width, color } => {
-            let graphic = unpack_1!(args)?;
-            let graphic = ty::Graphic::expect(graphic)?;
-            Value::from(graphic.transform_style(|s| s.with_stroke(scene::Stroke { width, color })))
+        StdLambda::StrokeWidth { width } => {
+            let graphic = ty::Graphic::expect(unpack_1!(args)?)?;
+            Value::from(graphic.transform_attr(|s| s.with_stroke_width(width)))
+        }
+        StdLambda::StrokeColor { color } => {
+            let graphic = ty::Graphic::expect(unpack_1!(args)?)?;
+            Value::from(graphic.transform_attr(|s| s.with_stroke_color(color)))
+        }
+        StdLambda::StrokeJoin { join } => {
+            let graphic = ty::Graphic::expect(unpack_1!(args)?)?;
+            Value::from(graphic.transform_attr(|s| s.with_stroke_join(join)))
+        }
+        StdLambda::StrokeCap { cap } => {
+            let graphic = ty::Graphic::expect(unpack_1!(args)?)?;
+            Value::from(graphic.transform_attr(|s| s.with_stroke_cap(cap)))
+        }
+        StdLambda::Opacity { n } => {
+            let graphic = ty::Graphic::expect(unpack_1!(args)?)?;
+            Value::from(graphic.transform_attr(|s| s.with_opacity(n)))
+        }
+        StdLambda::SetId { name } => {
+            let graphic = ty::Graphic::expect(unpack_1!(args)?)?;
+            Value::from(graphic.transform_attr(|a| a.with_id(name)))
         }
     };
     T::expect(result)

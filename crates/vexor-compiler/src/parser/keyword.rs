@@ -136,7 +136,12 @@ fn classify_kw(s: &str) -> Ident {
         "mirrorX" => Ident::Std(Std::MirrorX),
         "mirrorY" => Ident::Std(Std::MirrorY),
         "fill" => Ident::Std(Std::Fill),
-        "stroke" => Ident::Std(Std::Stroke),
+        "strokeWidth" => Ident::Std(Std::StrokeWidth),
+        "strokeColor" => Ident::Std(Std::StrokeColor),
+        "strokeJoin" => Ident::Std(Std::StrokeJoin),
+        "strokeCap" => Ident::Std(Std::StrokeCap),
+        "opacity" => Ident::Std(Std::Opacity),
+        "setId" => Ident::Std(Std::SetId),
         // Constants
         "PI" => Ident::Const(Const::Pi),
         // User

@@ -106,7 +106,7 @@ impl IntoIterator for Path {
 pub fn transform_path(g: Graphic, f: impl FnOnce(&mut Path) -> EResult<()>) -> EResult<Graphic> {
     let Graphic {
         ty,
-        style,
+        attr,
         transform,
     } = g;
     let mut path = match ty {
@@ -116,7 +116,7 @@ pub fn transform_path(g: Graphic, f: impl FnOnce(&mut Path) -> EResult<()>) -> E
     f(&mut path)?;
     Ok(Graphic {
         ty: GraphicType::Path { path },
-        style,
+        attr,
         transform,
     })
 }

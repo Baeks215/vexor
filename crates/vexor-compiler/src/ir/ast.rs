@@ -242,7 +242,12 @@ pub enum Std {
     MirrorX,
     MirrorY,
     Fill,
-    Stroke,
+    StrokeWidth,
+    StrokeColor,
+    StrokeJoin,
+    StrokeCap,
+    Opacity,
+    SetId,
 }
 
 // --- Match ---

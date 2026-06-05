@@ -51,12 +51,13 @@ Style functions set how a graphic is painted. Like transforms, they take a graph
 and return a new one, so they chain with `>>`:
 
 ```vexor
-export Circle(20)
-  >> fill(rgb(255, 100, 0))
-  >> stroke(2, rgb(0, 0, 0))
+export Circle(20) >>
+  fill(rgb(255, 100, 0)) >>
+  strokeWidth(2) >> strokeColor(rgb(0, 0, 0))
 ```
 
-Available style functions: `fill`, `stroke`. Colors come from the
+Available style functions: `fill`, `strokeColor`, `strokeWidth`, `strokeJoin`,
+`strokeCap`, `opacity`, and `setId`. Colors come from the
 [color constructors](../stdlib/color.md).
 
 ## Paths
@@ -98,8 +99,8 @@ transforms and the pipe operator:
 val step = Path([lineTo(20, 0), lineTo(20, -20)])
 
 -- Repeat the same step three times, each starting where the last ended
-export step + step + step
-  >> stroke(2, rgb(0, 0, 0))
+export step + step + step >>
+  strokeWidth(2) >> strokeColor(rgb(0, 0, 0))
 ```
 
 Building a closed triangle by joining edges:
