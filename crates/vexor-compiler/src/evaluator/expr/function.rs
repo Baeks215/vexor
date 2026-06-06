@@ -991,8 +991,7 @@ fn eval_user_call<T: Evaluable>(
     // Add arguments to env as values
     let call_env = env.new_scope_function(param_args);
 
-    // Evaluate "where" scope of values. Only non-empty for `where` functions; clones the
-    // small binding expressions, not the whole body.
+    // Evaluate "where" scope of values
     for (id, value) in where_scope {
         call_env.set_var_lazy(id.clone(), value.clone())?;
     }

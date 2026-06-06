@@ -35,7 +35,7 @@ impl<T> WithSpan for EResult<T> {
 
 #[derive(Debug, Clone)]
 enum Thunk {
-    Unevaluated(ast::SpanExpr),
+    Unevaluated(Rc<ast::SpanExpr>),
     Evaluating,
     Evaluated(Value),
 }
@@ -110,7 +110,7 @@ trait EnvExt {
     /// Get a value, forces evaluation if stored as lazy expression
     fn get_var(&self, name: &str) -> EResult<Value>;
     /// Set a value as an unevaluated expression, errors if it already exists
-    fn set_var_lazy(&self, name: String, expr: ast::SpanExpr) -> EResult<()>;
+    fn set_var_lazy(&self, name: String, ast_expr: Rc<ast::SpanExpr>) -> EResult<()>;
     /// Set a value as an evaluated value, errors if it already exists
     fn set_var(&self, name: String, value: Value) -> EResult<()>;
     /// Create a new scope with the given values
@@ -179,12 +179,12 @@ impl EnvExt for EnvRef {
         }
         Ok(val)
     }
-    fn set_var_lazy(&self, name: String, e: ast::SpanExpr) -> EResult<()> {
+    fn set_var_lazy(&self, name: String, ast_expr: Rc<ast::SpanExpr>) -> EResult<()> {
         let mut env = self.borrow_mut();
         if env.scope.contains(&name) {
             return Err(format!("`{name}` already exists in scope").into());
         }
-        env.scope.push(name, Thunk::Unevaluated(e));
+        env.scope.push(name, Thunk::Unevaluated(ast_expr));
         Ok(())
     }
     fn set_var(&self, name: String, value: Value) -> EResult<()> {

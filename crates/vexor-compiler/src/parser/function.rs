@@ -1,3 +1,5 @@
+use std::rc::Rc;
+
 use winnow::combinator::{alt, cut_err, opt, preceded, repeat, separated};
 use winnow::stream::Stream;
 use winnow::{ModalResult, Parser};
@@ -71,6 +73,10 @@ fn build_curried_function(
     return_expr: SpanExpr,
     where_scope: Vec<(String, SpanExpr)>,
 ) -> ast::Function {
+    let where_scope: Vec<(String, Rc<SpanExpr>)> = where_scope
+        .into_iter()
+        .map(|(id, expr)| (id, Rc::new(expr)))
+        .collect();
     let last_params = curried_params.pop().unwrap(); // repeat(1..) guarantees Some
     // Last curried function is the main function
     let return_span = return_expr.span.clone();

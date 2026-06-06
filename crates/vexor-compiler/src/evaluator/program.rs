@@ -38,7 +38,7 @@ pub fn eval_program(program: ast::Program) -> EResult<scene::Scene> {
                     .with_span_if_missing(unit_span)?;
             }
             ast::ProgramUnit::Assignment { identifier, value } => {
-                env.set_var_lazy(identifier, value)
+                env.set_var_lazy(identifier, Rc::new(value))
                     .with_span_if_missing(unit_span)?;
             }
             ast::ProgramUnit::Export(e) => {
