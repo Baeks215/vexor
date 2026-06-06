@@ -5,6 +5,7 @@ use winnow::combinator::{alt, cut_err, eof, fail, opt, preceded, separated, sepa
 use winnow::error::{ContextError, ParseError};
 use winnow::{ModalResult, Parser, Result};
 
+use crate::ir::Ident;
 use crate::ir::ast::{self, ProgramUnit, SpanExpr, Spanned};
 use crate::parser::error::CtxErrBuilder;
 use crate::parser::expr::p_expr;
@@ -14,7 +15,7 @@ use crate::parser::{Input, ParserExt, exp_char, exp_string, newline1, p_mws, spa
 use crate::parser::{delim, keyword as k};
 
 /// Parses variable assignment `x = expr`
-pub fn p_assignment_raw<'a>(input: &mut Input<'a>) -> ModalResult<(String, SpanExpr)> {
+pub fn p_assignment_raw<'a>(input: &mut Input<'a>) -> ModalResult<(Ident, SpanExpr)> {
     (
         p_user_ident.ws(),
         preceded(exp_string("=").mws(), cut_err(p_expr)),
@@ -23,7 +24,7 @@ pub fn p_assignment_raw<'a>(input: &mut Input<'a>) -> ModalResult<(String, SpanE
 }
 
 /// Parses variable assignment with `let x = expr`
-fn p_assignment<'a>(input: &mut Input<'a>) -> ModalResult<(String, SpanExpr)> {
+fn p_assignment<'a>(input: &mut Input<'a>) -> ModalResult<(Ident, SpanExpr)> {
     preceded(k::pk_val.ws(), cut_err(p_assignment_raw)).parse_next(input)
 }
 

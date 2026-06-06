@@ -1,11 +1,14 @@
 //! Keyword parsers and identifier classification.
 
+use std::rc::Rc;
+
 use winnow::ascii::alpha1;
 use winnow::combinator::{not, terminated};
 use winnow::token::take_while;
 use winnow::{ModalResult, Parser};
 
 use super::{Input, ParserExt};
+use crate::ir::Ident;
 use crate::ir::ast::{Const, Std};
 
 /// Macro to define a set of keyword parsers
@@ -49,118 +52,119 @@ define_keywords! {
     pk_nil => "Nil",
 }
 
-/// Classified identifier.
+/// Classified symbol.
 #[derive(Debug, Clone)]
-pub enum Ident {
+pub enum Symbol {
     Std(Std),
     Const(Const),
-    User(String),
+    /// User identifier, interned (see [`crate::ir::Ident`]) so binding it into scopes is a bump.
+    User(Ident),
 }
 
 /// Classifies keywords from user identifiers.
-fn classify_kw(s: &str) -> Ident {
+fn classify_kw(s: &str) -> Symbol {
     match s {
         // Trig
-        "rad" => Ident::Std(Std::Rad),
-        "deg" => Ident::Std(Std::Deg),
-        "sin" => Ident::Std(Std::Sin),
-        "cos" => Ident::Std(Std::Cos),
-        "tan" => Ident::Std(Std::Tan),
+        "rad" => Symbol::Std(Std::Rad),
+        "deg" => Symbol::Std(Std::Deg),
+        "sin" => Symbol::Std(Std::Sin),
+        "cos" => Symbol::Std(Std::Cos),
+        "tan" => Symbol::Std(Std::Tan),
         // Math
-        "sinh" => Ident::Std(Std::Sinh),
-        "cosh" => Ident::Std(Std::Cosh),
-        "tanh" => Ident::Std(Std::Tanh),
-        "asinh" => Ident::Std(Std::Asinh),
-        "acosh" => Ident::Std(Std::Acosh),
-        "atanh" => Ident::Std(Std::Atanh),
-        "asin" => Ident::Std(Std::Asin),
-        "acos" => Ident::Std(Std::Acos),
-        "atan" => Ident::Std(Std::Atan),
-        "atan2" => Ident::Std(Std::Atan2),
-        "round" => Ident::Std(Std::Round),
-        "floor" => Ident::Std(Std::Floor),
-        "ceil" => Ident::Std(Std::Ceil),
-        "abs" => Ident::Std(Std::Abs),
-        "log" => Ident::Std(Std::Log),
-        "exp" => Ident::Std(Std::Exp),
-        "max" => Ident::Std(Std::Max),
-        "min" => Ident::Std(Std::Min),
-        "clamp" => Ident::Std(Std::Clamp),
-        "magnitude" => Ident::Std(Std::Magnitude),
-        "normalize" => Ident::Std(Std::Normalize),
-        "dot" => Ident::Std(Std::Dot),
+        "sinh" => Symbol::Std(Std::Sinh),
+        "cosh" => Symbol::Std(Std::Cosh),
+        "tanh" => Symbol::Std(Std::Tanh),
+        "asinh" => Symbol::Std(Std::Asinh),
+        "acosh" => Symbol::Std(Std::Acosh),
+        "atanh" => Symbol::Std(Std::Atanh),
+        "asin" => Symbol::Std(Std::Asin),
+        "acos" => Symbol::Std(Std::Acos),
+        "atan" => Symbol::Std(Std::Atan),
+        "atan2" => Symbol::Std(Std::Atan2),
+        "round" => Symbol::Std(Std::Round),
+        "floor" => Symbol::Std(Std::Floor),
+        "ceil" => Symbol::Std(Std::Ceil),
+        "abs" => Symbol::Std(Std::Abs),
+        "log" => Symbol::Std(Std::Log),
+        "exp" => Symbol::Std(Std::Exp),
+        "max" => Symbol::Std(Std::Max),
+        "min" => Symbol::Std(Std::Min),
+        "clamp" => Symbol::Std(Std::Clamp),
+        "magnitude" => Symbol::Std(Std::Magnitude),
+        "normalize" => Symbol::Std(Std::Normalize),
+        "dot" => Symbol::Std(Std::Dot),
         // List
-        "map" => Ident::Std(Std::Map),
-        "filter" => Ident::Std(Std::Filter),
-        "drop" => Ident::Std(Std::Drop),
-        "take" => Ident::Std(Std::Take),
-        "dropWhile" => Ident::Std(Std::DropWhile),
-        "takeWhile" => Ident::Std(Std::TakeWhile),
-        "foldl" => Ident::Std(Std::Foldl),
-        "foldr" => Ident::Std(Std::Foldr),
-        "zip" => Ident::Std(Std::Zip),
-        "zipWith" => Ident::Std(Std::ZipWith),
-        "flatMap" => Ident::Std(Std::FlatMap),
-        "enumerate" => Ident::Std(Std::Enumerate),
-        "len" => Ident::Std(Std::Len),
-        "reverse" => Ident::Std(Std::Reverse),
-        "find" => Ident::Std(Std::Find),
-        "sort" => Ident::Std(Std::Sort),
-        "sortBy" => Ident::Std(Std::SortBy),
-        "repeat" => Ident::Std(Std::Repeat),
-        "nth" => Ident::Std(Std::Nth),
-        "head" => Ident::Std(Std::Head),
-        "tail" => Ident::Std(Std::Tail),
-        "last" => Ident::Std(Std::Last),
-        "init" => Ident::Std(Std::Init),
-        "isEmpty" => Ident::Std(Std::IsEmpty),
-        "sum" => Ident::Std(Std::Sum),
-        "product" => Ident::Std(Std::Product),
-        "concat" => Ident::Std(Std::Concat),
+        "map" => Symbol::Std(Std::Map),
+        "filter" => Symbol::Std(Std::Filter),
+        "drop" => Symbol::Std(Std::Drop),
+        "take" => Symbol::Std(Std::Take),
+        "dropWhile" => Symbol::Std(Std::DropWhile),
+        "takeWhile" => Symbol::Std(Std::TakeWhile),
+        "foldl" => Symbol::Std(Std::Foldl),
+        "foldr" => Symbol::Std(Std::Foldr),
+        "zip" => Symbol::Std(Std::Zip),
+        "zipWith" => Symbol::Std(Std::ZipWith),
+        "flatMap" => Symbol::Std(Std::FlatMap),
+        "enumerate" => Symbol::Std(Std::Enumerate),
+        "len" => Symbol::Std(Std::Len),
+        "reverse" => Symbol::Std(Std::Reverse),
+        "find" => Symbol::Std(Std::Find),
+        "sort" => Symbol::Std(Std::Sort),
+        "sortBy" => Symbol::Std(Std::SortBy),
+        "repeat" => Symbol::Std(Std::Repeat),
+        "nth" => Symbol::Std(Std::Nth),
+        "head" => Symbol::Std(Std::Head),
+        "tail" => Symbol::Std(Std::Tail),
+        "last" => Symbol::Std(Std::Last),
+        "init" => Symbol::Std(Std::Init),
+        "isEmpty" => Symbol::Std(Std::IsEmpty),
+        "sum" => Symbol::Std(Std::Sum),
+        "product" => Symbol::Std(Std::Product),
+        "concat" => Symbol::Std(Std::Concat),
         // Tuple
-        "fst" => Ident::Std(Std::Fst),
-        "snd" => Ident::Std(Std::Snd),
+        "fst" => Symbol::Std(Std::Fst),
+        "snd" => Symbol::Std(Std::Snd),
         // Color constructors
-        "rgb" => Ident::Std(Std::Rgb),
-        "rgba" => Ident::Std(Std::Rgba),
-        "hsl" => Ident::Std(Std::Hsl),
-        "hsla" => Ident::Std(Std::Hsla),
+        "rgb" => Symbol::Std(Std::Rgb),
+        "rgba" => Symbol::Std(Std::Rgba),
+        "hsl" => Symbol::Std(Std::Hsl),
+        "hsla" => Symbol::Std(Std::Hsla),
         // Graphic constructors
-        "Circle" => Ident::Std(Std::Circle),
-        "Ellipse" => Ident::Std(Std::Ellipse),
-        "Rect" => Ident::Std(Std::Rect),
-        "Text" => Ident::Std(Std::Text),
-        "Group" => Ident::Std(Std::Group),
-        "Line" => Ident::Std(Std::Line),
-        "Curve" => Ident::Std(Std::Curve),
-        "Path" => Ident::Std(Std::Path),
-        "sample" => Ident::Std(Std::Sample),
+        "Circle" => Symbol::Std(Std::Circle),
+        "Ellipse" => Symbol::Std(Std::Ellipse),
+        "Rect" => Symbol::Std(Std::Rect),
+        "Text" => Symbol::Std(Std::Text),
+        "Group" => Symbol::Std(Std::Group),
+        "Line" => Symbol::Std(Std::Line),
+        "Curve" => Symbol::Std(Std::Curve),
+        "Path" => Symbol::Std(Std::Path),
+        "sample" => Symbol::Std(Std::Sample),
         // Graphic transforms
-        "close" => Ident::Std(Std::Close),
-        "jumpTo" => Ident::Std(Std::JumpTo),
-        "lineTo" => Ident::Std(Std::LineTo),
-        "curveTo" => Ident::Std(Std::CurveTo),
-        "move" => Ident::Std(Std::Move),
-        "scale" => Ident::Std(Std::Scale),
-        "rotate" => Ident::Std(Std::Rotate),
-        "mirrorX" => Ident::Std(Std::MirrorX),
-        "mirrorY" => Ident::Std(Std::MirrorY),
-        "fill" => Ident::Std(Std::Fill),
-        "strokeWidth" => Ident::Std(Std::StrokeWidth),
-        "strokeColor" => Ident::Std(Std::StrokeColor),
-        "strokeJoin" => Ident::Std(Std::StrokeJoin),
-        "strokeCap" => Ident::Std(Std::StrokeCap),
-        "opacity" => Ident::Std(Std::Opacity),
-        "setId" => Ident::Std(Std::SetId),
+        "close" => Symbol::Std(Std::Close),
+        "jumpTo" => Symbol::Std(Std::JumpTo),
+        "lineTo" => Symbol::Std(Std::LineTo),
+        "curveTo" => Symbol::Std(Std::CurveTo),
+        "move" => Symbol::Std(Std::Move),
+        "scale" => Symbol::Std(Std::Scale),
+        "rotate" => Symbol::Std(Std::Rotate),
+        "mirrorX" => Symbol::Std(Std::MirrorX),
+        "mirrorY" => Symbol::Std(Std::MirrorY),
+        "fill" => Symbol::Std(Std::Fill),
+        "strokeWidth" => Symbol::Std(Std::StrokeWidth),
+        "strokeColor" => Symbol::Std(Std::StrokeColor),
+        "strokeJoin" => Symbol::Std(Std::StrokeJoin),
+        "strokeCap" => Symbol::Std(Std::StrokeCap),
+        "opacity" => Symbol::Std(Std::Opacity),
+        "setId" => Symbol::Std(Std::SetId),
         // Constants
-        "PI" => Ident::Const(Const::Pi),
+        "PI" => Symbol::Const(Const::Pi),
         // User
-        other => Ident::User(other.to_string()),
+        other => Symbol::User(Rc::from(other)),
     }
 }
 
 /// Parses characters and classifies as an Std/Const/User identifier.
-pub fn p_ident<'a>(input: &mut Input<'a>) -> ModalResult<Ident> {
+pub fn p_ident<'a>(input: &mut Input<'a>) -> ModalResult<Symbol> {
     (
         take_while(1, |c: char| c.is_alphabetic() || c == '_'),
         take_while(0.., |c: char| c.is_alphanumeric() || c == '_'),
@@ -175,10 +179,10 @@ pub fn p_ident<'a>(input: &mut Input<'a>) -> ModalResult<Ident> {
 
 /// Parses an identifier that must be a user binding name.
 ///   Rejects all keywords
-pub fn p_user_ident<'a>(input: &mut Input<'a>) -> ModalResult<String> {
+pub fn p_user_ident<'a>(input: &mut Input<'a>) -> ModalResult<Ident> {
     p_ident
         .verify_map(|id| match id {
-            Ident::User(s) => Some(s),
+            Symbol::User(s) => Some(s),
             _ => None,
         })
         .expected("non-keyword identifier")
@@ -218,19 +222,19 @@ mod tests {
     fn test_p_ident() {
         let mut input = Input::new("foo_bar_123");
         match p_ident.parse_next(&mut input).unwrap() {
-            Ident::User(s) => assert_eq!(s, "foo_bar_123"),
+            Symbol::User(s) => assert_eq!(&*s, "foo_bar_123"),
             other => panic!("expected User, got {:?}", other),
         }
 
         let mut input = Input::new("map");
         match p_ident.parse_next(&mut input).unwrap() {
-            Ident::Std(Std::Map) => (),
+            Symbol::Std(Std::Map) => (),
             other => panic!("expected Std::Map, got {:?}", other),
         }
 
         let mut input = Input::new("PI");
         match p_ident.parse_next(&mut input).unwrap() {
-            Ident::Const(Const::Pi) => (),
+            Symbol::Const(Const::Pi) => (),
             other => panic!("expected Const::Pi, got {:?}", other),
         }
 
@@ -246,7 +250,7 @@ mod tests {
     #[test]
     fn test_p_user_ident() {
         let mut input = Input::new("my_var");
-        assert_eq!(p_user_ident.parse_next(&mut input).unwrap(), "my_var");
+        assert_eq!(&*p_user_ident.parse_next(&mut input).unwrap(), "my_var");
 
         // Std name rejected
         let mut input = Input::new("map");

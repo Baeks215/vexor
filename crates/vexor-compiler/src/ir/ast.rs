@@ -3,7 +3,7 @@
 use std::ops::Range;
 use std::rc::Rc;
 
-use crate::ir::Number;
+use crate::ir::{Ident, Number};
 
 // --- Span ---
 
@@ -95,9 +95,9 @@ pub enum ListLiteral {
 #[derive(Debug, Clone)]
 pub struct Function {
     /// Parameter identifiers of the function.
-    pub params: Vec<String>,
+    pub params: Vec<Ident>,
     /// Where scope of identifier-expression bindings. Uses `Rc` to prevent deep clone per call.
-    pub where_scope: Vec<(String, Rc<SpanExpr>)>,
+    pub where_scope: Vec<(Ident, Rc<SpanExpr>)>,
     /// Return expression of the function.
     pub return_expr: BoxExpr,
 }
@@ -117,7 +117,7 @@ pub enum Expr {
     // Literals
     Literal(Literal),
     // Variable
-    Variable(String),
+    Variable(Ident),
     // Expressions with operators
     Binary {
         operator: op::Binary,
@@ -276,8 +276,8 @@ pub enum Setting {
 #[derive(Debug, Clone)]
 pub enum ProgramUnit {
     Setting(Setting),
-    Assignment { identifier: String, value: SpanExpr },
-    Function { identifier: String, func: Function },
+    Assignment { identifier: Ident, value: SpanExpr },
+    Function { identifier: Ident, func: Function },
     Export(SpanExpr),
     ExportEach(SpanExpr),
 }

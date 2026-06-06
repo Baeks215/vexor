@@ -5,7 +5,7 @@ use std::collections::HashMap;
 use std::rc::Rc;
 
 use crate::evaluator::expr::{Value, ty};
-use crate::ir::{Number, ast};
+use crate::ir::{Ident, Number, ast};
 
 mod expr;
 mod program;
@@ -44,9 +44,9 @@ enum Thunk {
 #[derive(Debug, Clone)]
 enum Scope {
     /// Top-level scope can hold many bindings, so it is hashed for O(1) lookup.
-    Global(HashMap<String, Thunk>),
+    Global(HashMap<Ident, Thunk>),
     /// Local scopes are often tiny (function params, `where` bindings), flat vector more optimal
-    Local(Vec<(String, Thunk)>),
+    Local(Vec<(Ident, Thunk)>),
 }
 
 impl Scope {
@@ -57,7 +57,7 @@ impl Scope {
         Scope::Local(Vec::new())
     }
     /// Collects into a `Local` scope
-    fn collect_local<I: IntoIterator<Item = (String, Thunk)>>(iter: I) -> Self {
+    fn collect_local<I: IntoIterator<Item = (Ident, Thunk)>>(iter: I) -> Self {
         Scope::Local(iter.into_iter().collect())
     }
 
@@ -65,26 +65,29 @@ impl Scope {
     fn get(&self, name: &str) -> Option<&Thunk> {
         match self {
             Scope::Global(m) => m.get(name),
-            Scope::Local(v) => v.iter().find(|(k, _)| k == name).map(|(_, t)| t),
+            Scope::Local(v) => v.iter().find(|(k, _)| k.as_ref() == name).map(|(_, t)| t),
         }
     }
     /// Returns a mutable reference to the thunk bound to `name`, if any.
     fn get_mut(&mut self, name: &str) -> Option<&mut Thunk> {
         match self {
             Scope::Global(m) => m.get_mut(name),
-            Scope::Local(v) => v.iter_mut().find(|(k, _)| k == name).map(|(_, t)| t),
+            Scope::Local(v) => v
+                .iter_mut()
+                .find(|(k, _)| k.as_ref() == name)
+                .map(|(_, t)| t),
         }
     }
     /// Returns `true` if `name` is bound in this scope.
     fn contains(&self, name: &str) -> bool {
         match self {
             Scope::Global(m) => m.contains_key(name),
-            Scope::Local(v) => v.iter().any(|(k, _)| k == name),
+            Scope::Local(v) => v.iter().any(|(k, _)| k.as_ref() == name),
         }
     }
     /// Adds a binding.
     /// PRECONDITION: Caller must ensure `name` is not already present.
-    fn push(&mut self, name: String, thunk: Thunk) {
+    fn push(&mut self, name: Ident, thunk: Thunk) {
         match self {
             Scope::Global(m) => {
                 m.insert(name, thunk);
@@ -110,12 +113,12 @@ trait EnvExt {
     /// Get a value, forces evaluation if stored as lazy expression
     fn get_var(&self, name: &str) -> EResult<Value>;
     /// Set a value as an unevaluated expression, errors if it already exists
-    fn set_var_lazy(&self, name: String, ast_expr: Rc<ast::SpanExpr>) -> EResult<()>;
+    fn set_var_lazy(&self, name: Ident, ast_expr: Rc<ast::SpanExpr>) -> EResult<()>;
     /// Set a value as an evaluated value, errors if it already exists
-    fn set_var(&self, name: String, value: Value) -> EResult<()>;
+    fn set_var(&self, name: Ident, value: Value) -> EResult<()>;
     /// Create a new scope with the given values
     ///   Adds the arguments to the value scope
-    fn new_scope_function(&self, args: Vec<(String, Value)>) -> Self;
+    fn new_scope_function(&self, args: Vec<(Ident, Value)>) -> Self;
 }
 
 type EnvRef = Rc<RefCell<Env>>;
@@ -179,7 +182,7 @@ impl EnvExt for EnvRef {
         }
         Ok(val)
     }
-    fn set_var_lazy(&self, name: String, ast_expr: Rc<ast::SpanExpr>) -> EResult<()> {
+    fn set_var_lazy(&self, name: Ident, ast_expr: Rc<ast::SpanExpr>) -> EResult<()> {
         let mut env = self.borrow_mut();
         if env.scope.contains(&name) {
             return Err(format!("`{name}` already exists in scope").into());
@@ -187,7 +190,7 @@ impl EnvExt for EnvRef {
         env.scope.push(name, Thunk::Unevaluated(ast_expr));
         Ok(())
     }
-    fn set_var(&self, name: String, value: Value) -> EResult<()> {
+    fn set_var(&self, name: Ident, value: Value) -> EResult<()> {
         let mut env = self.borrow_mut();
         if env.scope.contains(&name) {
             return Err(format!("`{name}` already exists in scope").into());
@@ -195,7 +198,7 @@ impl EnvExt for EnvRef {
         env.scope.push(name, Thunk::Evaluated(value));
         Ok(())
     }
-    fn new_scope_function(&self, args: Vec<(String, Value)>) -> Self {
+    fn new_scope_function(&self, args: Vec<(Ident, Value)>) -> Self {
         let child = self.child_scope();
         {
             // Borrow in scope, RAII ensures drop. Params are pre-validated unique, so the
