@@ -933,31 +933,31 @@ fn eval_std_lambda<T: Evaluable>(
         StdLambda::Fill { color } => {
             let graphic = unpack_1!(args)?;
             let graphic = ty::Graphic::expect(graphic)?;
-            Value::from(graphic.transform_attr(|s| s.with_fill(color)))
+            Value::from(graphic.with_attr(scene::Attr::Fill(color)))
         }
         StdLambda::StrokeWidth { width } => {
             let graphic = ty::Graphic::expect(unpack_1!(args)?)?;
-            Value::from(graphic.transform_attr(|s| s.with_stroke_width(width)))
+            Value::from(graphic.with_attr(scene::Attr::StrokeWidth(width)))
         }
         StdLambda::StrokeColor { color } => {
             let graphic = ty::Graphic::expect(unpack_1!(args)?)?;
-            Value::from(graphic.transform_attr(|s| s.with_stroke_color(color)))
+            Value::from(graphic.with_attr(scene::Attr::StrokeColor(color)))
         }
         StdLambda::StrokeJoin { join } => {
             let graphic = ty::Graphic::expect(unpack_1!(args)?)?;
-            Value::from(graphic.transform_attr(|s| s.with_stroke_join(join)))
+            Value::from(graphic.with_attr(scene::Attr::StrokeJoin(join)))
         }
         StdLambda::StrokeCap { cap } => {
             let graphic = ty::Graphic::expect(unpack_1!(args)?)?;
-            Value::from(graphic.transform_attr(|s| s.with_stroke_cap(cap)))
+            Value::from(graphic.with_attr(scene::Attr::StrokeCap(cap)))
         }
         StdLambda::Opacity { n } => {
             let graphic = ty::Graphic::expect(unpack_1!(args)?)?;
-            Value::from(graphic.transform_attr(|s| s.with_opacity(n)))
+            Value::from(graphic.with_attr(scene::Attr::Opacity(n)))
         }
         StdLambda::SetId { name } => {
             let graphic = ty::Graphic::expect(unpack_1!(args)?)?;
-            Value::from(graphic.transform_attr(|a| a.with_id(name)))
+            Value::from(graphic.with_attr(scene::Attr::Id(name)))
         }
     };
     T::expect(result)
