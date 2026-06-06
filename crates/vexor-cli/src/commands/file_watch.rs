@@ -1,4 +1,4 @@
-use crate::commands::compile;
+use crate::commands::{bench, compile};
 use notify_debouncer_mini::new_debouncer;
 use std::{
     fs,
@@ -16,7 +16,8 @@ const WATCH_DEBOUNCE_MS: u64 = 200;
 /// Blocks indefinitely
 pub fn watch_file(
     path: &Path,
-    mut on_compile: impl FnMut(Result<SvgExport, String>),
+    stats: bool,
+    mut on_compile: impl FnMut(Result<SvgExport, String>, Option<&bench::BenchReport>),
 ) -> notify::Result<()> {
     let path = path.canonicalize()?;
 
@@ -32,7 +33,8 @@ pub fn watch_file(
 
     // Hash file contents to prevent redundant compilation
     let mut last_hash = get_file_hash(&path);
-    on_compile(compile::compile_file(&path));
+    let (res, report) = compile::compile_file(&path, stats);
+    on_compile(res, report.as_ref());
     println!("--- Watching {} for changes ---", path.display());
 
     for res in rx {
@@ -45,7 +47,8 @@ pub fn watch_file(
                     if current_hash != last_hash {
                         last_hash = current_hash;
                         println!("\n--- Input changed, Re-compiling ---");
-                        on_compile(compile::compile_file(&path));
+                        let (res, report) = compile::compile_file(&path, stats);
+                        on_compile(res, report.as_ref());
                     }
                 }
             }

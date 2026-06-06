@@ -35,11 +35,31 @@ vexor compile hello.vx hello.svg
 
 ## The CLI
 
-| Command | Description |
-|---------|-------------|
-| `vexor compile <input> <output>` | Compile a `.vx` file to SVG. |
-| `vexor watch <input> <output>` | Recompile automatically when the source changes. |
-| `vexor gui <input>` | Open a live preview window. |
+| Command                          | Description                                      |
+| -------------------------------- | ------------------------------------------------ |
+| `vexor compile <input> <output>` | Compile a `.vx` file to SVG.                     |
+| `vexor watch <input> <output>`   | Recompile automatically when the source changes. |
+| `vexor gui <input>`              | Open a live preview window.                      |
+
+### Benchmarking
+
+Pass `--stats` (or `-s`) to any command to print the time and memory used by
+each successful compile. In `watch` and `gui` the stats are reported on every
+recompile.
+
+```sh
+vexor compile hello.vx hello.svg --stats
+```
+
+```
+--- Compiled successfully ---
+  time:             2.341ms
+  allocations:      1204
+  bytes allocated:  512.3 KiB
+```
+
+> In `gui` mode the compile runs on a worker thread while the window renders on
+> the main thread, so the reported memory may be inflated by memory used by the GUI.
 
 ## The Canvas
 

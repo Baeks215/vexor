@@ -1,6 +1,12 @@
 use clap::{Parser, Subcommand};
+use stats_alloc::{INSTRUMENTED_SYSTEM, StatsAlloc};
+use std::alloc::System;
 
 mod commands;
+
+/// Instrumented global allocator so `--stats` can measure compile memory usage.
+#[global_allocator]
+static GLOBAL: &StatsAlloc<System> = &INSTRUMENTED_SYSTEM;
 
 #[derive(Parser)]
 #[command(version, about = "CLI tool for vexor language", long_about = None)]

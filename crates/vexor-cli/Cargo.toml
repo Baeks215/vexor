@@ -17,3 +17,4 @@ eframe.workspace = true
 notify.workspace = true
 notify-debouncer-mini.workspace = true
 clap = { workspace = true, features = ["derive"] }
+stats_alloc.workspace = true

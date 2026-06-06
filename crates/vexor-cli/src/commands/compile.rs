@@ -1,3 +1,4 @@
+use crate::commands::bench;
 use clap::Args;
 use std::path::{Path, PathBuf};
 use vexor_compiler::SvgExport;
@@ -8,6 +9,9 @@ pub struct CompileArgs {
     pub input: PathBuf,
     /// Output path (file for single export, directory for multiple)
     pub output: PathBuf,
+    /// Print compile time and memory usage
+    #[arg(short, long)]
+    pub stats: bool,
 }
 
 pub fn run(args: CompileArgs) {
@@ -18,24 +22,42 @@ pub fn run(args: CompileArgs) {
 }
 
 pub fn compile_to_svg(args: CompileArgs) -> Result<(), String> {
-    let exports = compile_file(&args.input)?;
+    let (result, report) = compile_file(&args.input, args.stats);
+    let exports = result?;
     write_exports(&args.output, &exports)?;
     println!("--- Compiled successfully ---");
+    if let Some(report) = &report {
+        println!("{report}");
+    }
     Ok(())
 }
 
 /// Read `input` and compile it to SVG exports, formatting any error to a String.
-pub fn compile_file(input: &Path) -> Result<SvgExport, String> {
-    let source = std::fs::read_to_string(input)
-        .map_err(|e| format!("could not read '{}': {e}", input.display()))?;
+/// When `stats` is set the compile is measured and a [`bench::BenchReport`]
+/// returned; otherwise it runs directly with no timing or allocation tracking.
+pub fn compile_file(
+    input: &Path,
+    stats: bool,
+) -> (Result<SvgExport, String>, Option<bench::BenchReport>) {
+    let compile = || {
+        let source = std::fs::read_to_string(input)
+            .map_err(|e| format!("could not read '{}': {e}", input.display()))?;
 
-    vexor_compiler::compile_to_svg(&source).map_err(|e| {
-        format!(
-            "compilation failed for '{}':\n\n{}",
-            input.display(),
-            e.format_colored()
-        )
-    })
+        vexor_compiler::compile_to_svg(&source).map_err(|e| {
+            format!(
+                "compilation failed for '{}':\n\n{}",
+                input.display(),
+                e.format_colored()
+            )
+        })
+    };
+
+    if stats {
+        let (res, report) = bench::measure(compile);
+        (res, Some(report))
+    } else {
+        (compile(), None)
+    }
 }
 
 /// Write exports to `output`: a single export goes to the file path, multiple
