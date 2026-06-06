@@ -1,0 +1,22 @@
+-- List construction stress: big ranges, cons, concat, reverse, zip, enumerate.
+-- Exercises `List` (im_rc::Vector<Value>) building paths.
+
+val a = [1..4000]
+val b = [4000..1]
+
+val consed = 0 : 1 : 2 : a
+val joined = concat(a, b)
+val flipped = reverse(joined)
+
+val zipped = zip(a)(b)
+val tagged = enumerate(a)
+
+val s1 = sum(a)
+val s2 = sum(b)
+val l1 = len(consed)
+val l2 = len(flipped)
+val l3 = len(zipped)
+val l4 = len(tagged)
+
+export Circle((s1 + s2) // 1000000)
+export Circle((l1 + l2 + l3 + l4) // 1000)

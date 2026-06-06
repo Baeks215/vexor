@@ -1,0 +1,12 @@
+-- Deep recursion: stresses per-call `*return_expr.clone()` and per-call env alloc.
+
+fn fib(n) = if n < 2 { n } else { fib(n - 1) + fib(n - 2) }
+fn factorial(n) = if n <= 1 { 1 } else { n * factorial(n - 1) }
+
+-- Mutual recursion adds cross-scope lookups.
+fn is_even(n) = if n == 0 { 1 } else { is_odd(n - 1) }
+fn is_odd(n) = if n == 0 { 0 } else { is_even(n - 1) }
+
+export Circle(fib(24))
+export Circle(factorial(12))
+export Circle(is_even(300))
