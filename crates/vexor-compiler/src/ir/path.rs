@@ -4,7 +4,7 @@ use im_rc::Vector;
 use kurbo::{Affine, PathEl, Point};
 
 use crate::evaluator::EResult;
-use crate::exporter::fmt_num;
+use crate::exporter::write_point;
 use crate::ir::scene::{Graphic, GraphicType};
 
 /// A vector path, internally a persistent vector of path elements.
@@ -69,22 +69,38 @@ impl Path {
 
     /// Converts the path to an SVG path data string
     pub fn to_svg(&self, precision: usize) -> String {
-        let pt = |p: Point| format!("{},{}", fmt_num(p.x, precision), fmt_num(p.y, precision));
         let mut out = String::new();
         // Path data must start with a MoveTo, so prepend an origin one if missing.
         if !matches!(self.els.front(), Some(PathEl::MoveTo(_))) {
-            out.push_str(&format!("M{}", pt(Point::ORIGIN)));
+            out.push('M');
+            write_point(&mut out, Point::ORIGIN, precision);
         }
         for el in &self.els {
             if !out.is_empty() {
                 out.push(' ');
             }
             match *el {
-                PathEl::MoveTo(p) => out.push_str(&format!("M{}", pt(p))),
-                PathEl::LineTo(p) => out.push_str(&format!("L{}", pt(p))),
-                PathEl::QuadTo(p1, p2) => out.push_str(&format!("Q{} {}", pt(p1), pt(p2))),
+                PathEl::MoveTo(p) => {
+                    out.push('M');
+                    write_point(&mut out, p, precision);
+                }
+                PathEl::LineTo(p) => {
+                    out.push('L');
+                    write_point(&mut out, p, precision);
+                }
+                PathEl::QuadTo(p1, p2) => {
+                    out.push('Q');
+                    write_point(&mut out, p1, precision);
+                    out.push(' ');
+                    write_point(&mut out, p2, precision);
+                }
                 PathEl::CurveTo(p1, p2, p3) => {
-                    out.push_str(&format!("C{} {} {}", pt(p1), pt(p2), pt(p3)))
+                    out.push('C');
+                    write_point(&mut out, p1, precision);
+                    out.push(' ');
+                    write_point(&mut out, p2, precision);
+                    out.push(' ');
+                    write_point(&mut out, p3, precision);
                 }
                 PathEl::ClosePath => out.push('Z'),
             }
