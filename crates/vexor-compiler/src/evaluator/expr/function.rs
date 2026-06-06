@@ -1,6 +1,7 @@
 use itertools::Itertools;
 use kurbo::{Affine, Point};
 use std::cell::RefCell;
+use std::rc::Rc;
 
 use crate::evaluator::expr::list::List;
 use crate::evaluator::expr::{Evaluable, Value, eval, ty};
@@ -14,7 +15,11 @@ use crate::{Graphic, GraphicType};
 pub enum Callable {
     Std(ast::Std),
     StdLambda(StdLambda),
-    User { func: Function, closure_env: EnvRef },
+    User {
+        /// `Rc` so each call doesn't clone whole body.
+        func: Rc<Function>,
+        closure_env: EnvRef,
+    },
 }
 
 #[derive(Debug, Clone)]
@@ -565,7 +570,9 @@ fn eval_std_call<T: Evaluable>(
                 .into_iter()
                 .map(|child| ty::Graphic::expect(child))
                 .collect::<Result<Vec<_>, _>>()?;
-            Value::from(Graphic::new(GraphicType::Group { children }))
+            Value::from(Graphic::new(GraphicType::Group {
+                children: children.into(),
+            }))
         }
         Std::Line => {
             let (target_x, target_y) = unpack_2!(args)?;
@@ -959,14 +966,15 @@ fn eval_std_lambda<T: Evaluable>(
 /// Evaluates a function call expression.
 fn eval_user_call<T: Evaluable>(
     env: &EnvRef,
-    func: Function,
+    func: Rc<Function>,
     args: Vec<Value>,
 ) -> EResult<T::Output> {
+    // Borrow the definition out of the shared `Rc`; nothing here clones the body.
     let Function {
         params,
         where_scope,
         return_expr,
-    } = func;
+    } = &*func;
     // Ensure arguments have correct type
     if params.len() != args.len() {
         return Err(format!(
@@ -977,17 +985,18 @@ fn eval_user_call<T: Evaluable>(
         )
         .into());
     }
-    // Pair param name with arg values
-    let param_args: Vec<(String, Value)> = params.into_iter().zip(args).collect();
+    // Pair param name with arg values (leaf clone of the identifiers)
+    let param_args: Vec<(String, Value)> = params.iter().cloned().zip(args).collect();
 
     // Add arguments to env as values
     let call_env = env.new_scope_function(param_args);
 
-    // Evaluate "where" scope of values
+    // Evaluate "where" scope of values. Only non-empty for `where` functions; clones the
+    // small binding expressions, not the whole body.
     for (id, value) in where_scope {
-        call_env.set_var_lazy(id, value)?;
+        call_env.set_var_lazy(id.clone(), value.clone())?;
     }
 
     // Evaluate return expression as the overall expression type.
-    eval::<T>(&call_env, &return_expr)
+    eval::<T>(&call_env, return_expr)
 }

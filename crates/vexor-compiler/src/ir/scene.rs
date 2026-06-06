@@ -1,6 +1,7 @@
 //! High-level IR representing a scene. Common IR before render and file output.
 
 use kurbo::Affine;
+use std::rc::Rc;
 
 use crate::ir::Number;
 use crate::ir::path::Path;
@@ -68,12 +69,27 @@ impl Graphic {
 
 #[derive(Debug, Clone)]
 pub enum GraphicType {
-    Circle { radius: Number },
-    Ellipse { rx: Number, ry: Number },
-    Rect { width: Number, height: Number },
-    Text { content: String },
-    Path { path: Path },
-    Group { children: Vec<Graphic> },
+    Circle {
+        radius: Number,
+    },
+    Ellipse {
+        rx: Number,
+        ry: Number,
+    },
+    Rect {
+        width: Number,
+        height: Number,
+    },
+    Text {
+        content: String,
+    },
+    Path {
+        path: Path,
+    },
+    Group {
+        /// Use of `Rc` to prevent deep clones when reusing groups
+        children: Rc<[Graphic]>,
+    },
 }
 
 /// Presentation attributes of a graphic component (style + identity).

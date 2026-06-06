@@ -1,5 +1,7 @@
 //! Evaluator for expressions
 
+use std::rc::Rc;
+
 use crate::evaluator::expr::constants::get_constant;
 use crate::evaluator::{EResult, EnvExt, EnvRef, WithSpan};
 use crate::ir::ast::{Expr, Literal, SpanExpr};
@@ -38,7 +40,7 @@ pub fn eval<T: Evaluable>(env: &EnvRef, expr: &SpanExpr) -> EResult<T::Output> {
         }
         Expr::Function(func) => {
             T::expect(Value::from(Callable::User {
-                func: func.clone(),
+                func: Rc::new(func.clone()),
                 // Capture the current environment
                 closure_env: env.clone(), // Cloned reference
             }))

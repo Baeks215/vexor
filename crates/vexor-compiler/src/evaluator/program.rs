@@ -1,6 +1,7 @@
 //! Evaluator for program
 
 use itertools::Itertools;
+use std::rc::Rc;
 
 use crate::evaluator::expr::{Callable, Evaluable, eval};
 use crate::evaluator::{EResult, EnvExt, EnvRef, Value, WithSpan, ty};
@@ -30,7 +31,7 @@ pub fn eval_program(program: ast::Program) -> EResult<scene::Scene> {
                     });
                 }
                 let func = Callable::User {
-                    func,
+                    func: Rc::new(func),
                     closure_env: env.clone(), // Clone reference,
                 };
                 env.set_var(identifier, Value::from(func))

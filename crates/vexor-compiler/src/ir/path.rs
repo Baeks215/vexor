@@ -68,13 +68,13 @@ impl Path {
     }
 
     /// Converts the path to an SVG path data string
-    pub fn to_svg(mut self, precision: usize) -> String {
-        // Path data must start with a MoveTo, so prepend one if necessary.
-        if !matches!(self.els.front(), Some(PathEl::MoveTo(_))) {
-            self.els.push_front(PathEl::MoveTo(Point::ORIGIN));
-        }
+    pub fn to_svg(&self, precision: usize) -> String {
         let pt = |p: Point| format!("{},{}", fmt_num(p.x, precision), fmt_num(p.y, precision));
         let mut out = String::new();
+        // Path data must start with a MoveTo, so prepend an origin one if missing.
+        if !matches!(self.els.front(), Some(PathEl::MoveTo(_))) {
+            out.push_str(&format!("M{}", pt(Point::ORIGIN)));
+        }
         for el in &self.els {
             if !out.is_empty() {
                 out.push(' ');
