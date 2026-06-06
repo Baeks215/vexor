@@ -40,17 +40,71 @@ enum Thunk {
     Evaluated(Value),
 }
 
+/// Bindings of a single scope.
+#[derive(Debug, Clone)]
+enum Scope {
+    /// Top-level scope can hold many bindings, so it is hashed for O(1) lookup.
+    Global(HashMap<String, Thunk>),
+    /// Local scopes are often tiny (function params, `where` bindings), flat vector more optimal
+    Local(Vec<(String, Thunk)>),
+}
+
+impl Scope {
+    fn global() -> Self {
+        Scope::Global(HashMap::new())
+    }
+    fn local() -> Self {
+        Scope::Local(Vec::new())
+    }
+    /// Collects into a `Local` scope
+    fn collect_local<I: IntoIterator<Item = (String, Thunk)>>(iter: I) -> Self {
+        Scope::Local(iter.into_iter().collect())
+    }
+
+    /// Returns the thunk bound to `name` in this scope, if any.
+    fn get(&self, name: &str) -> Option<&Thunk> {
+        match self {
+            Scope::Global(m) => m.get(name),
+            Scope::Local(v) => v.iter().find(|(k, _)| k == name).map(|(_, t)| t),
+        }
+    }
+    /// Returns a mutable reference to the thunk bound to `name`, if any.
+    fn get_mut(&mut self, name: &str) -> Option<&mut Thunk> {
+        match self {
+            Scope::Global(m) => m.get_mut(name),
+            Scope::Local(v) => v.iter_mut().find(|(k, _)| k == name).map(|(_, t)| t),
+        }
+    }
+    /// Returns `true` if `name` is bound in this scope.
+    fn contains(&self, name: &str) -> bool {
+        match self {
+            Scope::Global(m) => m.contains_key(name),
+            Scope::Local(v) => v.iter().any(|(k, _)| k == name),
+        }
+    }
+    /// Adds a binding.
+    /// PRECONDITION: Caller must ensure `name` is not already present.
+    fn push(&mut self, name: String, thunk: Thunk) {
+        match self {
+            Scope::Global(m) => {
+                m.insert(name, thunk);
+            }
+            Scope::Local(v) => v.push((name, thunk)),
+        }
+    }
+}
+
 /// Environment: Stores variable bindings
 #[derive(Debug, Clone)]
 pub struct Env {
     /// Parent environment for nested scopes
     parent: Option<Rc<RefCell<Env>>>,
     /// Values in the current scope
-    scope: HashMap<String, Thunk>,
+    scope: Scope,
 }
 trait EnvExt {
-    /// Create an empty environment
-    fn empty() -> Self;
+    /// Create an empty top-level environment
+    fn top_level() -> Self;
     /// Create a child scope
     fn child_scope(&self) -> Self;
     /// Get a value, forces evaluation if stored as lazy expression
@@ -66,16 +120,16 @@ trait EnvExt {
 
 type EnvRef = Rc<RefCell<Env>>;
 impl EnvExt for EnvRef {
-    fn empty() -> Self {
+    fn top_level() -> Self {
         Rc::new(RefCell::new(Env {
             parent: None,
-            scope: HashMap::new(),
+            scope: Scope::global(),
         }))
     }
     fn child_scope(&self) -> Self {
         Rc::new(RefCell::new(Env {
             parent: Some(Rc::clone(self)),
-            scope: HashMap::new(),
+            scope: Scope::local(),
         }))
     }
     fn get_var(&self, name: &str) -> EResult<Value> {
@@ -107,7 +161,7 @@ impl EnvExt for EnvRef {
         // Need to evaluate the deferred expression
         let ast_expr = {
             let mut env = self.borrow_mut();
-            let thunk = env.scope.get_mut(name).unwrap(); // Must be Some from match above
+            let thunk = env.scope.get_mut(name).unwrap(); // Some from match above
             // Replace with evaluating to prevent circular dependencies
             let Thunk::Unevaluated(ast_expr) = std::mem::replace(thunk, Thunk::Evaluating) else {
                 // Must be unevaluated from match above
@@ -120,35 +174,37 @@ impl EnvExt for EnvRef {
         let val = expr::eval::<ty::Any>(self, &ast_expr)?;
         {
             let mut env = self.borrow_mut();
-            let thunk = env.scope.get_mut(name).unwrap(); // Must be Some from match above
+            let thunk = env.scope.get_mut(name).unwrap(); // Some from match above
             *thunk = Thunk::Evaluated(val.clone());
         }
         Ok(val)
     }
     fn set_var_lazy(&self, name: String, e: ast::SpanExpr) -> EResult<()> {
         let mut env = self.borrow_mut();
-        let old = env.scope.insert(name.clone(), Thunk::Unevaluated(e));
-        match old {
-            Some(_) => Err(format!("`{name}` already exists in scope").into()),
-            None => Ok(()),
+        if env.scope.contains(&name) {
+            return Err(format!("`{name}` already exists in scope").into());
         }
+        env.scope.push(name, Thunk::Unevaluated(e));
+        Ok(())
     }
     fn set_var(&self, name: String, value: Value) -> EResult<()> {
         let mut env = self.borrow_mut();
-        let old = env.scope.insert(name.clone(), Thunk::Evaluated(value));
-        match old {
-            Some(_) => Err(format!("`{name}` already exists in scope").into()),
-            None => Ok(()),
+        if env.scope.contains(&name) {
+            return Err(format!("`{name}` already exists in scope").into());
         }
+        env.scope.push(name, Thunk::Evaluated(value));
+        Ok(())
     }
     fn new_scope_function(&self, args: Vec<(String, Value)>) -> Self {
         let child = self.child_scope();
         {
-            // Borrow in scope, RAII ensures drop
+            // Borrow in scope, RAII ensures drop. Params are pre-validated unique, so the
+            // scope is built directly from the args in one allocation.
             let mut env = child.borrow_mut();
-            for (name, arg) in args {
-                env.scope.insert(name.clone(), Thunk::Evaluated(arg));
-            }
+            env.scope = Scope::collect_local(
+                args.into_iter()
+                    .map(|(name, arg)| (name, Thunk::Evaluated(arg))),
+            )
         }
         child
     }

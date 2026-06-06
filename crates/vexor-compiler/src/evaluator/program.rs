@@ -15,7 +15,7 @@ enum ExportExpr {
 
 /// Evaluates a program, returns the result of the last expression.
 pub fn eval_program(program: ast::Program) -> EResult<scene::Scene> {
-    let env = EnvRef::empty();
+    let env = EnvRef::top_level();
     let mut settings = scene::Settings::default();
     let ast::Program { units } = program;
 
