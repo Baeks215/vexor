@@ -988,6 +988,6 @@ fn eval_user_call<T: Evaluable>(
         call_env.set_var_lazy(id, value)?;
     }
 
-    // Evaluate return expression as the overall expression type
-    eval::<T>(&call_env, *return_expr.clone())
+    // Evaluate return expression as the overall expression type.
+    eval::<T>(&call_env, &return_expr)
 }

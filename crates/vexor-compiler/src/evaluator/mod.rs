@@ -105,24 +105,24 @@ impl EnvExt for EnvRef {
             // Env ref is dropped
         }
         // Need to evaluate the deferred expression
-        let e = {
+        let ast_expr = {
             let mut env = self.borrow_mut();
             let thunk = env.scope.get_mut(name).unwrap(); // Must be Some from match above
             // Replace with evaluating to prevent circular dependencies
-            let Thunk::Unevaluated(e) = std::mem::replace(thunk, Thunk::Evaluating) else {
+            let Thunk::Unevaluated(ast_expr) = std::mem::replace(thunk, Thunk::Evaluating) else {
                 // Must be unevaluated from match above
                 unreachable!()
             };
-            e
-
-            // Env ref is dropped
+            ast_expr
         };
 
-        // Evaluate and set in scope
-        let val = expr::eval::<ty::Any>(self, e.clone())?;
-        self.borrow_mut()
-            .scope
-            .insert(name.to_string(), Thunk::Evaluated(val.clone()));
+        // Evaluate and set in scope.
+        let val = expr::eval::<ty::Any>(self, &ast_expr)?;
+        {
+            let mut env = self.borrow_mut();
+            let thunk = env.scope.get_mut(name).unwrap(); // Must be Some from match above
+            *thunk = Thunk::Evaluated(val.clone());
+        }
         Ok(val)
     }
     fn set_var_lazy(&self, name: String, e: ast::SpanExpr) -> EResult<()> {
