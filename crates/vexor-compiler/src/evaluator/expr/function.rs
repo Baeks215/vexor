@@ -8,7 +8,7 @@ use crate::evaluator::expr::{Evaluable, Value, eval, ty};
 use crate::evaluator::{EError, EResult, EnvExt, EnvRef, to_usize};
 use crate::ir::ast::{self, Function, Std};
 use crate::ir::path::{Path, catmull_rom_path, close_path, transform_path};
-use crate::ir::{Ident, Number, scene};
+use crate::ir::{Number, scene};
 use crate::{Graphic, GraphicType};
 
 #[derive(Debug, Clone)]
@@ -986,10 +986,7 @@ fn eval_user_call<T: Evaluable>(
         .into());
     }
     // Pair param name with arg values
-    let param_args: Vec<(Ident, Value)> = params.iter().cloned().zip(args).collect();
-
-    // Add arguments to env as values
-    let call_env = env.new_scope_function(param_args);
+    let call_env = env.new_scope_function(params.iter().cloned().zip(args));
 
     // Evaluate "where" scope of values
     for (id, value) in where_scope {

@@ -118,7 +118,7 @@ trait EnvExt {
     fn set_var(&self, name: Ident, value: Value) -> EResult<()>;
     /// Create a new scope with the given values
     ///   Adds the arguments to the value scope
-    fn new_scope_function(&self, args: Vec<(Ident, Value)>) -> Self;
+    fn new_scope_function<I: IntoIterator<Item = (Ident, Value)>>(&self, args: I) -> Self;
 }
 
 type EnvRef = Rc<RefCell<Env>>;
@@ -198,7 +198,7 @@ impl EnvExt for EnvRef {
         env.scope.push(name, Thunk::Evaluated(value));
         Ok(())
     }
-    fn new_scope_function(&self, args: Vec<(Ident, Value)>) -> Self {
+    fn new_scope_function<I: IntoIterator<Item = (Ident, Value)>>(&self, args: I) -> Self {
         let child = self.child_scope();
         {
             // Borrow in scope, RAII ensures drop. Params are pre-validated unique, so the
