@@ -1,5 +1,7 @@
 //! Parser for expressions
 
+use std::rc::Rc;
+
 use winnow::ascii::{dec_int, float};
 use winnow::combinator::{
     Infix, Postfix, Prefix, alt, cut_err, dispatch, expression, fail, opt, peek, preceded,
@@ -182,7 +184,7 @@ fn p_tuple_or_bracketed<'a>(input: &mut Input<'a>) -> ModalResult<ast::Expr> {
 /// Parses an atom (returns a `Spanned<Expr>`).
 pub fn p_atom<'a>(input: &mut Input<'a>) -> ModalResult<ast::SpanExpr> {
     spanned(alt((
-        p_lambda.map(ast::Expr::Function),
+        p_lambda.map(|f| ast::Expr::Function(Rc::new(f))),
         p_tuple_or_bracketed,
         p_literal.map(ast::Expr::Literal),
         p_if,

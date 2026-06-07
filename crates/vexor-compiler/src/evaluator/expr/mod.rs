@@ -38,7 +38,7 @@ pub fn eval<T: Evaluable>(env: &EnvRef, expr: &SpanExpr) -> EResult<T::Output> {
         }
         Expr::Function(func) => {
             T::expect(Value::from(Callable::User {
-                func: Rc::new(func.clone()),
+                func: Rc::clone(func),
                 // Capture the current environment
                 closure_env: env.clone(), // Cloned reference
             }))

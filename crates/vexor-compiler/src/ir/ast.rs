@@ -134,7 +134,7 @@ pub enum Expr {
         args: Vec<SpanExpr>,
     },
     /// Anonymous function
-    Function(Function),
+    Function(Rc<Function>),
     /// Standard Function Reference
     Std(Std),
     /// Constant

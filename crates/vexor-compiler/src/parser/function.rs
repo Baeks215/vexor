@@ -91,7 +91,7 @@ fn build_curried_function(
     // reuses the inner return span (no source position of its own).
     for params in curried_params.into_iter().rev() {
         let wrapped = Spanned {
-            node: ast::Expr::Function(acc_function),
+            node: ast::Expr::Function(Rc::new(acc_function)),
             span: acc_span.clone(),
         };
         acc_function = ast::Function {
