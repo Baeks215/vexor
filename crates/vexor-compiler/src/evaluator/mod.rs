@@ -20,13 +20,13 @@ pub type EResult<O> = Result<O, EError>;
 
 /// Inject a span on errors that carry the placeholder `0..0` span.
 pub trait WithSpan {
-    fn with_span_if_missing(self, span: Option<ast::Span>) -> Self;
+    fn with_span_if_missing(self, span: &Option<ast::Span>) -> Self;
 }
 impl<T> WithSpan for EResult<T> {
-    fn with_span_if_missing(self, span: Option<ast::Span>) -> Self {
+    fn with_span_if_missing(self, span: &Option<ast::Span>) -> Self {
         self.map_err(|mut e| {
             if e.span.is_none() {
-                e.span = span;
+                e.span = span.clone();
             }
             e
         })

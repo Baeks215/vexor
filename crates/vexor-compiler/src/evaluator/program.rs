@@ -21,13 +21,12 @@ pub fn eval_program(program: ast::Program) -> EResult<scene::Scene> {
 
     let mut export_exprs: Vec<ExportExpr> = vec![];
     for unit in units {
-        let unit_span = unit.span.clone();
         match unit.node {
             ast::ProgramUnit::Function { identifier, func } => {
                 if !func.params.iter().all_unique() {
                     return Err(ast::Spanned {
                         node: format!("function {identifier} has duplicate parameter names"),
-                        span: unit_span,
+                        span: unit.span.clone(),
                     });
                 }
                 let func = Callable::User {
@@ -35,11 +34,11 @@ pub fn eval_program(program: ast::Program) -> EResult<scene::Scene> {
                     closure_env: env.clone(), // Clone reference,
                 };
                 env.set_var(identifier, Value::from(func))
-                    .with_span_if_missing(unit_span)?;
+                    .with_span_if_missing(&unit.span)?;
             }
             ast::ProgramUnit::Assignment { identifier, value } => {
                 env.set_var_lazy(identifier, Rc::new(value))
-                    .with_span_if_missing(unit_span)?;
+                    .with_span_if_missing(&unit.span)?;
             }
             ast::ProgramUnit::Export(e) => {
                 export_exprs.push(ExportExpr::One(e));

@@ -24,17 +24,15 @@ use operator::{eval_op_bin, eval_op_un};
 pub fn eval<T: Evaluable>(env: &EnvRef, expr: &SpanExpr) -> EResult<T::Output> {
     let result: EResult<T::Output> = match &expr.node {
         Expr::Literal(literal) => eval_literal::<T>(env, literal),
-        Expr::Variable(name) => {
-            let value = env.get_var(name)?;
-            T::expect(value)
-        }
+        Expr::Variable(name) => env.get_var(name).and_then(T::expect),
         Expr::Const(c) => T::expect(get_constant(*c)),
         Expr::Call { function, args } => {
-            let function = eval::<ty::Callable>(env, function)?;
+            let function = eval::<ty::Callable>(env, function).with_span_if_missing(&expr.span)?;
             let args: Vec<Value> = args
                 .iter()
                 .map(|arg_expr| eval::<ty::Any>(env, arg_expr))
-                .collect::<Result<Vec<_>, _>>()?;
+                .collect::<Result<Vec<_>, _>>()
+                .with_span_if_missing(&expr.span)?;
 
             eval_call::<T, _>(env, function, args)
         }
@@ -68,7 +66,7 @@ pub fn eval<T: Evaluable>(env: &EnvRef, expr: &SpanExpr) -> EResult<T::Output> {
             }
         }
     };
-    result.with_span_if_missing(expr.span.clone())
+    result.with_span_if_missing(&expr.span)
 }
 
 /// Evaluates a literal expression

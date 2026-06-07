@@ -49,7 +49,7 @@ fn match_pattern(env: &EnvRef, scrutinee: Value, pattern: &SpanExpr) -> EResult<
         Expr::Const(c) => match_const(scrutinee, *c),
         _ => Err("pattern not supported".into()),
     })
-    .with_span_if_missing(pattern.span.clone())
+    .with_span_if_missing(&pattern.span)
 }
 
 /// Matches an evaluated value to a literal expression pattern.
