@@ -1,5 +1,6 @@
 //! Evaluator: Typed AST -> Scene
 
+use smallvec::SmallVec;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -40,13 +41,16 @@ enum Thunk {
     Evaluated(Value),
 }
 
+/// Inline binding storage for a local scope.
+type LocalBindings = SmallVec<[(Ident, Thunk); 2]>;
+
 /// Bindings of a single scope.
 #[derive(Debug, Clone)]
 enum Scope {
     /// Top-level scope can hold many bindings, so it is hashed for O(1) lookup.
     Global(HashMap<Ident, Thunk>),
     /// Local scopes are often tiny (function params, `where` bindings), flat vector more optimal
-    Local(Vec<(Ident, Thunk)>),
+    Local(LocalBindings),
 }
 
 impl Scope {
@@ -54,7 +58,7 @@ impl Scope {
         Scope::Global(HashMap::new())
     }
     fn local() -> Self {
-        Scope::Local(Vec::new())
+        Scope::Local(LocalBindings::new())
     }
     /// Collects into a `Local` scope
     fn collect_local<I: IntoIterator<Item = (Ident, Thunk)>>(iter: I) -> Self {

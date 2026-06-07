@@ -3846,6 +3846,7 @@ dependencies = [
  "im-rc",
  "itertools",
  "kurbo 0.13.0",
+ "smallvec",
  "svg",
  "winnow",
 ]

@@ -1,5 +1,6 @@
 //! Evaluator for expressions
 
+use smallvec::SmallVec;
 use std::rc::Rc;
 
 use crate::evaluator::expr::constants::get_constant;
@@ -28,10 +29,11 @@ pub fn eval<T: Evaluable>(env: &EnvRef, expr: &SpanExpr) -> EResult<T::Output> {
         Expr::Const(c) => T::expect(get_constant(*c)),
         Expr::Call { function, args } => {
             let function = eval::<ty::Callable>(env, function).with_span_if_missing(&expr.span)?;
-            let args: Vec<Value> = args
+            // Inline storage for the common 1-arg case (currying), grows to heap if needed
+            let args: SmallVec<[Value; 1]> = args
                 .iter()
                 .map(|arg_expr| eval::<ty::Any>(env, arg_expr))
-                .collect::<Result<Vec<_>, _>>()
+                .collect::<Result<_, _>>()
                 .with_span_if_missing(&expr.span)?;
 
             eval_call::<T, _>(env, function, args)
