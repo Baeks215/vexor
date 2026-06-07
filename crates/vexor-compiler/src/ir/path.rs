@@ -2,6 +2,7 @@
 
 use im_rc::Vector;
 use kurbo::{Affine, PathEl, Point};
+use std::rc::Rc;
 
 use crate::evaluator::EResult;
 use crate::exporter::write_point;
@@ -119,22 +120,16 @@ impl IntoIterator for Path {
 }
 
 /// Applies an in-place transformation to the path of the graphic component, if it is a path.
-pub fn transform_path(g: Graphic, f: impl FnOnce(&mut Path) -> EResult<()>) -> EResult<Graphic> {
-    let Graphic {
-        ty,
-        attrs,
-        transform,
-    } = g;
-    let mut path = match ty {
-        GraphicType::Path { path } => path,
-        _ => return Err("expected a path".into()),
+pub fn transform_path(
+    mut g: Rc<Graphic>,
+    f: impl FnOnce(&mut Path) -> EResult<()>,
+) -> EResult<Rc<Graphic>> {
+    // Mutates if sole owner, clones otherwise
+    let GraphicType::Path { path } = &mut Rc::make_mut(&mut g).ty else {
+        return Err("expected a path".into());
     };
-    f(&mut path)?;
-    Ok(Graphic {
-        ty: GraphicType::Path { path },
-        attrs,
-        transform,
-    })
+    f(path)?;
+    Ok(g)
 }
 
 /// Closes a path.

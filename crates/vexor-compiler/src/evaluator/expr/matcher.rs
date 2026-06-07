@@ -121,45 +121,27 @@ fn match_std(scrutinee: Value, std: Std) -> EResult<bool> {
     match std {
         Std::Circle => Ok(matches!(
             scrutinee,
-            Value::Graphic(scene::Graphic {
-                ty: scene::GraphicType::Circle { .. },
-                ..
-            })
+            Value::Graphic(g) if matches!(g.ty, scene::GraphicType::Circle { .. })
         )),
         Std::Ellipse => Ok(matches!(
             scrutinee,
-            Value::Graphic(scene::Graphic {
-                ty: scene::GraphicType::Ellipse { .. },
-                ..
-            })
+            Value::Graphic(g) if matches!(g.ty, scene::GraphicType::Ellipse { .. })
         )),
         Std::Rect => Ok(matches!(
             scrutinee,
-            Value::Graphic(scene::Graphic {
-                ty: scene::GraphicType::Rect { .. },
-                ..
-            })
+            Value::Graphic(g) if matches!(g.ty, scene::GraphicType::Rect { .. })
         )),
         Std::Text => Ok(matches!(
             scrutinee,
-            Value::Graphic(scene::Graphic {
-                ty: scene::GraphicType::Text { .. },
-                ..
-            })
+            Value::Graphic(g) if matches!(g.ty, scene::GraphicType::Text { .. })
         )),
         Std::Group => Ok(matches!(
             scrutinee,
-            Value::Graphic(scene::Graphic {
-                ty: scene::GraphicType::Group { .. },
-                ..
-            })
+            Value::Graphic(g) if matches!(g.ty, scene::GraphicType::Group { .. })
         )),
         Std::Path => Ok(matches!(
             scrutinee,
-            Value::Graphic(scene::Graphic {
-                ty: scene::GraphicType::Path { .. },
-                ..
-            })
+            Value::Graphic(g) if matches!(g.ty, scene::GraphicType::Path { .. })
         )),
         _ => Err("pattern not supported".into()),
     }

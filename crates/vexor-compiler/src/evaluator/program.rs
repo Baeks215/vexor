@@ -58,13 +58,13 @@ pub fn eval_program(program: ast::Program) -> EResult<scene::Scene> {
         match e {
             ExportExpr::One(e) => {
                 let g = eval::<ty::Graphic>(&env, &e)?;
-                exports.push(g);
+                exports.push(Rc::unwrap_or_clone(g));
             }
             ExportExpr::Each(es) => {
                 let l = eval::<ty::List>(&env, &es)?;
                 for v in l.into_iter() {
                     let g = ty::Graphic::expect(v)?;
-                    exports.push(g);
+                    exports.push(Rc::unwrap_or_clone(g));
                 }
             }
         }

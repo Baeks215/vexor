@@ -571,7 +571,7 @@ where
             let child_list = ty::List::expect(children)?;
             let children = child_list
                 .into_iter()
-                .map(|child| ty::Graphic::expect(child))
+                .map(ty::Graphic::expect)
                 .collect::<Result<Vec<_>, _>>()?;
             Value::from(Graphic::new(GraphicType::Group {
                 children: children.into(),
@@ -597,12 +597,12 @@ where
         }
         Std::Path => {
             let list = ty::List::expect(unpack_1!(args)?)?;
-            let mut g = Graphic::new(GraphicType::Path { path: Path::new() });
+            let mut g = Rc::new(Graphic::new(GraphicType::Path { path: Path::new() }));
             for item in list {
                 let callable = ty::Callable::expect(item)?;
-                g = eval_call::<ty::Graphic, _>(env, callable, [Value::from(g)])?;
+                g = eval_call::<ty::Graphic, _>(env, callable, [Value::Graphic(g)])?;
             }
-            Value::from(g)
+            Value::Graphic(g)
         }
         Std::Sample => {
             let (times, f) = unpack_2!(args)?;

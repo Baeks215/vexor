@@ -1,3 +1,5 @@
+use std::rc::Rc;
+
 use crate::evaluator::expr::{Evaluable, Value, eval, ty};
 use crate::evaluator::{EResult, EnvRef};
 use crate::ir::ast::{SpanExpr, op};
@@ -20,7 +22,7 @@ pub fn eval_op_bin<T: Evaluable>(
                     let Graphic {
                         ty: GraphicType::Path { path: r },
                         ..
-                    } = r
+                    } = Rc::unwrap_or_clone(r)
                     else {
                         return Err("+ expected two paths".into());
                     };

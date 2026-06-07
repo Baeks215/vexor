@@ -43,25 +43,26 @@ impl Graphic {
     }
 
     /// Applies a geometric transformation to the graphic component.
-    pub fn transform(self, transform: Affine) -> Self {
-        Self {
-            transform: transform * self.transform,
-            ..self
-        }
+    pub fn transform(self: Rc<Self>, transform: Affine) -> Rc<Self> {
+        let mut g = self;
+        let m = Rc::make_mut(&mut g);
+        m.transform = transform * m.transform;
+        g
     }
 
     /// Applies a transformation in the graphic's local space.
-    pub fn transform_local(self, transform: Affine) -> Self {
-        Self {
-            transform: self.transform * transform,
-            ..self
-        }
+    pub fn transform_local(self: Rc<Self>, transform: Affine) -> Rc<Self> {
+        let mut g = self;
+        let m = Rc::make_mut(&mut g);
+        m.transform = m.transform * transform;
+        g
     }
 
     /// Appends an attribute. Later attributes of the same kind win at render time.
-    pub fn with_attr(mut self, attr: Attr) -> Self {
-        self.attrs.push(attr);
-        self
+    pub fn with_attr(self: Rc<Self>, attr: Attr) -> Rc<Self> {
+        let mut g = self;
+        Rc::make_mut(&mut g).attrs.push(attr);
+        g
     }
 }
 
@@ -85,8 +86,8 @@ pub enum GraphicType {
         path: Path,
     },
     Group {
-        /// Use of `Rc` to prevent deep clones when reusing groups
-        children: Rc<[Graphic]>,
+        // Outer `Rc` shares the group; inner `Rc<Graphic>` shares each child graphic
+        children: Rc<[Rc<Graphic>]>,
     },
 }
 
