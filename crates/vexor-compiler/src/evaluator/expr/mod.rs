@@ -36,7 +36,7 @@ pub fn eval<T: Evaluable>(env: &EnvRef, expr: &SpanExpr) -> EResult<T::Output> {
                 .map(|arg_expr| eval::<ty::Any>(env, arg_expr))
                 .collect::<Result<Vec<_>, _>>()?;
 
-            eval_call::<T>(env, function, args)
+            eval_call::<T, _>(env, function, args)
         }
         Expr::Function(func) => {
             T::expect(Value::from(Callable::User {

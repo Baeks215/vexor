@@ -132,15 +132,15 @@ impl From<StdLambda> for Value {
 }
 
 /// Evaluates a function call expression.
-pub fn eval_call<T: Evaluable>(
-    env: &EnvRef,
-    func: Callable,
-    args: Vec<Value>,
-) -> EResult<T::Output> {
+pub fn eval_call<T: Evaluable, A>(env: &EnvRef, func: Callable, args: A) -> EResult<T::Output>
+where
+    A: IntoIterator<Item = Value>,
+    A::IntoIter: ExactSizeIterator,
+{
     match func {
-        Callable::Std(func) => eval_std_call::<T>(env, func, args),
-        Callable::StdLambda(func) => eval_std_lambda::<T>(env, func, args),
-        Callable::User { func, closure_env } => eval_user_call::<T>(&closure_env, func, args),
+        Callable::Std(func) => eval_std_call::<T, _>(env, func, args),
+        Callable::StdLambda(func) => eval_std_lambda::<T, _>(env, func, args),
+        Callable::User { func, closure_env } => eval_user_call::<T, _>(&closure_env, func, args),
     }
 }
 
@@ -196,11 +196,14 @@ fn tuple_to_point(v: Value) -> EResult<Point> {
 }
 
 /// Evaluates a standard function call.
-fn eval_std_call<T: Evaluable>(
+fn eval_std_call<T: Evaluable, A>(
     env: &EnvRef,
     function: Std,
-    args: Vec<Value>,
-) -> EResult<<T as Evaluable>::Output> {
+    args: A,
+) -> EResult<<T as Evaluable>::Output>
+where
+    A: IntoIterator<Item = Value>,
+{
     let result = match function {
         // Trig
         Std::Rad => {
@@ -597,7 +600,7 @@ fn eval_std_call<T: Evaluable>(
             let mut g = Graphic::new(GraphicType::Path { path: Path::new() });
             for item in list {
                 let callable = ty::Callable::expect(item)?;
-                g = eval_call::<ty::Graphic>(env, callable, vec![Value::from(g)])?;
+                g = eval_call::<ty::Graphic, _>(env, callable, [Value::from(g)])?;
             }
             Value::from(g)
         }
@@ -607,7 +610,7 @@ fn eval_std_call<T: Evaluable>(
             let f = ty::Callable::expect(f)?;
             let pts: Vec<Point> = times
                 .into_iter()
-                .map(|t| tuple_to_point(eval_call::<ty::Any>(env, f.clone(), vec![t])?))
+                .map(|t| tuple_to_point(eval_call::<ty::Any, _>(env, f.clone(), [t])?))
                 .collect::<Result<_, _>>()?;
             if pts.len() < 2 {
                 return Err("sample requires at least 2 points".into());
@@ -710,11 +713,14 @@ fn eval_std_call<T: Evaluable>(
 }
 
 /// Evaluates a standard lambda call.
-fn eval_std_lambda<T: Evaluable>(
+fn eval_std_lambda<T: Evaluable, A>(
     env: &EnvRef,
     function: StdLambda,
-    args: Vec<Value>,
-) -> EResult<<T as Evaluable>::Output> {
+    args: A,
+) -> EResult<<T as Evaluable>::Output>
+where
+    A: IntoIterator<Item = Value>,
+{
     let result = match function {
         StdLambda::JumpTo { x, y } => {
             let g = ty::Graphic::expect(unpack_1!(args)?)?;
@@ -742,7 +748,7 @@ fn eval_std_lambda<T: Evaluable>(
             let list = ty::List::expect(unpack_1!(args)?)?;
             let values = list
                 .into_iter()
-                .map(|item| eval_call::<ty::Any>(env, func.clone(), vec![item]))
+                .map(|item| eval_call::<ty::Any, _>(env, func.clone(), [item]))
                 .collect::<Result<List, _>>()?;
             Value::List(values)
         }
@@ -751,7 +757,7 @@ fn eval_std_lambda<T: Evaluable>(
             let list = ty::List::expect(unpack_1!(args)?)?;
             let mut out = List::new();
             for item in list {
-                if eval_call::<ty::Bool>(env, func.clone(), vec![item.clone()])? {
+                if eval_call::<ty::Bool, _>(env, func.clone(), [item.clone()])? {
                     out.push_back(item);
                 }
             }
@@ -762,7 +768,7 @@ fn eval_std_lambda<T: Evaluable>(
             let list = ty::List::expect(unpack_1!(args)?)?;
             let mut out = List::new();
             for item in list {
-                let sub = eval_call::<ty::List>(env, func.clone(), vec![item])?;
+                let sub = eval_call::<ty::List, _>(env, func.clone(), [item])?;
                 out.append(sub);
             }
             Value::List(out)
@@ -773,7 +779,7 @@ fn eval_std_lambda<T: Evaluable>(
             let list = ty::List::expect(unpack_1!(args)?)?;
             let mut out = List::new();
             for item in list {
-                if eval_call::<ty::Bool>(env, func.clone(), vec![item.clone()])? {
+                if eval_call::<ty::Bool, _>(env, func.clone(), [item.clone()])? {
                     out.push_back(item);
                     break;
                 }
@@ -807,7 +813,7 @@ fn eval_std_lambda<T: Evaluable>(
             let list = ty::List::expect(unpack_1!(args)?)?;
             let mut i = 0;
             for item in list.iter() {
-                if eval_call::<ty::Bool>(env, func.clone(), vec![item.clone()])? {
+                if eval_call::<ty::Bool, _>(env, func.clone(), [item.clone()])? {
                     i += 1;
                 } else {
                     break;
@@ -821,7 +827,7 @@ fn eval_std_lambda<T: Evaluable>(
             let list = ty::List::expect(unpack_1!(args)?)?;
             let mut i = 0;
             for item in list.iter() {
-                if eval_call::<ty::Bool>(env, func.clone(), vec![item.clone()])? {
+                if eval_call::<ty::Bool, _>(env, func.clone(), [item.clone()])? {
                     i += 1;
                 } else {
                     break;
@@ -849,7 +855,7 @@ fn eval_std_lambda<T: Evaluable>(
             let result = xs
                 .into_iter()
                 .zip(ys)
-                .map(|(a, b)| eval_call::<ty::Any>(env, func.clone(), vec![a, b]))
+                .map(|(a, b)| eval_call::<ty::Any, _>(env, func.clone(), [a, b]))
                 .collect::<Result<List, _>>()?;
             Value::List(result)
         }
@@ -862,7 +868,7 @@ fn eval_std_lambda<T: Evaluable>(
             let list = ty::List::expect(unpack_1!(args)?)?;
             let mut acc = *init;
             for item in list {
-                acc = eval_call::<ty::Any>(env, func.clone(), vec![acc, item])?;
+                acc = eval_call::<ty::Any, _>(env, func.clone(), [acc, item])?;
             }
             acc
         }
@@ -875,7 +881,7 @@ fn eval_std_lambda<T: Evaluable>(
             let list = ty::List::expect(unpack_1!(args)?)?;
             let mut acc = *init;
             for item in list.into_iter().rev() {
-                acc = eval_call::<ty::Any>(env, func.clone(), vec![item, acc])?;
+                acc = eval_call::<ty::Any, _>(env, func.clone(), [item, acc])?;
             }
             acc
         }
@@ -890,10 +896,10 @@ fn eval_std_lambda<T: Evaluable>(
                     // Stop sorting
                     return std::cmp::Ordering::Equal;
                 }
-                match eval_call::<ty::Bool>(env, func.clone(), vec![a.clone(), b.clone()]) {
+                match eval_call::<ty::Bool, _>(env, func.clone(), [a.clone(), b.clone()]) {
                     Ok(true) => std::cmp::Ordering::Less,
                     Ok(false) => {
-                        match eval_call::<ty::Bool>(env, func.clone(), vec![b.clone(), a.clone()]) {
+                        match eval_call::<ty::Bool, _>(env, func.clone(), [b.clone(), a.clone()]) {
                             Ok(true) => std::cmp::Ordering::Greater,
                             Ok(false) => std::cmp::Ordering::Equal,
                             Err(e) => {
@@ -964,17 +970,18 @@ fn eval_std_lambda<T: Evaluable>(
 }
 
 /// Evaluates a function call expression.
-fn eval_user_call<T: Evaluable>(
-    env: &EnvRef,
-    func: Rc<Function>,
-    args: Vec<Value>,
-) -> EResult<T::Output> {
+fn eval_user_call<T: Evaluable, A>(env: &EnvRef, func: Rc<Function>, args: A) -> EResult<T::Output>
+where
+    A: IntoIterator<Item = Value>,
+    A::IntoIter: ExactSizeIterator,
+{
     // Borrow the definition out of the shared `Rc`; nothing here clones the body.
     let Function {
         params,
         where_scope,
         return_expr,
     } = &*func;
+    let args = args.into_iter();
     // Ensure arguments have correct type
     if params.len() != args.len() {
         return Err(format!(
