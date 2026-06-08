@@ -68,22 +68,35 @@ pub fn watch_file(
 fn is_save_event(event: &Event, target: &Path) -> bool {
     use notify::event::{AccessKind, AccessMode, ModifyKind, RenameMode};
 
+    // Watching parent dir, ignore sibling files.
     if !event.paths.iter().any(|p| p == target) {
         return false;
     }
+
+    // Different editors and OSes have different save patterns
     match event.kind {
-        // Streaming writers (VS Code, nano) on Linux/macOS: one event on close.
-        EventKind::Access(AccessKind::Close(AccessMode::Write)) => true,
-        // Atomic savers (Vim, Neovim, Sublime): temp file renamed over target.
+        // Atomic save: editors like Vim, Neovim and
+        // Writes a temp file and rename it over the target.
         EventKind::Modify(ModifyKind::Name(RenameMode::To | RenameMode::Both)) => true,
-        // Windows emits no Close(Write); it streams Modify(Data) while writing.
-        // Read+write open to probe file-lock guard, succeeds if write is done.
-        EventKind::Modify(ModifyKind::Data(_)) if cfg!(target_os = "windows") => {
-            std::fs::OpenOptions::new()
-                .read(true)
-                .write(true)
-                .open(target)
-                .is_ok()
+
+        // Linux close handle after write
+        EventKind::Access(AccessKind::Close(AccessMode::Write)) => true,
+
+        // Streaming writes as data blocks are flushed
+        EventKind::Modify(ModifyKind::Data(_)) => {
+            if cfg!(target_os = "windows") {
+                // Test for read access, as completed writes stop blocking.
+                // Filters out intermediate flushes
+                std::fs::File::open(target).is_ok()
+            } else if cfg!(target_os = "macos") {
+                // FSEvents automatically coalesces events over a time window, so it self-debounces.
+                // Safe to accept the change immediately
+                true
+            } else {
+                // Linux: completed writes trigger a Close(Write).
+                // Data events are mid-write noise, ignore
+                false
+            }
         }
         _ => false,
     }
