@@ -39,11 +39,27 @@ pub fn compile_file(
     input: &Path,
     stats: bool,
 ) -> (Result<SvgExport, String>, Option<bench::BenchReport>) {
-    let compile = || {
-        let source = std::fs::read_to_string(input)
-            .map_err(|e| format!("could not read '{}': {e}", input.display()))?;
+    let source = match std::fs::read_to_string(input) {
+        Ok(s) => s,
+        Err(e) => {
+            return (
+                Err(format!("could not read '{}': {e}", input.display())),
+                None,
+            );
+        }
+    };
+    compile_source(input, &source, stats)
+}
 
-        vexor_compiler::compile_to_svg(&source).map_err(|e| {
+/// Compile already-read `source`.
+///   `input` is used only to label errors.
+pub fn compile_source(
+    input: &Path,
+    source: &str,
+    stats: bool,
+) -> (Result<SvgExport, String>, Option<bench::BenchReport>) {
+    let compile = || {
+        vexor_compiler::compile_to_svg(source).map_err(|e| {
             format!(
                 "compilation failed for '{}':\n\n{}",
                 input.display(),
