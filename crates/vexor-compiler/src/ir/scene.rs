@@ -1,6 +1,7 @@
 //! High-level IR representing a scene. Common IR before render and file output.
 
 use kurbo::Affine;
+use std::rc::Rc;
 
 use crate::ir::Number;
 use crate::ir::path::Path;
@@ -28,126 +29,79 @@ pub enum Color {
 #[derive(Debug, Clone)]
 pub struct Graphic {
     pub ty: GraphicType,
-    pub attr: Attr,
+    pub attrs: Vec<Attr>,
     pub transform: Affine,
 }
 impl Graphic {
-    /// Creates a new graphic component with default attributes.
+    /// Creates a new graphic component with no attributes.
     pub fn new(ty: GraphicType) -> Self {
         Self {
             ty,
-            attr: Attr::default(),
+            attrs: vec![],
             transform: Affine::default(),
         }
     }
 
     /// Applies a geometric transformation to the graphic component.
-    pub fn transform(self, transform: Affine) -> Self {
-        Self {
-            transform: transform * self.transform,
-            ..self
-        }
+    pub fn transform(self: Rc<Self>, transform: Affine) -> Rc<Self> {
+        let mut g = self;
+        let m = Rc::make_mut(&mut g);
+        m.transform = transform * m.transform;
+        g
     }
 
     /// Applies a transformation in the graphic's local space.
-    pub fn transform_local(self, transform: Affine) -> Self {
-        Self {
-            transform: self.transform * transform,
-            ..self
-        }
+    pub fn transform_local(self: Rc<Self>, transform: Affine) -> Rc<Self> {
+        let mut g = self;
+        let m = Rc::make_mut(&mut g);
+        m.transform = m.transform * transform;
+        g
     }
 
-    /// Applies a transformation to the attributes of the graphic component.
-    pub fn transform_attr(self, f: impl FnOnce(Attr) -> Attr) -> Self {
-        Self {
-            attr: f(self.attr),
-            ..self
-        }
+    /// Appends an attribute. Later attributes of the same kind win at render time.
+    pub fn with_attr(self: Rc<Self>, attr: Attr) -> Rc<Self> {
+        let mut g = self;
+        Rc::make_mut(&mut g).attrs.push(attr);
+        g
     }
 }
 
 #[derive(Debug, Clone)]
 pub enum GraphicType {
-    Circle { radius: Number },
-    Ellipse { rx: Number, ry: Number },
-    Rect { width: Number, height: Number },
-    Text { content: String },
-    Path { path: Path },
-    Group { children: Vec<Graphic> },
+    Circle {
+        radius: Number,
+    },
+    Ellipse {
+        rx: Number,
+        ry: Number,
+    },
+    Rect {
+        width: Number,
+        height: Number,
+    },
+    Text {
+        content: String,
+    },
+    Path {
+        path: Path,
+    },
+    Group {
+        // Outer `Rc` shares the group; inner `Rc<Graphic>` shares each child graphic
+        children: Rc<[Rc<Graphic>]>,
+    },
 }
 
-/// Presentation attributes of a graphic component (style + identity).
+/// A single attribute of a graphic component (style or identity).
 #[derive(Debug, Clone)]
-pub struct Attr {
-    pub fill: Option<Color>,
-    pub stroke_color: Option<Color>,
-    pub stroke_width: Option<Number>,
-    pub stroke_join: Option<StrokeJoin>,
-    pub stroke_cap: Option<StrokeCap>,
-    pub opacity: Option<Number>,
-    /// Optional SVG `id` attribute.
-    pub id: Option<String>,
-}
-impl Attr {
-    pub fn with_fill(self, fill: Color) -> Self {
-        Self {
-            fill: Some(fill),
-            ..self
-        }
-    }
-    pub fn with_stroke_color(self, color: Color) -> Self {
-        Self {
-            stroke_color: Some(color),
-            ..self
-        }
-    }
-    pub fn with_stroke_width(self, width: Number) -> Self {
-        Self {
-            stroke_width: Some(width),
-            ..self
-        }
-    }
-    pub fn with_stroke_join(self, join: StrokeJoin) -> Self {
-        Self {
-            stroke_join: Some(join),
-            ..self
-        }
-    }
-    pub fn with_stroke_cap(self, cap: StrokeCap) -> Self {
-        Self {
-            stroke_cap: Some(cap),
-            ..self
-        }
-    }
-    pub fn with_opacity(self, opacity: Number) -> Self {
-        Self {
-            opacity: Some(opacity),
-            ..self
-        }
-    }
-    pub fn with_id(self, id: String) -> Self {
-        Self {
-            id: Some(id),
-            ..self
-        }
-    }
-}
-impl Default for Attr {
-    fn default() -> Self {
-        Self {
-            // No explicit fill; SVG defaults to black.
-            fill: None,
-            // No stroke
-            stroke_color: None,
-            stroke_width: None,
-            stroke_join: None,
-            stroke_cap: None,
-            // Fully opaque
-            opacity: None,
-            // No id
-            id: None,
-        }
-    }
+pub enum Attr {
+    Fill(Color),
+    StrokeColor(Color),
+    StrokeWidth(Number),
+    StrokeJoin(StrokeJoin),
+    StrokeCap(StrokeCap),
+    Opacity(Number),
+    /// SVG `id` attribute.
+    Id(String),
 }
 
 /// Stroke line join style.

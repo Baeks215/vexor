@@ -1,0 +1,14 @@
+-- Large list through chained map/filter/foldl with lambdas.
+-- Stresses per-element `Callable::clone()` in the higher-order builtins.
+
+val xs = [1..5000]
+
+val doubled = map(x -> x * 2)(xs)
+val evens = filter(x -> x % 2 == 0)(doubled)
+val total = foldl((acc, x) -> acc + x)(0)(evens)
+
+val mapped2 = map(x -> x + 1)(map(x -> x * 3)(xs))
+val total2 = foldl((acc, x) -> acc + x)(0)(mapped2)
+
+export Circle(total // 100000)
+export Circle(total2 // 100000)

@@ -1,3 +1,5 @@
+use std::rc::Rc;
+
 use crate::evaluator::expr::{Evaluable, Value, eval, ty};
 use crate::evaluator::{EResult, EnvRef};
 use crate::ir::ast::{SpanExpr, op};
@@ -8,8 +10,8 @@ use crate::ir::scene::{Graphic, GraphicType};
 pub fn eval_op_bin<T: Evaluable>(
     env: &EnvRef,
     operator: op::Binary,
-    left: SpanExpr,
-    right: SpanExpr,
+    left: &SpanExpr,
+    right: &SpanExpr,
 ) -> EResult<T::Output> {
     let result = match operator {
         op::Binary::Arithmetic(operator) => {
@@ -20,7 +22,7 @@ pub fn eval_op_bin<T: Evaluable>(
                     let Graphic {
                         ty: GraphicType::Path { path: r },
                         ..
-                    } = r
+                    } = Rc::unwrap_or_clone(r)
                     else {
                         return Err("+ expected two paths".into());
                     };
@@ -72,7 +74,7 @@ pub fn eval_op_bin<T: Evaluable>(
 pub fn eval_op_un<T: Evaluable>(
     env: &EnvRef,
     operator: op::Unary,
-    expr: SpanExpr,
+    expr: &SpanExpr,
 ) -> EResult<T::Output> {
     let result = match operator {
         op::Unary::Not => {

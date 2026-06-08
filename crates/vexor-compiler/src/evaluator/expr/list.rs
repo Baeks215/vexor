@@ -11,20 +11,21 @@ pub type List = Vector<Value>;
 
 pub fn eval_literal(
     env: &EnvRef,
-    literal: ListLiteral,
+    literal: &ListLiteral,
 ) -> EResult<<ty::List as Evaluable>::Output> {
     match literal {
         ListLiteral::List(exprs) => exprs
-            .into_iter()
+            .iter()
             .map(|e| eval::<ty::Any>(env, e))
             .collect::<Result<List, _>>(),
         ListLiteral::Range { start, second, end } => {
             // Evaluate range bounds and convert to integers
-            let start = eval::<ty::Number>(env, *start).and_then(to_int)?;
+            let start = eval::<ty::Number>(env, start).and_then(to_int)?;
             let second = second
-                .map(|e| eval::<ty::Number>(env, *e).and_then(to_int))
+                .as_ref()
+                .map(|e| eval::<ty::Number>(env, e).and_then(to_int))
                 .transpose()?;
-            let end = eval::<ty::Number>(env, *end).and_then(to_int)?;
+            let end = eval::<ty::Number>(env, end).and_then(to_int)?;
 
             // Iterate in reverse to build linked list
             let range = build_range(start, second, end)?;

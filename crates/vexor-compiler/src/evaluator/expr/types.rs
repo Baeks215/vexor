@@ -1,4 +1,5 @@
 use std::fmt::Debug;
+use std::rc::Rc;
 
 use crate::evaluator::EResult;
 use crate::evaluator::expr::Callable;
@@ -68,8 +69,14 @@ define_value_types! {
     String(String),
     Bool(bool),
     Color(scene::Color),
-    Graphic(scene::Graphic),
+    Graphic(Rc<scene::Graphic>),
     List(List),
     Callable(Callable),
     Tuple(Box<[Value]>),
+}
+
+impl From<scene::Graphic> for Value {
+    fn from(graphic: scene::Graphic) -> Self {
+        Value::Graphic(Rc::new(graphic))
+    }
 }

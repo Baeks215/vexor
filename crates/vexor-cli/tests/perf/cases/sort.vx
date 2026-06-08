@@ -1,0 +1,14 @@
+-- sortBy over a large list: worst-case O(n log n) `Callable` clones,
+-- two closure evaluations per comparison.
+
+fn gt(a, b) = a > b
+fn lt(a, b) = a < b
+
+-- A pseudo-shuffled list via a non-monotonic key.
+val xs = map(i -> (i * 2654435761) % 10007)([1..3000])
+
+val desc = sortBy(gt)(xs)
+val asc = sortBy(lt)(xs)
+
+export Circle(len(desc) // 1000)
+export Circle(len(asc) // 1000)

@@ -8,15 +8,19 @@ use crate::commands::file_watch;
 pub struct GuiArgs {
     /// Path to the .vx source file
     pub input: PathBuf,
+    /// Print compile time and memory usage
+    #[arg(short, long)]
+    pub stats: bool,
 }
 
 pub fn run(args: GuiArgs) {
     let (tx, rx) = mpsc::channel::<Vec<NamedSvg>>();
     let path = args.input.clone();
+    let stats = args.stats;
     let title = format!("vexor — {}", path.display());
 
     let result = vexor_gui::run(title, rx, move |ctx| {
-        std::thread::spawn(move || watch_loop(path, tx, ctx));
+        std::thread::spawn(move || watch_loop(path, tx, ctx, stats));
     });
     if let Err(e) = result {
         eprintln!("gui error: {e}");
@@ -24,8 +28,13 @@ pub fn run(args: GuiArgs) {
     }
 }
 
-fn watch_loop(path: PathBuf, tx: mpsc::Sender<Vec<NamedSvg>>, ctx: eframe::egui::Context) {
-    let result = file_watch::watch_file(&path, |compiled| match compiled {
+fn watch_loop(
+    path: PathBuf,
+    tx: mpsc::Sender<Vec<NamedSvg>>,
+    ctx: eframe::egui::Context,
+    stats: bool,
+) {
+    let result = file_watch::watch_file(&path, stats, |compiled, report| match compiled {
         Ok(exports) => {
             let exports: Vec<NamedSvg> = exports
                 .into_iter()
@@ -36,6 +45,9 @@ fn watch_loop(path: PathBuf, tx: mpsc::Sender<Vec<NamedSvg>>, ctx: eframe::egui:
                 .collect();
             if tx.send(exports).is_ok() {
                 ctx.request_repaint();
+            }
+            if let Some(report) = report {
+                println!("{report}");
             }
         }
         Err(e) => eprintln!("{e}"),

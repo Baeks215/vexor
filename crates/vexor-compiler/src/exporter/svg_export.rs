@@ -21,7 +21,7 @@ pub fn export_to_svg(graphic: Graphic, settings: Settings) -> String {
             "viewBox",
             format!("{} {} {} {}", min_x, min_y, width, height),
         );
-    translate_graphic(doc, graphic, precision).to_string()
+    translate_graphic(doc, &graphic, precision).to_string()
 }
 
 /// Applies vector of attributes to an SVG node
@@ -58,40 +58,42 @@ impl Appendable for svg_el::Group {
 }
 
 /// Translates a graphic to an SVG document node
-fn translate_graphic<T: Appendable>(current: T, graphic: Graphic, precision: usize) -> T {
+fn translate_graphic<T: Appendable>(current: T, graphic: &Graphic, precision: usize) -> T {
     let Graphic {
         ty,
-        attr,
+        attrs,
         transform,
     } = graphic;
 
     let mut extra = vec![];
     transform.add_as_attr(&mut extra, precision);
-    attr.add_as_attr(&mut extra, precision);
+    for attr in attrs {
+        attr.add_as_attr(&mut extra, precision);
+    }
 
     match ty {
         GraphicType::Circle { radius } => current.add(apply_attributes!(
-            svg_el::Circle::new().set("r", fmt_num(radius, precision)),
+            svg_el::Circle::new().set("r", fmt_num(*radius, precision)),
             extra
         )),
         GraphicType::Ellipse { rx, ry } => current.add(apply_attributes!(
             svg_el::Ellipse::new()
-                .set("rx", fmt_num(rx, precision))
-                .set("ry", fmt_num(ry, precision)),
+                .set("rx", fmt_num(*rx, precision))
+                .set("ry", fmt_num(*ry, precision)),
             extra
         )),
         GraphicType::Rect { width, height } => current.add(apply_attributes!(
             svg_el::Rectangle::new()
-                .set("width", fmt_num(width, precision))
-                .set("height", fmt_num(height, precision)),
+                .set("width", fmt_num(*width, precision))
+                .set("height", fmt_num(*height, precision)),
             extra
         )),
         GraphicType::Text { content } => {
-            current.add(apply_attributes!(svg_el::Text::new(content), extra))
+            current.add(apply_attributes!(svg_el::Text::new(content.clone()), extra))
         }
         GraphicType::Group { children } => {
             let mut group_node = svg_el::Group::new();
-            for child in children {
+            for child in children.iter() {
                 group_node = translate_graphic(group_node, child, precision);
             }
             current.add(apply_attributes!(group_node, extra))
@@ -105,11 +107,11 @@ fn translate_graphic<T: Appendable>(current: T, graphic: Graphic, precision: usi
 
 trait ToAttributes {
     /// Converts to svg attributes and adds to the vector
-    fn add_as_attr(self, current: &mut Vec<Attribute>, precision: usize);
+    fn add_as_attr(&self, current: &mut Vec<Attribute>, precision: usize);
 }
 impl ToAttributes for Affine {
-    fn add_as_attr(self, current: &mut Vec<Attribute>, precision: usize) {
-        if self == Affine::IDENTITY {
+    fn add_as_attr(&self, current: &mut Vec<Attribute>, precision: usize) {
+        if *self == Affine::IDENTITY {
             return;
         }
         let [a, b, c, d, e, f] = self.as_coeffs();
@@ -129,36 +131,19 @@ impl ToAttributes for Affine {
     }
 }
 impl ToAttributes for Attr {
-    fn add_as_attr(self, current: &mut Vec<Attribute>, precision: usize) {
-        let Attr {
-            fill,
-            stroke_color,
-            stroke_width,
-            stroke_join,
-            stroke_cap,
-            opacity,
-            id,
-        } = self;
-        if let Some(fill) = fill {
-            current.push(("fill", color_to_svg(fill, precision)));
-        }
-        if let Some(color) = stroke_color {
-            current.push(("stroke", color_to_svg(color, precision)));
-        }
-        if let Some(width) = stroke_width {
-            current.push(("stroke-width", fmt_num(width, precision)));
-        }
-        if let Some(join) = stroke_join {
-            current.push(("stroke-linejoin", stroke_join_to_svg(join).to_string()));
-        }
-        if let Some(cap) = stroke_cap {
-            current.push(("stroke-linecap", stroke_cap_to_svg(cap).to_string()));
-        }
-        if let Some(opacity) = opacity {
-            current.push(("opacity", fmt_num(opacity, precision)));
-        }
-        if let Some(id) = id {
-            current.push(("id", id));
+    fn add_as_attr(&self, current: &mut Vec<Attribute>, precision: usize) {
+        match self {
+            Attr::Fill(color) => current.push(("fill", color_to_svg(*color, precision))),
+            Attr::StrokeColor(color) => current.push(("stroke", color_to_svg(*color, precision))),
+            Attr::StrokeWidth(width) => current.push(("stroke-width", fmt_num(*width, precision))),
+            Attr::StrokeJoin(join) => {
+                current.push(("stroke-linejoin", stroke_join_to_svg(*join).to_string()))
+            }
+            Attr::StrokeCap(cap) => {
+                current.push(("stroke-linecap", stroke_cap_to_svg(*cap).to_string()))
+            }
+            Attr::Opacity(opacity) => current.push(("opacity", fmt_num(*opacity, precision))),
+            Attr::Id(id) => current.push(("id", id.clone())),
         }
     }
 }

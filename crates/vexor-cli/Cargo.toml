@@ -15,5 +15,5 @@ vexor-compiler.workspace = true
 vexor-gui.workspace = true
 eframe.workspace = true
 notify.workspace = true
-notify-debouncer-mini.workspace = true
 clap = { workspace = true, features = ["derive"] }
+stats_alloc.workspace = true

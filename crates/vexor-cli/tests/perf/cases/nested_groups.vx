@@ -1,0 +1,17 @@
+-- Wide and nested groups + export each: stresses deep `Graphic` clone and the exporter.
+
+fn cell(i) = Rect(8, 8) >> move(x, y) >> fill(col)
+where {
+  x = (i % 50) * 10
+  y = (i // 50) * 10
+  frac = i / 2500
+  col = rgba(frac * 255, 128, (1 - frac) * 255, 1)
+}
+
+val grid = Group(map(cell)([0..2499]))
+
+val rings = map(i -> grid >> rotate(rad(i * 30)) >> move(i * 5, 0))([1..6])
+val composite = Group(rings)
+
+export composite
+export each map(i -> grid >> move(i * 600, 0))([0..3])

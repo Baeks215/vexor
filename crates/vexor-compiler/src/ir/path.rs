@@ -2,9 +2,10 @@
 
 use im_rc::Vector;
 use kurbo::{Affine, PathEl, Point};
+use std::rc::Rc;
 
 use crate::evaluator::EResult;
-use crate::exporter::fmt_num;
+use crate::exporter::write_point;
 use crate::ir::scene::{Graphic, GraphicType};
 
 /// A vector path, internally a persistent vector of path elements.
@@ -68,23 +69,39 @@ impl Path {
     }
 
     /// Converts the path to an SVG path data string
-    pub fn to_svg(mut self, precision: usize) -> String {
-        // Path data must start with a MoveTo, so prepend one if necessary.
-        if !matches!(self.els.front(), Some(PathEl::MoveTo(_))) {
-            self.els.push_front(PathEl::MoveTo(Point::ORIGIN));
-        }
-        let pt = |p: Point| format!("{},{}", fmt_num(p.x, precision), fmt_num(p.y, precision));
+    pub fn to_svg(&self, precision: usize) -> String {
         let mut out = String::new();
+        // Path data must start with a MoveTo, so prepend an origin one if missing.
+        if !matches!(self.els.front(), Some(PathEl::MoveTo(_))) {
+            out.push('M');
+            write_point(&mut out, Point::ORIGIN, precision);
+        }
         for el in &self.els {
             if !out.is_empty() {
                 out.push(' ');
             }
             match *el {
-                PathEl::MoveTo(p) => out.push_str(&format!("M{}", pt(p))),
-                PathEl::LineTo(p) => out.push_str(&format!("L{}", pt(p))),
-                PathEl::QuadTo(p1, p2) => out.push_str(&format!("Q{} {}", pt(p1), pt(p2))),
+                PathEl::MoveTo(p) => {
+                    out.push('M');
+                    write_point(&mut out, p, precision);
+                }
+                PathEl::LineTo(p) => {
+                    out.push('L');
+                    write_point(&mut out, p, precision);
+                }
+                PathEl::QuadTo(p1, p2) => {
+                    out.push('Q');
+                    write_point(&mut out, p1, precision);
+                    out.push(' ');
+                    write_point(&mut out, p2, precision);
+                }
                 PathEl::CurveTo(p1, p2, p3) => {
-                    out.push_str(&format!("C{} {} {}", pt(p1), pt(p2), pt(p3)))
+                    out.push('C');
+                    write_point(&mut out, p1, precision);
+                    out.push(' ');
+                    write_point(&mut out, p2, precision);
+                    out.push(' ');
+                    write_point(&mut out, p3, precision);
                 }
                 PathEl::ClosePath => out.push('Z'),
             }
@@ -103,22 +120,16 @@ impl IntoIterator for Path {
 }
 
 /// Applies an in-place transformation to the path of the graphic component, if it is a path.
-pub fn transform_path(g: Graphic, f: impl FnOnce(&mut Path) -> EResult<()>) -> EResult<Graphic> {
-    let Graphic {
-        ty,
-        attr,
-        transform,
-    } = g;
-    let mut path = match ty {
-        GraphicType::Path { path } => path,
-        _ => return Err("expected a path".into()),
+pub fn transform_path(
+    mut g: Rc<Graphic>,
+    f: impl FnOnce(&mut Path) -> EResult<()>,
+) -> EResult<Rc<Graphic>> {
+    // Mutates if sole owner, clones otherwise
+    let GraphicType::Path { path } = &mut Rc::make_mut(&mut g).ty else {
+        return Err("expected a path".into());
     };
-    f(&mut path)?;
-    Ok(Graphic {
-        ty: GraphicType::Path { path },
-        attr,
-        transform,
-    })
+    f(path)?;
+    Ok(g)
 }
 
 /// Closes a path.

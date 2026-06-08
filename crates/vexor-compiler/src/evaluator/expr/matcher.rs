@@ -3,13 +3,13 @@ use itertools::Itertools;
 use crate::evaluator::expr::constants::get_constant;
 use crate::evaluator::expr::{Evaluable, Value, eval, ty};
 use crate::evaluator::{EResult, EnvExt, EnvRef, WithSpan};
-use crate::ir::ast::{Const, Expr, ListLiteral, Literal, MatchArm, SpanExpr, Spanned, Std, op};
+use crate::ir::ast::{Const, Expr, ListLiteral, Literal, MatchArm, SpanExpr, Std, op};
 use crate::ir::scene;
 
 /// Generic match-arm evaluation.
 pub fn eval_match<T: Evaluable>(
     env: &EnvRef,
-    arms: Vec<MatchArm>,
+    arms: &[MatchArm],
     scrutinee: Value,
 ) -> EResult<T::Output> {
     for MatchArm {
@@ -18,8 +18,8 @@ pub fn eval_match<T: Evaluable>(
         body,
     } in arms
     {
-        let mut arm_env = env.child_scope();
-        let matched = match_pattern(&mut arm_env, scrutinee.clone(), pattern)?;
+        let arm_env = env.child_scope();
+        let matched = match_pattern(&arm_env, scrutinee.clone(), pattern)?;
         if !matched {
             continue;
         }
@@ -35,32 +35,32 @@ pub fn eval_match<T: Evaluable>(
 }
 
 /// Matches an evaluated value to an expression pattern.
-fn match_pattern(env: &EnvRef, scrutinee: Value, pattern: SpanExpr) -> EResult<bool> {
-    (match pattern.node {
-        Expr::Variable(name) => env.set_var(name, scrutinee).map(|_| true),
+fn match_pattern(env: &EnvRef, scrutinee: Value, pattern: &SpanExpr) -> EResult<bool> {
+    (match &pattern.node {
+        Expr::Variable(name) => env.set_var(name.clone(), scrutinee).map(|_| true),
         Expr::Literal(lit_pattern) => match_literal_pattern(env, scrutinee, lit_pattern),
         Expr::Binary {
             operator,
             left,
             right,
-        } => match_bin(env, scrutinee, operator, *left, *right),
-        Expr::Std(std) => match_std(scrutinee, std),
-        Expr::Call { function, args } => match_call(env, scrutinee, *function, args),
-        Expr::Const(c) => match_const(scrutinee, c),
+        } => match_bin(env, scrutinee, *operator, left, right),
+        Expr::Std(std) => match_std(scrutinee, *std),
+        Expr::Call { function, args } => match_call(env, scrutinee, function, args),
+        Expr::Const(c) => match_const(scrutinee, *c),
         _ => Err("pattern not supported".into()),
     })
-    .with_span_if_missing(pattern.span)
+    .with_span_if_missing(&pattern.span)
 }
 
 /// Matches an evaluated value to a literal expression pattern.
-fn match_literal_pattern(env: &EnvRef, scrutinee: Value, pattern: Literal) -> EResult<bool> {
+fn match_literal_pattern(env: &EnvRef, scrutinee: Value, pattern: &Literal) -> EResult<bool> {
     match (scrutinee, pattern) {
         // Unsupported patterns
         (_, Literal::List(ListLiteral::Range { .. })) => Err("pattern not supported".into()),
         // Matches
-        (Value::Number(s), Literal::Number(p)) => Ok(s == p),
-        (Value::String(s), Literal::String(p)) => Ok(s == p),
-        (Value::Bool(s), Literal::Bool(p)) => Ok(s == p),
+        (Value::Number(s), Literal::Number(p)) => Ok(s == *p),
+        (Value::String(s), Literal::String(p)) => Ok(s == *p),
+        (Value::Bool(s), Literal::Bool(p)) => Ok(s == *p),
         (Value::List(s), Literal::List(ListLiteral::List(ps))) => {
             if s.len() != ps.len() {
                 // Lists of different lengths cannot match
@@ -94,8 +94,8 @@ fn match_bin(
     env: &EnvRef,
     scrutinee: Value,
     operator: op::Binary,
-    left: SpanExpr,
-    right: SpanExpr,
+    left: &SpanExpr,
+    right: &SpanExpr,
 ) -> EResult<bool> {
     match operator {
         op::Binary::Cons => {
@@ -121,45 +121,27 @@ fn match_std(scrutinee: Value, std: Std) -> EResult<bool> {
     match std {
         Std::Circle => Ok(matches!(
             scrutinee,
-            Value::Graphic(scene::Graphic {
-                ty: scene::GraphicType::Circle { .. },
-                ..
-            })
+            Value::Graphic(g) if matches!(g.ty, scene::GraphicType::Circle { .. })
         )),
         Std::Ellipse => Ok(matches!(
             scrutinee,
-            Value::Graphic(scene::Graphic {
-                ty: scene::GraphicType::Ellipse { .. },
-                ..
-            })
+            Value::Graphic(g) if matches!(g.ty, scene::GraphicType::Ellipse { .. })
         )),
         Std::Rect => Ok(matches!(
             scrutinee,
-            Value::Graphic(scene::Graphic {
-                ty: scene::GraphicType::Rect { .. },
-                ..
-            })
+            Value::Graphic(g) if matches!(g.ty, scene::GraphicType::Rect { .. })
         )),
         Std::Text => Ok(matches!(
             scrutinee,
-            Value::Graphic(scene::Graphic {
-                ty: scene::GraphicType::Text { .. },
-                ..
-            })
+            Value::Graphic(g) if matches!(g.ty, scene::GraphicType::Text { .. })
         )),
         Std::Group => Ok(matches!(
             scrutinee,
-            Value::Graphic(scene::Graphic {
-                ty: scene::GraphicType::Group { .. },
-                ..
-            })
+            Value::Graphic(g) if matches!(g.ty, scene::GraphicType::Group { .. })
         )),
         Std::Path => Ok(matches!(
             scrutinee,
-            Value::Graphic(scene::Graphic {
-                ty: scene::GraphicType::Path { .. },
-                ..
-            })
+            Value::Graphic(g) if matches!(g.ty, scene::GraphicType::Path { .. })
         )),
         _ => Err("pattern not supported".into()),
     }
@@ -178,63 +160,57 @@ fn match_const(scrutinee: Value, c: Const) -> EResult<bool> {
 fn match_call(
     env: &EnvRef,
     scrutinee: Value,
-    function: SpanExpr,
-    args: Vec<SpanExpr>,
+    function: &SpanExpr,
+    args: &[SpanExpr],
 ) -> EResult<bool> {
-    match (scrutinee, function) {
-        (Value::Color(c), f) => {
-            let Spanned { node: f, .. } = f;
-            match f {
-                Expr::Std(Std::Rgba) => {
-                    let scene::Color::Rgba { r, g, b, a } = c else {
-                        return Ok(false);
-                    };
-                    let Some((r_p, g_p, b_p, a_p)) = args.into_iter().collect_tuple() else {
-                        return Ok(false);
-                    };
-                    Ok(match_pattern(env, Value::Number(r), r_p)?
-                        && match_pattern(env, Value::Number(g), g_p)?
-                        && match_pattern(env, Value::Number(b), b_p)?
-                        && match_pattern(env, Value::Number(a), a_p)?)
-                }
-                Expr::Std(Std::Rgb) => {
-                    let scene::Color::Rgba { r, g, b, a } = c else {
-                        return Ok(false);
-                    };
-                    let Some((r_p, g_p, b_p)) = args.into_iter().collect_tuple() else {
-                        return Ok(false);
-                    };
-                    Ok(match_pattern(env, Value::Number(r), r_p)?
-                        && match_pattern(env, Value::Number(g), g_p)?
-                        && match_pattern(env, Value::Number(b), b_p)?
-                        && a == 1.0)
-                }
-                Expr::Std(Std::Hsla) => {
-                    let scene::Color::Hsla { h, s, l, a } = c else {
-                        return Ok(false);
-                    };
-                    let Some((h_p, s_p, l_p, a_p)) = args.into_iter().collect_tuple() else {
-                        return Ok(false);
-                    };
-                    Ok(match_pattern(env, Value::Number(h), h_p)?
-                        && match_pattern(env, Value::Number(s), s_p)?
-                        && match_pattern(env, Value::Number(l), l_p)?
-                        && match_pattern(env, Value::Number(a), a_p)?)
-                }
-                Expr::Std(Std::Hsl) => {
-                    let scene::Color::Hsla { h, s, l, a } = c else {
-                        return Ok(false);
-                    };
-                    let Some((h_p, s_p, l_p)) = args.into_iter().collect_tuple() else {
-                        return Ok(false);
-                    };
-                    Ok(match_pattern(env, Value::Number(h), h_p)?
-                        && match_pattern(env, Value::Number(s), s_p)?
-                        && match_pattern(env, Value::Number(l), l_p)?
-                        && a == 1.0)
-                }
-                _ => Ok(false),
-            }
+    match (scrutinee, &function.node) {
+        (Value::Color(c), Expr::Std(Std::Rgba)) => {
+            let scene::Color::Rgba { r, g, b, a } = c else {
+                return Ok(false);
+            };
+            let Some((r_p, g_p, b_p, a_p)) = args.iter().collect_tuple() else {
+                return Ok(false);
+            };
+            Ok(match_pattern(env, Value::Number(r), r_p)?
+                && match_pattern(env, Value::Number(g), g_p)?
+                && match_pattern(env, Value::Number(b), b_p)?
+                && match_pattern(env, Value::Number(a), a_p)?)
+        }
+        (Value::Color(c), Expr::Std(Std::Rgb)) => {
+            let scene::Color::Rgba { r, g, b, a } = c else {
+                return Ok(false);
+            };
+            let Some((r_p, g_p, b_p)) = args.iter().collect_tuple() else {
+                return Ok(false);
+            };
+            Ok(match_pattern(env, Value::Number(r), r_p)?
+                && match_pattern(env, Value::Number(g), g_p)?
+                && match_pattern(env, Value::Number(b), b_p)?
+                && a == 1.0)
+        }
+        (Value::Color(c), Expr::Std(Std::Hsla)) => {
+            let scene::Color::Hsla { h, s, l, a } = c else {
+                return Ok(false);
+            };
+            let Some((h_p, s_p, l_p, a_p)) = args.iter().collect_tuple() else {
+                return Ok(false);
+            };
+            Ok(match_pattern(env, Value::Number(h), h_p)?
+                && match_pattern(env, Value::Number(s), s_p)?
+                && match_pattern(env, Value::Number(l), l_p)?
+                && match_pattern(env, Value::Number(a), a_p)?)
+        }
+        (Value::Color(c), Expr::Std(Std::Hsl)) => {
+            let scene::Color::Hsla { h, s, l, a } = c else {
+                return Ok(false);
+            };
+            let Some((h_p, s_p, l_p)) = args.iter().collect_tuple() else {
+                return Ok(false);
+            };
+            Ok(match_pattern(env, Value::Number(h), h_p)?
+                && match_pattern(env, Value::Number(s), s_p)?
+                && match_pattern(env, Value::Number(l), l_p)?
+                && a == 1.0)
         }
         _ => Ok(false),
     }

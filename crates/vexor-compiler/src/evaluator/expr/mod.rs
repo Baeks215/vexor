@@ -1,5 +1,8 @@
 //! Evaluator for expressions
 
+use smallvec::SmallVec;
+use std::rc::Rc;
+
 use crate::evaluator::expr::constants::get_constant;
 use crate::evaluator::{EResult, EnvExt, EnvRef, WithSpan};
 use crate::ir::ast::{Expr, Literal, SpanExpr};
@@ -19,40 +22,38 @@ use matcher::eval_match;
 use operator::{eval_op_bin, eval_op_un};
 
 /// Evaluates an expression and returns the result as the expected output type.
-pub fn eval<T: Evaluable>(env: &EnvRef, expr: SpanExpr) -> EResult<T::Output> {
-    let span = expr.span.clone();
-    let result: EResult<T::Output> = match expr.node {
+pub fn eval<T: Evaluable>(env: &EnvRef, expr: &SpanExpr) -> EResult<T::Output> {
+    let result: EResult<T::Output> = match &expr.node {
         Expr::Literal(literal) => eval_literal::<T>(env, literal),
-        Expr::Variable(name) => {
-            let value = env.get_var(&name)?;
-            T::expect(value)
-        }
-        Expr::Const(c) => T::expect(get_constant(c)),
+        Expr::Variable(name) => env.get_var(name).and_then(T::expect),
+        Expr::Const(c) => T::expect(get_constant(*c)),
         Expr::Call { function, args } => {
-            let function = eval::<ty::Callable>(env, *function)?;
-            let args: Vec<Value> = args
-                .into_iter()
+            let function = eval::<ty::Callable>(env, function).with_span_if_missing(&expr.span)?;
+            // Inline storage for the common 1-arg case (currying), grows to heap if needed
+            let args: SmallVec<[Value; 1]> = args
+                .iter()
                 .map(|arg_expr| eval::<ty::Any>(env, arg_expr))
-                .collect::<Result<Vec<_>, _>>()?;
+                .collect::<Result<_, _>>()
+                .with_span_if_missing(&expr.span)?;
 
-            eval_call::<T>(env, function, args)
+            eval_call::<T, _>(env, function, args)
         }
         Expr::Function(func) => {
             T::expect(Value::from(Callable::User {
-                func,
+                func: Rc::clone(func),
                 // Capture the current environment
                 closure_env: env.clone(), // Cloned reference
             }))
         }
-        Expr::Std(func) => T::expect(Value::from(Callable::Std(func))),
+        Expr::Std(func) => T::expect(Value::from(Callable::Std(*func))),
         Expr::Binary {
             operator,
             left,
             right,
-        } => eval_op_bin::<T>(env, operator, *left, *right),
-        Expr::Unary { operator, operand } => eval_op_un::<T>(env, operator, *operand),
+        } => eval_op_bin::<T>(env, *operator, left, right),
+        Expr::Unary { operator, operand } => eval_op_un::<T>(env, *operator, operand),
         Expr::Match { scrutinee, arms } => {
-            let s = eval::<ty::Any>(env, *scrutinee)?;
+            let s = eval::<ty::Any>(env, scrutinee)?;
             eval_match::<T>(env, arms, s)
         }
         Expr::If {
@@ -60,26 +61,26 @@ pub fn eval<T: Evaluable>(env: &EnvRef, expr: SpanExpr) -> EResult<T::Output> {
             then_branch,
             else_branch,
         } => {
-            if eval::<ty::Bool>(env, *condition)? {
-                eval::<T>(env, *then_branch)
+            if eval::<ty::Bool>(env, condition)? {
+                eval::<T>(env, then_branch)
             } else {
-                eval::<T>(env, *else_branch)
+                eval::<T>(env, else_branch)
             }
         }
     };
-    result.with_span_if_missing(span)
+    result.with_span_if_missing(&expr.span)
 }
 
 /// Evaluates a literal expression
-fn eval_literal<T: Evaluable>(env: &EnvRef, literal: Literal) -> EResult<T::Output> {
+fn eval_literal<T: Evaluable>(env: &EnvRef, literal: &Literal) -> EResult<T::Output> {
     let result = match literal {
-        Literal::Number(n) => Value::Number(n),
-        Literal::String(s) => Value::String(s),
-        Literal::Bool(b) => Value::Bool(b),
+        Literal::Number(n) => Value::Number(*n),
+        Literal::String(s) => Value::String(s.clone()),
+        Literal::Bool(b) => Value::Bool(*b),
         Literal::List(l) => Value::List(list::eval_literal(env, l)?),
         Literal::Tuple(exprs) => {
             let values: Box<[Value]> = exprs
-                .into_iter()
+                .iter()
                 .map(|e| eval::<ty::Any>(env, e))
                 .collect::<Result<_, _>>()?;
             Value::Tuple(values)

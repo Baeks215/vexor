@@ -1,0 +1,21 @@
+-- Closures with `where` scopes capturing outer vars, invoked many times.
+-- Stresses env parent-chain lookup and `Value` clone on variable reads.
+
+val base = 7
+val offset = 3
+
+fn transform(x) = scaled + shifted
+where {
+  scaled = x * base
+  shifted = x + offset
+  -- Nested closure capturing both the param and outer bindings.
+  helper = (y) -> y * base + offset
+}
+
+fn apply_all(xs) = map(transform)(xs)
+
+val xs = [1..4000]
+val ys = apply_all(xs)
+val zs = map(x -> transform(x) + base)(ys)
+
+export Circle(sum(zs) // 1000000)

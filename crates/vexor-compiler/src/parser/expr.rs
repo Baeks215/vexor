@@ -1,5 +1,7 @@
 //! Parser for expressions
 
+use std::rc::Rc;
+
 use winnow::ascii::{dec_int, float};
 use winnow::combinator::{
     Infix, Postfix, Prefix, alt, cut_err, dispatch, expression, fail, opt, peek, preceded,
@@ -14,7 +16,7 @@ use crate::ir::ast::op;
 use crate::ir::ast::{self, Spanned};
 use crate::parser::error::CtxErrBuilder;
 use crate::parser::function::p_lambda;
-use crate::parser::keyword::Ident;
+use crate::parser::keyword::Symbol;
 use crate::parser::{
     Input, ParserExt, comma_list, delim, delim_cut, exp_string, keyword as k, p_ws, spanned,
 };
@@ -158,9 +160,9 @@ pub fn p_if<'a>(input: &mut Input<'a>) -> ModalResult<ast::Expr> {
 fn p_ident_atom<'a>(input: &mut Input<'a>) -> ModalResult<ast::Expr> {
     let id = k::p_ident.parse_next(input)?;
     let expr = match id {
-        Ident::Std(s) => ast::Expr::Std(s),
-        Ident::Const(c) => ast::Expr::Const(c),
-        Ident::User(name) => ast::Expr::Variable(name),
+        Symbol::Std(s) => ast::Expr::Std(s),
+        Symbol::Const(c) => ast::Expr::Const(c),
+        Symbol::User(name) => ast::Expr::Variable(name),
     };
     p_ws.parse_next(input)?;
     Ok(expr)
@@ -182,7 +184,7 @@ fn p_tuple_or_bracketed<'a>(input: &mut Input<'a>) -> ModalResult<ast::Expr> {
 /// Parses an atom (returns a `Spanned<Expr>`).
 pub fn p_atom<'a>(input: &mut Input<'a>) -> ModalResult<ast::SpanExpr> {
     spanned(alt((
-        p_lambda.map(ast::Expr::Function),
+        p_lambda.map(|f| ast::Expr::Function(Rc::new(f))),
         p_tuple_or_bracketed,
         p_literal.map(ast::Expr::Literal),
         p_if,
