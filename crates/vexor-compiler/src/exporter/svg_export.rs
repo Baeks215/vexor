@@ -109,14 +109,12 @@ fn translate_graphic<T: Appendable>(current: T, graphic: &Graphic, precision: us
 /// Applies default styles to shapes:
 /// transparent white fill and a 1-unit black stroke.
 fn add_default_style(ty: &GraphicType, current: &mut Vec<Attribute>, precision: usize) {
-    if !matches!(
-        ty,
+    match ty {
         GraphicType::Circle { .. }
-            | GraphicType::Ellipse { .. }
-            | GraphicType::Rect { .. }
-            | GraphicType::Path { .. }
-    ) {
-        return;
+        | GraphicType::Ellipse { .. }
+        | GraphicType::Rect { .. }
+        | GraphicType::Path { .. } => {}
+        GraphicType::Text { .. } | GraphicType::Group { .. } => return,
     }
     let (mut has_fill, mut has_stroke, mut has_width) = (false, false, false);
     for (key, _) in current.iter() {
