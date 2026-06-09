@@ -67,6 +67,13 @@ fn translate_graphic<T: Appendable>(current: T, graphic: &Graphic, precision: us
 
     let mut extra = vec![];
     transform.add_as_attr(&mut extra, precision);
+    // Apply default styles for drawable shapes.
+    //  Later user attributes will override
+    if has_default_style(ty) {
+        for attr in default_attrs() {
+            attr.add_as_attr(&mut extra, precision);
+        }
+    }
     for attr in attrs {
         attr.add_as_attr(&mut extra, precision);
     }
@@ -103,6 +110,37 @@ fn translate_graphic<T: Appendable>(current: T, graphic: &Graphic, precision: us
             current.add(apply_attributes!(path_node, extra))
         }
     }
+}
+
+/// Default style attributes applied to drawable shapes when not set explicitly:
+/// transparent white fill and a 1-unit black stroke.
+fn default_attrs() -> [Attr; 3] {
+    [
+        Attr::Fill(Color::Rgba {
+            r: 255.0,
+            g: 255.0,
+            b: 255.0,
+            a: 0.0,
+        }),
+        Attr::StrokeColor(Color::Rgba {
+            r: 0.0,
+            g: 0.0,
+            b: 0.0,
+            a: 1.0,
+        }),
+        Attr::StrokeWidth(1.0),
+    ]
+}
+
+/// Whether a graphic type receives default fill/stroke styling.
+fn has_default_style(ty: &GraphicType) -> bool {
+    matches!(
+        ty,
+        GraphicType::Circle { .. }
+            | GraphicType::Ellipse { .. }
+            | GraphicType::Rect { .. }
+            | GraphicType::Path { .. }
+    )
 }
 
 trait ToAttributes {
