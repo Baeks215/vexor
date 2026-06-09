@@ -70,6 +70,7 @@ fn translate_graphic<T: Appendable>(current: T, graphic: &Graphic, precision: us
     for attr in attrs {
         attr.add_as_attr(&mut extra, precision);
     }
+    add_default_style(ty, &mut extra, precision);
 
     match ty {
         GraphicType::Circle { radius } => current.add(apply_attributes!(
@@ -102,6 +103,48 @@ fn translate_graphic<T: Appendable>(current: T, graphic: &Graphic, precision: us
             let path_node = svg_el::Path::new().set("d", path.to_svg(precision));
             current.add(apply_attributes!(path_node, extra))
         }
+    }
+}
+
+/// Applies default styles to shapes:
+/// transparent white fill and a 1-unit black stroke.
+fn add_default_style(ty: &GraphicType, current: &mut Vec<Attribute>, precision: usize) {
+    match ty {
+        GraphicType::Circle { .. }
+        | GraphicType::Ellipse { .. }
+        | GraphicType::Rect { .. }
+        | GraphicType::Path { .. } => {}
+        GraphicType::Text { .. } | GraphicType::Group { .. } => return,
+    }
+    let (mut has_fill, mut has_stroke, mut has_width) = (false, false, false);
+    for (key, _) in current.iter() {
+        match *key {
+            "fill" => has_fill = true,
+            "stroke" => has_stroke = true,
+            "stroke-width" => has_width = true,
+            _ => {}
+        }
+    }
+    if !has_fill {
+        Attr::Fill(Color::Rgba {
+            r: 255.0,
+            g: 255.0,
+            b: 255.0,
+            a: 0.0,
+        })
+        .add_as_attr(current, precision);
+    }
+    if !has_stroke {
+        Attr::StrokeColor(Color::Rgba {
+            r: 0.0,
+            g: 0.0,
+            b: 0.0,
+            a: 1.0,
+        })
+        .add_as_attr(current, precision);
+    }
+    if !has_width {
+        Attr::StrokeWidth(1.0).add_as_attr(current, precision);
     }
 }
 
