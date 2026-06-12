@@ -1,7 +1,6 @@
 # Vexor
 
-A small functional programming language for creating vector graphics. A Vexor
-program describes shapes, and the compiler renders them to **SVG**.
+A functional programming language for creating vector graphics with **real-time feedback**. A Vexor program will compile and render designs as **SVG** live as you edit, making it ideal for iterative design and creative exploration.
 
 > Created as part of a final year BEng project for the Computing course at Imperial
 > College London.
