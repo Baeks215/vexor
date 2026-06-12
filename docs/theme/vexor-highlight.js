@@ -6,12 +6,14 @@
         keyword: "set val export each fn where match if else",
         literal: "true false Nil PI",
         built_in:
-          "Circle Rect Text Group Line Curve Path sample close jumpTo lineTo " +
-          "curveTo move scale rotate mirrorX mirrorY fill stroke rgb rgba hsl hsla " +
+          "Circle Ellipse Rect Text Group Line Curve Path sample close jumpTo lineTo " +
+          "curveTo move scale rotate mirrorX mirrorY fill strokeWidth strokeColor " +
+          "strokeJoin strokeCap opacity setId rgb rgba hsl hsla " +
           "rad deg sin cos tan sinh cosh tanh asinh acosh atanh asin acos atan atan2 " +
           "round floor ceil abs log exp max min clamp magnitude normalize dot " +
           "map filter drop take dropWhile takeWhile foldl foldr zip zipWith flatMap " +
-          "enumerate len reverse find sort sortBy repeat fst snd",
+          "enumerate len reverse find sort sortBy repeat nth head tail last init " +
+          "isEmpty sum product concat fst snd",
       },
       contains: [
         hljs.COMMENT("--", "$"),
