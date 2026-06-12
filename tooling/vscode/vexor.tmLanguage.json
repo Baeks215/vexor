@@ -50,7 +50,7 @@
       "patterns": [
         {
           "name": "support.function.builtin.vx",
-          "match": "\\b(Circle|Rect|Text|Group|Line|Curve|Path|sample|close|jumpTo|lineTo|curveTo|move|scale|rotate|mirrorX|mirrorY|fill|stroke|rgba|rgb|hsla|hsl)\\b"
+          "match": "\\b(Circle|Ellipse|Rect|Text|Group|Line|Curve|Path|sample|close|jumpTo|lineTo|curveTo|move|scale|rotate|mirrorX|mirrorY|fill|strokeWidth|strokeColor|strokeJoin|strokeCap|opacity|setId|rgba|rgb|hsla|hsl)\\b"
         }
       ]
     },
@@ -58,7 +58,7 @@
       "patterns": [
         {
           "name": "support.function.math.vx",
-          "match": "\\b(rad|deg|sinh|sin|cosh|cos|tanh|tan|asinh|acosh|atanh|asin|acos|atan2|atan|round|floor|ceil|abs|log|exp|max|min|clamp|magnitude|normalize|dot|map|filter|dropWhile|drop|takeWhile|take|foldl|foldr|zipWith|zip|flatMap|enumerate|len|reverse|find|sortBy|sort|repeat|fst|snd)\\b"
+          "match": "\\b(rad|deg|sinh|sin|cosh|cos|tanh|tan|asinh|acosh|atanh|asin|acos|atan2|atan|round|floor|ceil|abs|log|exp|max|min|clamp|magnitude|normalize|dot|map|filter|dropWhile|drop|takeWhile|take|foldl|foldr|zipWith|zip|flatMap|enumerate|len|reverse|find|sortBy|sort|repeat|nth|head|tail|last|init|isEmpty|sum|product|concat|fst|snd)\\b"
         }
       ]
     },
