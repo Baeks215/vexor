@@ -1,5 +1,6 @@
 use crate::commands::{bench, compile};
 use notify::{Event, EventKind, RecursiveMode, Watcher, recommended_watcher};
+use std::time::{Duration, Instant};
 use std::{
     fs,
     hash::{DefaultHasher, Hash, Hasher},
@@ -7,6 +8,9 @@ use std::{
     sync::mpsc,
 };
 use vexor_compiler::SvgExport;
+
+/// Throttle time for file change events. For Windows events only
+const THROTTLE: Duration = Duration::from_millis(20);
 
 /// Watch `path` for content changes, compiling it on startup and on every
 /// change, and hand the result to `on_compile`.
@@ -41,11 +45,13 @@ pub fn watch_file(
     }
     println!("--- Watching {} for changes ---", path.display());
 
+    let mut last_triggered: Option<Instant> = None;
+
     for res in rx {
         match res {
             // Only react to completed saves of the target file; the parent dir
             // also reports unrelated siblings and mid-write noise.
-            Ok(event) if is_save_event(&event, &path) => {
+            Ok(event) if is_save_event(&event, &path, &mut last_triggered) => {
                 let Ok(source) = fs::read_to_string(&path) else {
                     continue;
                 };
@@ -65,7 +71,7 @@ pub fn watch_file(
 }
 
 /// Determines if a file event is a save event for the target file.
-fn is_save_event(event: &Event, target: &Path) -> bool {
+fn is_save_event(event: &Event, target: &Path, last_triggered: &mut Option<Instant>) -> bool {
     use notify::event::{AccessKind, AccessMode, ModifyKind, RenameMode};
 
     // Watching parent dir, ignore sibling files.
@@ -79,24 +85,47 @@ fn is_save_event(event: &Event, target: &Path) -> bool {
         // Writes a temp file and rename it over the target.
         EventKind::Modify(ModifyKind::Name(RenameMode::To | RenameMode::Both)) => true,
 
-        // Linux close handle after write
+        // Linux: completed writes trigger a Close(Write).
         EventKind::Access(AccessKind::Close(AccessMode::Write)) => true,
 
         // Streaming writes as data blocks are flushed
         EventKind::Modify(ModifyKind::Data(_)) => {
-            if cfg!(target_os = "windows") {
-                // Test for read access, as completed writes stop blocking.
-                // Filters out intermediate flushes
-                std::fs::File::open(target).is_ok()
-            } else if cfg!(target_os = "macos") {
-                // FSEvents automatically coalesces events over a time window, so it self-debounces.
-                // Safe to accept the change immediately
-                true
-            } else {
-                // Linux: completed writes trigger a Close(Write).
-                // Data events are mid-write noise, ignore
-                false
+            // FSEvents automatically coalesces events over a time window, so it self-debounces.
+            // Safe to accept the change immediately
+            return cfg!(target_os = "macos");
+        }
+        // Streaming writes as data blocks are flushed for Windows
+        EventKind::Modify(ModifyKind::Any) => {
+            if !cfg!(target_os = "windows") {
+                return false;
             }
+            // Lock test for write access, to ensure editor closed it.
+            if !std::fs::OpenOptions::new()
+                .read(true)
+                .write(true)
+                .open(target)
+                .is_ok()
+            {
+                return false;
+            }
+            let now = Instant::now();
+
+            // Throttle check to filter burst events from VSCode
+            if let Some(last_time) = last_triggered
+                && now.duration_since(*last_time) <= THROTTLE
+            {
+                return false;
+            }
+
+            if let Ok(metadata) = std::fs::metadata(target)
+                && metadata.len() == 0
+            {
+                // 0 bytes, do nothing.
+                return false;
+            }
+            // Update the throttle timestamp and accept the event.
+            *last_triggered = Some(now);
+            true
         }
         _ => false,
     }
