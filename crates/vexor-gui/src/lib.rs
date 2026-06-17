@@ -1,3 +1,5 @@
+mod svg_loader;
+
 use eframe::egui;
 use std::sync::mpsc;
 
@@ -22,6 +24,8 @@ pub fn run(
         options,
         Box::new(move |cc| {
             egui_extras::install_image_loaders(&cc.egui_ctx);
+            cc.egui_ctx
+                .add_image_loader(std::sync::Arc::new(svg_loader::VexorSvgLoader::new()));
             let mut visuals = egui::Visuals::light();
             visuals.panel_fill = egui::Color32::WHITE;
             visuals.window_fill = egui::Color32::WHITE;
