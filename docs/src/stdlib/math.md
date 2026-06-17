@@ -62,6 +62,12 @@ All numbers are 64-bit floats. Angles are measured in **radians** unless noted.
 | `min(a, b)` | `(Number, Number) -> Number` | Smaller of two numbers. |
 | `clamp(x, lo, hi)` | `(Number, Number, Number) -> Number` | Constrain `x` to the range `[lo, hi]`. |
 
+## Conversions
+
+| Function | Signature | Description |
+|----------|-----------|-------------|
+| `toString(x)` | `Number -> String` | Render a number as a string (e.g. for [`Text`](graphics.md#constructors)). Trailing zeros are dropped: `2.0` becomes `"2"`. |
+
 ## Vectors
 
 These operate on tuples treated as vectors.
