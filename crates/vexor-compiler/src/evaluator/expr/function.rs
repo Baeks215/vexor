@@ -195,6 +195,33 @@ fn tuple_to_point(v: Value) -> EResult<Point> {
     Ok(Point::new(ty::Number::expect(x)?, ty::Number::expect(y)?))
 }
 
+/// Parses CSV-style text into a list of lists of numbers: comma-separated values per line
+fn parse_number_rows(input: &str) -> Result<List, String> {
+    use winnow::Parser;
+    use winnow::ascii::{float, line_ending, multispace0, space0};
+    use winnow::combinator::{delimited, separated, terminated};
+    use winnow::error::ContextError;
+
+    delimited(
+        multispace0::<&str, ContextError>,
+        // rows: newline-separated
+        separated(
+            0..,
+            // row: comma-separated numbers
+            separated(
+                1..,
+                terminated(float, space0).map(Value::Number),
+                terminated(',', space0),
+            )
+            .map(Value::List),
+            (line_ending, multispace0),
+        ),
+        multispace0,
+    )
+    .parse(input)
+    .map_err(|e| e.to_string())
+}
+
 /// Evaluates a standard function call.
 fn eval_std_call<T: Evaluable, A>(
     env: &EnvRef,
@@ -412,6 +439,14 @@ where
         Std::Reverse => {
             let xs = ty::List::expect(unpack_1!(args)?)?;
             Value::List(xs.into_iter().rev().collect())
+        }
+        Std::ReadNumbers => {
+            let path = ty::String::expect(unpack_1!(args)?)?;
+            let content = std::fs::read_to_string(&path)
+                .map_err(|e| EError::from(format!("readNumbers: failed to read {path}: {e}")))?;
+            let rows = parse_number_rows(&content)
+                .map_err(|e| EError::from(format!("readNumbers: failed to parse {path}:\n{e}")))?;
+            Value::List(rows)
         }
         Std::Sort => {
             let xs = ty::List::expect(unpack_1!(args)?)?;

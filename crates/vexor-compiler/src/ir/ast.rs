@@ -206,6 +206,7 @@ pub enum Std {
     Enumerate,
     Len,
     Reverse,
+    ReadNumbers,
     Find,
     Sort,
     SortBy,

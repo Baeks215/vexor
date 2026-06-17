@@ -108,6 +108,7 @@ fn classify_kw(s: &str) -> Symbol {
         "enumerate" => Symbol::Std(Std::Enumerate),
         "len" => Symbol::Std(Std::Len),
         "reverse" => Symbol::Std(Std::Reverse),
+        "readNumbers" => Symbol::Std(Std::ReadNumbers),
         "find" => Symbol::Std(Std::Find),
         "sort" => Symbol::Std(Std::Sort),
         "sortBy" => Symbol::Std(Std::SortBy),
