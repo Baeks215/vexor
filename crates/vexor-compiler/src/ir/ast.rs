@@ -255,6 +255,13 @@ pub enum Std {
     StrokeCap,
     Opacity,
     SetId,
+    FontSize,
+    FontFamily,
+    FontWeight,
+    FontStyle,
+    TextAnchor,
+    // Conversions
+    ToString,
 }
 
 // --- Match ---

@@ -157,6 +157,12 @@ fn classify_kw(s: &str) -> Symbol {
         "strokeCap" => Symbol::Std(Std::StrokeCap),
         "opacity" => Symbol::Std(Std::Opacity),
         "setId" => Symbol::Std(Std::SetId),
+        "fontSize" => Symbol::Std(Std::FontSize),
+        "fontFamily" => Symbol::Std(Std::FontFamily),
+        "fontWeight" => Symbol::Std(Std::FontWeight),
+        "fontStyle" => Symbol::Std(Std::FontStyle),
+        "textAnchor" => Symbol::Std(Std::TextAnchor),
+        "toString" => Symbol::Std(Std::ToString),
         // Constants
         "PI" => Symbol::Const(Const::Pi),
         // User

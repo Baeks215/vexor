@@ -1,0 +1,4 @@
+val label = Text(toString(42)) >> fontSize(20) >> fontFamily("serif")
+val weighted = label >> fontWeight(700) >> fontStyle("italic")
+
+export weighted >> textAnchor("middle")

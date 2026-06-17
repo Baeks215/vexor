@@ -1,0 +1,7 @@
+Error: evaluation error
+   ╭─[ input:3:8 ]
+   │
+ 3 │ export c >> fontSize(20)
+   │        ────────┬────────  
+   │                ╰────────── font functions can only be applied to Text graphics
+───╯
