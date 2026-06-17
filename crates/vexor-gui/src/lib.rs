@@ -2,6 +2,8 @@ use eframe::egui;
 use std::sync::mpsc;
 
 const IMAGE_WIDTH_FRACTION: f32 = 2.0 / 3.0;
+/// Raster width is snapped to multiples of this so resizing reuses cached textures.
+const RASTER_STEP: f32 = 256.0;
 
 pub struct NamedSvg {
     pub name: String,
@@ -78,10 +80,25 @@ impl eframe::App for GuiApp {
                                 focus = ui.button("Focus").clicked();
                             });
                             let uri = format!("bytes://v{}_{}.svg", self.version, name);
-                            ui.add(
-                                egui::Image::from_bytes(uri, svg_bytes)
-                                    .fit_to_fraction(egui::Vec2::new(1.0, f32::INFINITY)),
-                            );
+                            let image = egui::Image::from_bytes(uri, svg_bytes);
+                            // Snap the raster width to coarse steps so most resize frames reuse
+                            // a cached texture instead of re-rasterizing the SVG every pixel.
+                            let snapped = (image_width / RASTER_STEP).ceil() * RASTER_STEP;
+                            if let Ok(egui::load::TexturePoll::Ready { texture }) =
+                                image.load_for_size(ui.ctx(), egui::vec2(snapped, f32::INFINITY))
+                            {
+                                let h = image_width * texture.size.y / texture.size.x;
+                                let (rect, _) = ui.allocate_exact_size(
+                                    egui::vec2(image_width, h),
+                                    egui::Sense::hover(),
+                                );
+                                let uv = egui::Rect::from_min_max(
+                                    egui::pos2(0.0, 0.0),
+                                    egui::pos2(1.0, 1.0),
+                                );
+                                ui.painter()
+                                    .image(texture.id, rect, uv, egui::Color32::WHITE);
+                            }
                             if focus {
                                 self.set_focus(ui, Some(idx));
                             }
@@ -120,8 +137,7 @@ impl GuiApp {
         let uri = format!("bytes://focus_v{}_{}.svg", self.version, name);
         ui.centered_and_justified(|ui| {
             ui.add(
-                egui::Image::from_bytes(uri, svg_bytes)
-                    .fit_to_fraction(egui::Vec2::new(1.0, 1.0)),
+                egui::Image::from_bytes(uri, svg_bytes).fit_to_fraction(egui::Vec2::new(1.0, 1.0)),
             );
         });
     }
