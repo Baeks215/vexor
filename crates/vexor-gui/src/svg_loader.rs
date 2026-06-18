@@ -36,8 +36,11 @@ impl VexorSvgLoader {
             prefer
                 .iter()
                 .find(|n| {
-                    db.faces()
-                        .any(|f| f.families.iter().any(|(fam, _)| fam.eq_ignore_ascii_case(n)))
+                    db.faces().any(|f| {
+                        f.families
+                            .iter()
+                            .any(|(fam, _)| fam.eq_ignore_ascii_case(n))
+                    })
                 })
                 .map(|n| n.to_string())
                 .or_else(|| {
@@ -47,8 +50,18 @@ impl VexorSvgLoader {
                 })
         };
         let sans = pick(&["DejaVu Sans", "Noto Sans", "Liberation Sans", "Arial"]);
-        let serif = pick(&["DejaVu Serif", "Noto Serif", "Liberation Serif", "Times New Roman"]);
-        let mono = pick(&["DejaVu Sans Mono", "Noto Sans Mono", "Liberation Mono", "Courier New"]);
+        let serif = pick(&[
+            "DejaVu Serif",
+            "Noto Serif",
+            "Liberation Serif",
+            "Times New Roman",
+        ]);
+        let mono = pick(&[
+            "DejaVu Sans Mono",
+            "Noto Sans Mono",
+            "Liberation Mono",
+            "Courier New",
+        ]);
 
         if let Some(s) = &sans {
             db.set_sans_serif_family(s.clone());
@@ -89,7 +102,9 @@ impl ImageLoader for VexorSvgLoader {
         let bucket = cache.entry(uri.to_owned()).or_default();
 
         if let Some(entry) = bucket.get(&size_hint) {
-            entry.last_used.store(self.pass_index.load(Relaxed), Relaxed);
+            entry
+                .last_used
+                .store(self.pass_index.load(Relaxed), Relaxed);
             return match entry.result.clone() {
                 Ok(image) => Ok(ImagePoll::Ready { image }),
                 Err(err) => Err(LoadError::Loading(err)),
