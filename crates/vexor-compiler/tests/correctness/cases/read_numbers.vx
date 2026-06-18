@@ -1,0 +1,22 @@
+-- OUTPUT: 2, 3, 1, 6
+
+-- Path is relative to the crate root (cwd during `cargo test`).
+-- The fixture has a blank middle line which readNumbers skips, leaving 2 rows.
+val data = readNumbers("tests/correctness/fixtures/numbers.csv")
+
+val r1 = len(data)
+-- 2 rows
+
+val r2 = match data { [a, _b] => len(a), y => 0 }
+-- first row has 3 numbers
+
+val r3 = match data { [a, _b] => match a { [x, _y, _z] => x, w => 0 }, v => 0 }
+-- first number of first row = 1
+
+val r4 = match data { [_a, b] => match b { [_x, _y, z] => z, w => 0 }, v => 0 }
+-- last number of second row = 6
+
+export Circle(r1)
+export Circle(r2)
+export Circle(r3)
+export Circle(r4)

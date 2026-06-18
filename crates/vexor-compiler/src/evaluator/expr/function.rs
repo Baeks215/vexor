@@ -124,6 +124,21 @@ pub enum StdLambda {
     SetId {
         name: String,
     },
+    FontSize {
+        size: Number,
+    },
+    FontFamily {
+        family: String,
+    },
+    FontWeight {
+        weight: Number,
+    },
+    FontStyle {
+        style: String,
+    },
+    TextAnchor {
+        anchor: String,
+    },
 }
 impl From<StdLambda> for Value {
     fn from(value: StdLambda) -> Self {
@@ -186,6 +201,14 @@ fn tuple_to_numbers(v: Value) -> EResult<Vec<Number>> {
         .collect()
 }
 
+/// Expect a Graphic to be of type Text
+fn expect_text(graphic: &Graphic) -> EResult<()> {
+    match graphic.ty {
+        GraphicType::Text { .. } => Ok(()),
+        _ => Err("font functions can only be applied to Text graphics".into()),
+    }
+}
+
 fn tuple_to_point(v: Value) -> EResult<Point> {
     let tuple = ty::Tuple::expect(v)?;
     let (x, y) = tuple
@@ -193,6 +216,33 @@ fn tuple_to_point(v: Value) -> EResult<Point> {
         .collect_tuple()
         .ok_or("expected a 2-tuple (x, y)")?;
     Ok(Point::new(ty::Number::expect(x)?, ty::Number::expect(y)?))
+}
+
+/// Parses CSV-style text into a list of lists of numbers: comma-separated values per line
+fn parse_number_rows(input: &str) -> Result<List, String> {
+    use winnow::Parser;
+    use winnow::ascii::{float, line_ending, multispace0, space0};
+    use winnow::combinator::{delimited, separated, terminated};
+    use winnow::error::ContextError;
+
+    delimited(
+        multispace0::<&str, ContextError>,
+        // rows: newline-separated
+        separated(
+            0..,
+            // row: comma-separated numbers
+            separated(
+                1..,
+                terminated(float, space0).map(Value::Number),
+                terminated(',', space0),
+            )
+            .map(Value::List),
+            (line_ending, multispace0),
+        ),
+        multispace0,
+    )
+    .parse(input)
+    .map_err(|e| e.to_string())
 }
 
 /// Evaluates a standard function call.
@@ -412,6 +462,14 @@ where
         Std::Reverse => {
             let xs = ty::List::expect(unpack_1!(args)?)?;
             Value::List(xs.into_iter().rev().collect())
+        }
+        Std::ReadNumbers => {
+            let path = ty::String::expect(unpack_1!(args)?)?;
+            let content = std::fs::read_to_string(&path)
+                .map_err(|e| EError::from(format!("readNumbers: failed to read {path}: {e}")))?;
+            let rows = parse_number_rows(&content)
+                .map_err(|e| EError::from(format!("readNumbers: failed to parse {path}:\n{e}")))?;
+            Value::List(rows)
         }
         Std::Sort => {
             let xs = ty::List::expect(unpack_1!(args)?)?;
@@ -708,6 +766,30 @@ where
             let name = ty::String::expect(unpack_1!(args)?)?;
             Value::from(StdLambda::SetId { name })
         }
+        Std::FontSize => {
+            let size = ty::Number::expect(unpack_1!(args)?)?;
+            Value::from(StdLambda::FontSize { size })
+        }
+        Std::FontFamily => {
+            let family = ty::String::expect(unpack_1!(args)?)?;
+            Value::from(StdLambda::FontFamily { family })
+        }
+        Std::FontWeight => {
+            let weight = ty::Number::expect(unpack_1!(args)?)?;
+            Value::from(StdLambda::FontWeight { weight })
+        }
+        Std::FontStyle => {
+            let style = ty::String::expect(unpack_1!(args)?)?;
+            Value::from(StdLambda::FontStyle { style })
+        }
+        Std::TextAnchor => {
+            let anchor = ty::String::expect(unpack_1!(args)?)?;
+            Value::from(StdLambda::TextAnchor { anchor })
+        }
+        Std::ToString => {
+            let n = ty::Number::expect(unpack_1!(args)?)?;
+            Value::from(n.to_string())
+        }
     };
     T::expect(result)
 }
@@ -964,6 +1046,31 @@ where
         StdLambda::SetId { name } => {
             let graphic = ty::Graphic::expect(unpack_1!(args)?)?;
             Value::from(graphic.with_attr(scene::Attr::Id(name)))
+        }
+        StdLambda::FontSize { size } => {
+            let graphic = ty::Graphic::expect(unpack_1!(args)?)?;
+            expect_text(&graphic)?;
+            Value::from(graphic.with_attr(scene::Attr::FontSize(size)))
+        }
+        StdLambda::FontFamily { family } => {
+            let graphic = ty::Graphic::expect(unpack_1!(args)?)?;
+            expect_text(&graphic)?;
+            Value::from(graphic.with_attr(scene::Attr::FontFamily(family)))
+        }
+        StdLambda::FontWeight { weight } => {
+            let graphic = ty::Graphic::expect(unpack_1!(args)?)?;
+            expect_text(&graphic)?;
+            Value::from(graphic.with_attr(scene::Attr::FontWeight(weight)))
+        }
+        StdLambda::FontStyle { style } => {
+            let graphic = ty::Graphic::expect(unpack_1!(args)?)?;
+            expect_text(&graphic)?;
+            Value::from(graphic.with_attr(scene::Attr::FontStyle(style)))
+        }
+        StdLambda::TextAnchor { anchor } => {
+            let graphic = ty::Graphic::expect(unpack_1!(args)?)?;
+            expect_text(&graphic)?;
+            Value::from(graphic.with_attr(scene::Attr::TextAnchor(anchor)))
         }
     };
     T::expect(result)

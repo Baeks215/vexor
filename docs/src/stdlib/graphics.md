@@ -48,6 +48,25 @@ chain with `>>`. Colors come from the [color constructors](color.md).
 | `opacity(n)(g)` | `Number -> Graphic -> Graphic` | Set the opacity (`0`–`1`). |
 | `setId(name)(g)` | `String -> Graphic -> Graphic` | Set the SVG `id`. |
 
+## Font Functions
+
+Style a [`Text`](#constructors) graphic. Like other style functions they take a graphic
+and return a new one, so they chain with `>>`.
+
+| Function | Signature | Description |
+|----------|-----------|-------------|
+| `fontSize(n)(g)` | `Number -> Graphic -> Graphic` | Set the font size. |
+| `fontFamily(name)(g)` | `String -> Graphic -> Graphic` | Set the font family, e.g. `"serif"`. |
+| `fontWeight(n)(g)` | `Number -> Graphic -> Graphic` | Set the font weight (`400` normal, `700` bold). |
+| `fontStyle(kind)(g)` | `String -> Graphic -> Graphic` | Set the font style: `"normal"`, `"italic"`, or `"oblique"`. |
+| `textAnchor(kind)(g)` | `String -> Graphic -> Graphic` | Horizontal alignment: `"start"`, `"middle"`, or `"end"`. |
+
+```vexor
+export Text(toString(42)) >>
+  fontSize(48) >> fontFamily("serif") >> fontWeight(700) >>
+  fontStyle("italic") >> textAnchor("middle")
+```
+
 ## Path Steps
 
 Pass these to `Path([...])` to build up a shape.

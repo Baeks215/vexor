@@ -69,6 +69,22 @@ list. Use `take`/`drop` when you want a total (never-erroring) alternative.
 | `sum(xs)` | `[Number] -> Number` | Sum of all elements (`0` for an empty list). |
 | `product(xs)` | `[Number] -> Number` | Product of all elements (`1` for an empty list). |
 
+## Reading Files
+
+| Function | Signature | Description |
+|----------|-----------|-------------|
+| `readNumbers(path)` | `String -> [[Number]]` | Read a CSV-style file into a list of rows. Each line becomes a list of its comma-separated numbers; whitespace around values is allowed and blank lines are skipped. |
+
+The path is resolved relative to the working directory. A file containing
+
+```
+1, 2, 3
+
+4, 5, 6
+```
+
+is read as `[[1, 2, 3], [4, 5, 6]]`.
+
 ## Example
 
 ```vexor

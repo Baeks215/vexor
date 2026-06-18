@@ -9,3 +9,4 @@ license.workspace = true
 [dependencies]
 eframe.workspace = true
 egui_extras = { workspace = true, features = ["svg", "image"] }
+resvg = { version = "0.45.1", default-features = false, features = ["text", "system-fonts"] }

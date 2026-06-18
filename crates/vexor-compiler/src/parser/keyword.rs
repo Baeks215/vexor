@@ -108,6 +108,7 @@ fn classify_kw(s: &str) -> Symbol {
         "enumerate" => Symbol::Std(Std::Enumerate),
         "len" => Symbol::Std(Std::Len),
         "reverse" => Symbol::Std(Std::Reverse),
+        "readNumbers" => Symbol::Std(Std::ReadNumbers),
         "find" => Symbol::Std(Std::Find),
         "sort" => Symbol::Std(Std::Sort),
         "sortBy" => Symbol::Std(Std::SortBy),
@@ -156,6 +157,12 @@ fn classify_kw(s: &str) -> Symbol {
         "strokeCap" => Symbol::Std(Std::StrokeCap),
         "opacity" => Symbol::Std(Std::Opacity),
         "setId" => Symbol::Std(Std::SetId),
+        "fontSize" => Symbol::Std(Std::FontSize),
+        "fontFamily" => Symbol::Std(Std::FontFamily),
+        "fontWeight" => Symbol::Std(Std::FontWeight),
+        "fontStyle" => Symbol::Std(Std::FontStyle),
+        "textAnchor" => Symbol::Std(Std::TextAnchor),
+        "toString" => Symbol::Std(Std::ToString),
         // Constants
         "PI" => Symbol::Const(Const::Pi),
         // User

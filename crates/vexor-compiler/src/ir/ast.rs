@@ -206,6 +206,7 @@ pub enum Std {
     Enumerate,
     Len,
     Reverse,
+    ReadNumbers,
     Find,
     Sort,
     SortBy,
@@ -254,6 +255,13 @@ pub enum Std {
     StrokeCap,
     Opacity,
     SetId,
+    FontSize,
+    FontFamily,
+    FontWeight,
+    FontStyle,
+    TextAnchor,
+    // Conversions
+    ToString,
 }
 
 // --- Match ---

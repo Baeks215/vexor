@@ -9,6 +9,15 @@ use crate::ir::ast::ListLiteral;
 ///   Efficient prepending and iteration.
 pub type List = Vector<Value>;
 
+impl winnow::stream::Accumulate<Value> for List {
+    fn initial(_capacity: Option<usize>) -> Self {
+        Vector::new()
+    }
+    fn accumulate(&mut self, value: Value) {
+        self.push_back(value);
+    }
+}
+
 pub fn eval_literal(
     env: &EnvRef,
     literal: &ListLiteral,

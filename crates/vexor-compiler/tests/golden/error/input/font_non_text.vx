@@ -1,0 +1,3 @@
+-- font functions only apply to Text graphics
+val c = Circle(10)
+export c >> fontSize(20)

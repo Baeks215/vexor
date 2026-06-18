@@ -187,6 +187,11 @@ impl ToAttributes for Attr {
             }
             Attr::Opacity(opacity) => current.push(("opacity", fmt_num(*opacity, precision))),
             Attr::Id(id) => current.push(("id", id.clone())),
+            Attr::FontSize(size) => current.push(("font-size", fmt_num(*size, precision))),
+            Attr::FontFamily(family) => current.push(("font-family", family.clone())),
+            Attr::FontWeight(weight) => current.push(("font-weight", fmt_num(*weight, precision))),
+            Attr::FontStyle(style) => current.push(("font-style", style.clone())),
+            Attr::TextAnchor(anchor) => current.push(("text-anchor", anchor.clone())),
         }
     }
 }

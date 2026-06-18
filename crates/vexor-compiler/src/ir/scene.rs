@@ -102,6 +102,11 @@ pub enum Attr {
     Opacity(Number),
     /// SVG `id` attribute.
     Id(String),
+    FontSize(Number),
+    FontFamily(String),
+    FontWeight(Number),
+    FontStyle(String),
+    TextAnchor(String),
 }
 
 /// Stroke line join style.
